@@ -1,4 +1,4 @@
-import static org.quartz.SimpleScheduleBuilder.repeatSecondlyForTotalCount;
+import static org.quartz.SimpleScheduleBuilder.*;
 import static org.quartz.TriggerBuilder.newTrigger;
 
 import com.mongodb.DB;
@@ -44,14 +44,16 @@ public class SchedulerIntegrationTest extends Assert {
 
     private DBCollection jobCollection;
 
+    private DBCollection locksCollection;
+
     @Before
     public void setUp() throws Exception {
         COUNTER = 0; 
         resetMongo();
-        createNewScheduler();
+        scheduler = createNewScheduler();
     }
 
-    protected void createNewScheduler() throws SchedulerException {
+    protected Scheduler createNewScheduler() throws SchedulerException {
         StdSchedulerFactory factory = new StdSchedulerFactory();
         Properties props = new Properties();
         props.put(StdSchedulerFactory.PROP_JOB_STORE_CLASS, MongoDBJobStore.class.getName());
@@ -61,8 +63,9 @@ public class SchedulerIntegrationTest extends Assert {
         props.put(StdSchedulerFactory.PROP_THREAD_POOL_PREFIX + ".threadCount", "1");
         
         factory.initialize(props);
-        scheduler = factory.getScheduler();
+        Scheduler scheduler = factory.getScheduler();
         scheduler.start();
+        return scheduler;
     }
 
     protected void resetMongo() throws UnknownHostException {
@@ -72,6 +75,8 @@ public class SchedulerIntegrationTest extends Assert {
         jobCollection.drop();
         triggerCollection = db.getCollection("test_triggers");
         triggerCollection.drop();
+        locksCollection = db.getCollection("test_locks");
+        locksCollection.drop();
     }
     
     @Test
@@ -123,11 +128,46 @@ public class SchedulerIntegrationTest extends Assert {
         scheduler.scheduleJob(job, trigger);
         scheduler.shutdown();
        
-        createNewScheduler();
+        scheduler = createNewScheduler();
         
         Thread.sleep(1000);
         
         assertTrue(COUNTER > 0);
+    }
+
+    /**
+     * Ensure that this job only fires once if there are multiple scheduler nodes.
+     * @throws Exception
+     */
+    @Test
+    public void testTwoSchedulers() throws Exception {
+        JobDetail job = JobBuilder.newJob(IncrementJob.class)
+            .storeDurably()
+            .usingJobData("key", "value")
+            .withIdentity("name", "group")
+            .build();
+        
+        OperableTrigger trigger = (OperableTrigger)newTrigger()
+            .withIdentity("name", "group")
+            .forJob(job)
+            .startNow()
+            .withSchedule(repeatSecondlyForever())
+            .build();
+        
+        long start = System.currentTimeMillis();
+        scheduler.scheduleJob(job, trigger);
+        
+        Scheduler scheduler2 = createNewScheduler();
+        
+        Thread.sleep(10000);
+        
+        scheduler.shutdown();
+        scheduler2.shutdown();
+        
+        assertTrue(COUNTER > 1);
+        long elapsed = System.currentTimeMillis() - start;
+        System.out.println("GOT " + COUNTER);
+        assertTrue("Got too many counts. " + COUNTER, COUNTER <= ((elapsed / 1000) + 1));
     }
 
     public static class IncrementJob implements Job {

@@ -42,11 +42,13 @@ import org.quartz.JobPersistenceException;
 import org.quartz.ObjectAlreadyExistsException;
 import org.quartz.SchedulerConfigException;
 import org.quartz.SchedulerException;
+import org.quartz.SimpleTrigger;
 import org.quartz.Trigger;
 import org.quartz.Trigger.CompletedExecutionInstruction;
 import org.quartz.Trigger.TriggerState;
 import org.quartz.TriggerKey;
 import org.quartz.impl.matchers.GroupMatcher;
+import org.quartz.impl.triggers.SimpleTriggerImpl;
 import org.quartz.spi.ClassLoadHelper;
 import org.quartz.spi.JobStore;
 import org.quartz.spi.OperableTrigger;
@@ -74,6 +76,9 @@ public class MongoDBJobStore implements JobStore {
     private static final String TRIGGER_START_TIME = "startTime";
     private static final String TRIGGER_JOB_ID = "jobId";
     private static final String TRIGGER_CLASS = "class";
+    private static final String SIMPLE_TRIGGER_REPEAT_COUNT = "repeatCount";
+    private static final String SIMPLE_TRIGGER_REPEAT_INTERVAL = "repeatInterval";
+    private static final String SIMPLE_TRIGGER_TIMES_TRIGGERED = "timesTriggered";
     private static final String CALENDAR_NAME = "name";
     private static final String CALENDAR_SERIALIZED_OBJECT = "serializedObject";
     private static final String LOCK_KEY_NAME = "keyName";
@@ -90,21 +95,28 @@ public class MongoDBJobStore implements JobStore {
     private DBCollection locksCollection;
     private String instanceId;
     private String[] addresses;
+    private String username;
+    private String password;
+    private SchedulerSignaler signaler;
     
     public void initialize(ClassLoadHelper loadHelper, SchedulerSignaler signaler) throws SchedulerConfigException {
         this.loadHelper = loadHelper;
+        this.signaler = signaler;
         
         if (addresses == null || addresses.length == 0) {
             throw new SchedulerConfigException("At least one MongoDB address must be specified.");
         }
         
         MongoOptions options = new MongoOptions();
+        options.safe = true; // need to do this to ensure we get DuplicateKey exceptions
+        
         try {
             ArrayList<ServerAddress> serverAddresses = new ArrayList<ServerAddress>();
             for (String a : addresses) {
                 serverAddresses.add(new ServerAddress(a));
             }
             mongo = new Mongo(serverAddresses, options);
+            
         } catch (UnknownHostException e) {
             throw new SchedulerConfigException("Could not connect to MongoDB.", e);
         } catch (MongoException e) {
@@ -112,7 +124,9 @@ public class MongoDBJobStore implements JobStore {
         }
         
         DB db = mongo.getDB(dbName);
-        
+        if (username != null) {
+            db.authenticate(username, password.toCharArray());
+        }
         jobCollection = db.getCollection(collectionPrefix + "jobs");
         triggerCollection = db.getCollection(collectionPrefix + "triggers");
         calendarCollection = db.getCollection(collectionPrefix + "calendars");
@@ -131,7 +145,7 @@ public class MongoDBJobStore implements JobStore {
         keys = new BasicDBObject();
         keys.put(LOCK_KEY_NAME, 1);
         keys.put(LOCK_KEY_GROUP, 1);
-        triggerCollection.ensureIndex(keys, null, true);
+        locksCollection.ensureIndex(keys, null, true);
         
         keys = new BasicDBObject();
         keys.put(CALENDAR_NAME, 1);
@@ -181,7 +195,18 @@ public class MongoDBJobStore implements JobStore {
         triggerDB.put(TRIGGER_PRIORITY, newTrigger.getPriority());
         triggerDB.put(TRIGGER_START_TIME, newTrigger.getStartTime());
         
+        if (newTrigger instanceof SimpleTrigger) {
+            SimpleTrigger simple = (SimpleTrigger) newTrigger;
+            triggerDB.put(SIMPLE_TRIGGER_REPEAT_COUNT, simple.getRepeatCount());
+            triggerDB.put(SIMPLE_TRIGGER_REPEAT_INTERVAL, simple.getRepeatInterval());
+            triggerDB.put(SIMPLE_TRIGGER_TIMES_TRIGGERED, simple.getTimesTriggered());
+        }
         try {
+            // technically a race condition could happen here... need locks
+            // not a big deal for me though since we only create triggers at startup - DD
+            if (replaceExisting) {
+                triggerCollection.remove(keyAsDBObject(newTrigger.getKey()));
+            }
             triggerCollection.insert(triggerDB);
         } catch (DuplicateKey key) {
             triggerCollection.update(keyAsDBObject(newTrigger.getKey()), triggerDB);
@@ -353,7 +378,22 @@ public class MongoDBJobStore implements JobStore {
         trigger.setPreviousFireTime((Date)dbObject.get(TRIGGER_PREVIOUS_FIRE_TIME));
         trigger.setPriority((Integer)dbObject.get(TRIGGER_PRIORITY));
         trigger.setStartTime((Date)dbObject.get(TRIGGER_START_TIME));
-        
+
+        if (trigger instanceof SimpleTriggerImpl) {
+            SimpleTriggerImpl simple = (SimpleTriggerImpl) trigger;
+            Object repeatCount = dbObject.get(SIMPLE_TRIGGER_REPEAT_COUNT);
+            if (repeatCount != null) {
+                simple.setRepeatCount((Integer)repeatCount);
+            }
+            Object repeatInterval = dbObject.get(SIMPLE_TRIGGER_REPEAT_INTERVAL);
+            if (repeatInterval != null) {
+                simple.setRepeatInterval((Long)repeatInterval);
+            }
+            Object timesTriggered = dbObject.get(SIMPLE_TRIGGER_TIMES_TRIGGERED);
+            if (timesTriggered != null) {
+                simple.setTimesTriggered((Integer)timesTriggered);
+            }
+        }
         DBObject job = jobCollection.findOne(new BasicDBObject("_id", dbObject.get(TRIGGER_JOB_ID)));
         trigger.setJobKey(new JobKey((String)job.get(JOB_KEY_NAME), (String)job.get(JOB_KEY_GROUP)));
         return trigger;
@@ -522,7 +562,7 @@ public class MongoDBJobStore implements JobStore {
             lock.put(LOCK_INSTANCE_ID, instanceId);
             
             try {
-                locksCollection.insert(lock);
+                locksCollection.save(lock);
                 OperableTrigger trigger = toTrigger(dbObj);
                 triggers.add(trigger);
             } catch (DuplicateKey e) {
@@ -554,6 +594,10 @@ public class MongoDBJobStore implements JobStore {
                 if(cal == null)
                     continue;
             }
+            
+            trigger.triggered(cal);
+            storeTrigger(trigger, true);
+            
             Date prevFireTime = trigger.getPreviousFireTime();
 
             TriggerFiredBundle bndle = new TriggerFiredBundle(retrieveJob(
@@ -572,13 +616,48 @@ public class MongoDBJobStore implements JobStore {
         return results;
     }
 
-    public void triggeredJobComplete(OperableTrigger trigger, JobDetail jobDetail,
-                                     CompletedExecutionInstruction triggerInstCode) throws JobPersistenceException {
+    public void triggeredJobComplete(OperableTrigger trigger, 
+                                     JobDetail jobDetail,
+                                     CompletedExecutionInstruction triggerInstCode) 
+        throws JobPersistenceException {
+        // check for trigger deleted during execution...
+        OperableTrigger trigger2 = retrieveTrigger(trigger.getKey());
+        if (trigger2 != null) {
+            if (triggerInstCode == CompletedExecutionInstruction.DELETE_TRIGGER) {
+                if (trigger.getNextFireTime() == null) {
+                    // double check for possible reschedule within job
+                    // execution, which would cancel the need to delete...
+                    if (trigger2.getNextFireTime() == null) {
+                        removeTrigger(trigger.getKey());
+                    }
+                } else {
+                    removeTrigger(trigger.getKey());
+                    signaler.signalSchedulingChange(0L);
+                }
+            } else if (triggerInstCode == CompletedExecutionInstruction.SET_TRIGGER_COMPLETE) {
+                // TODO: need to store state
+                signaler.signalSchedulingChange(0L);
+            } else if (triggerInstCode == CompletedExecutionInstruction.SET_TRIGGER_ERROR) {
+                // TODO: need to store state
+                signaler.signalSchedulingChange(0L);
+            } else if (triggerInstCode == CompletedExecutionInstruction.SET_ALL_JOB_TRIGGERS_ERROR) {
+                // TODO: need to store state
+                signaler.signalSchedulingChange(0L);
+            } else if (triggerInstCode == CompletedExecutionInstruction.SET_ALL_JOB_TRIGGERS_COMPLETE) {
+                // TODO: need to store state
+                signaler.signalSchedulingChange(0L);
+            }
+        }
+
+        removeTriggerLock(trigger);
+    }
+
+    protected void removeTriggerLock(OperableTrigger trigger) {
         BasicDBObject lock = new BasicDBObject();
         lock.put(LOCK_KEY_NAME, trigger.getKey().getName());
         lock.put(LOCK_KEY_GROUP, trigger.getKey().getGroup());
         lock.put(LOCK_INSTANCE_ID, instanceId);
-        
+
         locksCollection.remove(lock);
     }
 
@@ -615,4 +694,13 @@ public class MongoDBJobStore implements JobStore {
     public void setCollectionPrefix(String prefix) {
         collectionPrefix = prefix + "_";
     }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+    
 }
