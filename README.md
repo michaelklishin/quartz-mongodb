@@ -4,6 +4,9 @@ WARNING: not all functionality works. You may have to hack this if you use it.
 On the bright side, there is a lot less to hack than if you didn't have this 
 at all.
 
+The primary thing that works and is tested is SimpleTriggers across
+multiple Quartz instances where triggers are created on application startup.
+
 To configure, set your Quartz properties to something like this:
 
 	# Use the MongoDB store
