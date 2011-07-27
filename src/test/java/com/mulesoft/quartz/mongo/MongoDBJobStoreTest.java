@@ -1,9 +1,10 @@
+package com.mulesoft.quartz.mongo;
 import static org.quartz.SimpleScheduleBuilder.repeatMinutelyForever;
 import static org.quartz.TriggerBuilder.newTrigger;
 
 import com.mongodb.DB;
 import com.mongodb.Mongo;
-import com.mulesoft.quartz.MongoDBJobStore;
+import com.mulesoft.quartz.mongo.MongoDBJobStore;
 
 import java.util.Date;
 

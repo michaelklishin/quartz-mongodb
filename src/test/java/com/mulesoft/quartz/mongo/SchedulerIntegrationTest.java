@@ -1,10 +1,11 @@
+package com.mulesoft.quartz.mongo;
 import static org.quartz.SimpleScheduleBuilder.*;
 import static org.quartz.TriggerBuilder.newTrigger;
 
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.Mongo;
-import com.mulesoft.quartz.MongoDBJobStore;
+import com.mulesoft.quartz.mongo.MongoDBJobStore;
 
 import java.net.UnknownHostException;
 import java.util.Properties;
