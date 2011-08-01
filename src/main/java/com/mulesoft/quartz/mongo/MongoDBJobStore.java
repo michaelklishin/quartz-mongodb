@@ -156,6 +156,7 @@ public class MongoDBJobStore implements JobStore {
     }
 
     public void shutdown() {
+        mongo.close();
     }
 
     public boolean supportsPersistence() {
@@ -353,7 +354,7 @@ public class MongoDBJobStore implements JobStore {
     public OperableTrigger retrieveTrigger(TriggerKey triggerKey) throws JobPersistenceException {
         DBObject dbObject = triggerCollection.findOne(keyAsDBObject(triggerKey));
         if (dbObject == null) {
-            throw new JobPersistenceException("No trigger exists for trigger " + triggerKey);
+            return null;
         }
         return toTrigger(triggerKey, dbObject);
     }
@@ -395,8 +396,13 @@ public class MongoDBJobStore implements JobStore {
             }
         }
         DBObject job = jobCollection.findOne(new BasicDBObject("_id", dbObject.get(TRIGGER_JOB_ID)));
-        trigger.setJobKey(new JobKey((String)job.get(JOB_KEY_NAME), (String)job.get(JOB_KEY_GROUP)));
-        return trigger;
+        if (job != null) {
+            trigger.setJobKey(new JobKey((String)job.get(JOB_KEY_NAME), (String)job.get(JOB_KEY_GROUP)));
+            return trigger;
+        } else {
+            // job was deleted
+            return null;
+        }
     }
 
     public boolean checkExists(JobKey jobKey) throws JobPersistenceException {
