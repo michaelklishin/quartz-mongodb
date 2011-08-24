@@ -216,6 +216,7 @@ public class MongoDBJobStore implements JobStore {
             triggerCollection.insert(triggerDB);
         } catch (DuplicateKey key) {
             if (replaceExisting) {
+                triggerDB.put("_id", null);
                 triggerCollection.update(keyAsDBObject(newTrigger.getKey()), triggerDB);
             } else {
                 throw new ObjectAlreadyExistsException(newTrigger);
