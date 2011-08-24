@@ -13,6 +13,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.quartz.JobBuilder;
 import org.quartz.JobDetail;
+import org.quartz.ObjectAlreadyExistsException;
 import org.quartz.simpl.SimpleClassLoadHelper;
 import org.quartz.spi.OperableTrigger;
 
@@ -34,12 +35,14 @@ public class MongoDBJobStoreTest extends Assert {
     public void setUpJobStore() throws Exception {
         Mongo mongo = new Mongo("localhost");
         DB db = mongo.getDB("quartz");
-        db.getCollection("test_jobs").drop();
-        db.getCollection("test_triggers").drop();
+        db.getCollection("quartz_jobs").drop();
+        db.getCollection("quartz_triggers").drop();
+        db.getCollection("quartz_locks").drop();
         
         store = new MongoDBJobStore();
         store.setInstanceName("test");
         store.setDbName("quartz");
+        store.setAddresses("localhost");
         store.initialize(new SimpleClassLoadHelper(), null);
     }
     
@@ -55,9 +58,15 @@ public class MongoDBJobStoreTest extends Assert {
         
         store.storeJob(job, false);
         
+        try {
+            store.storeJob(job, false);
+            fail("Expected dupliate");
+        } catch (ObjectAlreadyExistsException e) {
+            
+        }
+        
         assertEquals(1, store.getJobCollection().count());
         assertEquals(1, store.getNumberOfJobs());
-
 
         OperableTrigger trigger = (OperableTrigger)newTrigger()
             .withIdentity("name", "group")
@@ -68,20 +77,29 @@ public class MongoDBJobStoreTest extends Assert {
        
         store.storeTrigger(trigger, false);
         
-//        try {
-//            store.storeJob(job, false);
-//            fail("Should not be able to store twice");
-//        } catch (ObjectAlreadyExistsException e) {
-//            // expected
-//        }
+        try {
+            store.storeTrigger(trigger, false);
+            fail("Should not be able to store twice");
+        } catch (ObjectAlreadyExistsException e) {
+            // expected
+        }
         
+        OperableTrigger trigger2 = (OperableTrigger)newTrigger()
+            .withIdentity("name2", "group")
+            .forJob(job)
+            .startAt(new Date())
+            .withSchedule(repeatMinutelyForever())
+            .build();
+   
+        store.storeTrigger(trigger2, false);
+    
         JobDetail job2 = store.retrieveJob(job.getKey());
         assertEquals("name", job2.getKey().getName());
         assertEquals("group", job2.getKey().getGroup());
         assertEquals(1, job2.getJobDataMap().size());
         assertEquals("value", job2.getJobDataMap().get("key"));
         
-        OperableTrigger trigger2 = store.retrieveTrigger(trigger.getKey());
+        trigger2 = store.retrieveTrigger(trigger.getKey());
         assertEquals("name", trigger2.getKey().getName());
         assertEquals("group", trigger2.getKey().getGroup());
    }

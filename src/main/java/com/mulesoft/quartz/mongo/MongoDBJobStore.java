@@ -56,8 +56,12 @@ import org.quartz.spi.SchedulerSignaler;
 import org.quartz.spi.TriggerFiredBundle;
 import org.quartz.spi.TriggerFiredResult;
 import org.quartz.utils.Key;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class MongoDBJobStore implements JobStore {
+    protected final Logger log = LoggerFactory.getLogger(getClass());
+    
     private static final String JOB_KEY_NAME = "keyName";
     private static final String JOB_KEY_GROUP = "keyGroup";
     private static final String JOB_DESCRIPTION = "jobDescription";
@@ -84,6 +88,7 @@ public class MongoDBJobStore implements JobStore {
     private static final String LOCK_KEY_NAME = "keyName";
     private static final String LOCK_KEY_GROUP = "keyGroup";
     private static final String LOCK_INSTANCE_ID = "instanceId";
+    private static final String LOCK_TIME = "time";
     
     private Mongo mongo;
     private String collectionPrefix = "quartz_";
@@ -146,6 +151,8 @@ public class MongoDBJobStore implements JobStore {
         keys.put(LOCK_KEY_NAME, 1);
         keys.put(LOCK_KEY_GROUP, 1);
         locksCollection.ensureIndex(keys, null, true);
+        // remove all locks for this instance on startup
+        locksCollection.remove(new BasicDBObject(LOCK_INSTANCE_ID, instanceId));
         
         keys = new BasicDBObject();
         keys.put(CALENDAR_NAME, 1);
@@ -176,10 +183,11 @@ public class MongoDBJobStore implements JobStore {
             JobPersistenceException {
         ObjectId jobId = storeJobInMongo(newJob, false);
         
+        log.debug("Storing job " + newJob.getKey() + " and trigger " + newTrigger.getKey());
         storeTrigger(newTrigger, jobId, false);
     }
 
-    protected void storeTrigger(OperableTrigger newTrigger, ObjectId jobId, boolean replaceExisting) {
+    protected void storeTrigger(OperableTrigger newTrigger, ObjectId jobId, boolean replaceExisting) throws ObjectAlreadyExistsException {
         BasicDBObject triggerDB = new BasicDBObject();
         triggerDB.put(TRIGGER_CALENDAR_NAME, newTrigger.getCalendarName());
         triggerDB.put(TRIGGER_CLASS, newTrigger.getClass().getName());
@@ -205,12 +213,13 @@ public class MongoDBJobStore implements JobStore {
         try {
             // technically a race condition could happen here... need locks
             // not a big deal for me though since we only create triggers at startup - DD
-            if (replaceExisting) {
-                triggerCollection.remove(keyAsDBObject(newTrigger.getKey()));
-            }
             triggerCollection.insert(triggerDB);
         } catch (DuplicateKey key) {
-            triggerCollection.update(keyAsDBObject(newTrigger.getKey()), triggerDB);
+            if (replaceExisting) {
+                triggerCollection.update(keyAsDBObject(newTrigger.getKey()), triggerDB);
+            } else {
+                throw new ObjectAlreadyExistsException(newTrigger);
+            }
         }
     }
 
@@ -509,7 +518,7 @@ public class MongoDBJobStore implements JobStore {
     }
 
     public void pauseTrigger(TriggerKey triggerKey) throws JobPersistenceException {
-        throw new UnsupportedOperationException();
+//        throw new UnsupportedOperationException();
     }
 
     public Collection<String> pauseTriggers(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
@@ -517,7 +526,7 @@ public class MongoDBJobStore implements JobStore {
     }
 
     public void pauseJob(JobKey jobKey) throws JobPersistenceException {
-        throw new UnsupportedOperationException();
+//        throw new UnsupportedOperationException();
     }
 
     public Collection<String> pauseJobs(GroupMatcher<JobKey> groupMatcher) throws JobPersistenceException {
@@ -525,6 +534,7 @@ public class MongoDBJobStore implements JobStore {
     }
 
     public void resumeTrigger(TriggerKey triggerKey) throws JobPersistenceException {
+        log.debug("Resume trigger" + triggerKey);
         throw new UnsupportedOperationException();
     }
 
@@ -545,11 +555,11 @@ public class MongoDBJobStore implements JobStore {
     }
 
     public void pauseAll() throws JobPersistenceException {
-        throw new UnsupportedOperationException();
+//        throw new UnsupportedOperationException();
     }
 
     public void resumeAll() throws JobPersistenceException {
-        throw new UnsupportedOperationException();
+//        throw new UnsupportedOperationException();
     }
 
     public List<OperableTrigger> acquireNextTriggers(long noLaterThan, int maxCount, long timeWindow)
@@ -566,13 +576,18 @@ public class MongoDBJobStore implements JobStore {
             lock.put(LOCK_KEY_NAME, dbObj.get(TRIGGER_KEY_NAME));
             lock.put(LOCK_KEY_GROUP, dbObj.get(TRIGGER_KEY_GROUP));
             lock.put(LOCK_INSTANCE_ID, instanceId);
+            lock.put(LOCK_TIME, new Date());
             
             try {
                 locksCollection.save(lock);
                 OperableTrigger trigger = toTrigger(dbObj);
+
+                log.debug("Aquired trigger " + trigger.getKey());
                 triggers.add(trigger);
             } catch (DuplicateKey e) {
                 // someone else acquired this lock. Move on.
+                TriggerKey key = new TriggerKey((String)dbObj.get(TRIGGER_KEY_NAME), (String)dbObj.get(TRIGGER_KEY_GROUP));
+                log.debug("Failed to acquire trigger " + key + " due to a lock");
             }
         }
         return triggers;
@@ -590,10 +605,11 @@ public class MongoDBJobStore implements JobStore {
     }
 
     public List<TriggerFiredResult> triggersFired(List<OperableTrigger> triggers) throws JobPersistenceException {
+        
         List<TriggerFiredResult> results = new ArrayList<TriggerFiredResult>();
         
         for (OperableTrigger trigger : triggers) {
-
+            log.debug("Fired trigger " + trigger.getKey());
             Calendar cal = null;
             if (trigger.getCalendarName() != null) {
                 cal = retrieveCalendar(trigger.getCalendarName());
@@ -626,6 +642,7 @@ public class MongoDBJobStore implements JobStore {
                                      JobDetail jobDetail,
                                      CompletedExecutionInstruction triggerInstCode) 
         throws JobPersistenceException {
+        log.debug("Trigger completed " + trigger.getKey());
         // check for trigger deleted during execution...
         OperableTrigger trigger2 = retrieveTrigger(trigger.getKey());
         if (trigger2 != null) {
@@ -659,6 +676,7 @@ public class MongoDBJobStore implements JobStore {
     }
 
     protected void removeTriggerLock(OperableTrigger trigger) {
+        log.debug("Removing trigger lock " + trigger.getKey());
         BasicDBObject lock = new BasicDBObject();
         lock.put(LOCK_KEY_NAME, trigger.getKey().getName());
         lock.put(LOCK_KEY_GROUP, trigger.getKey().getGroup());
