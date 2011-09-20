@@ -211,12 +211,10 @@ public class MongoDBJobStore implements JobStore {
             triggerDB.put(SIMPLE_TRIGGER_TIMES_TRIGGERED, simple.getTimesTriggered());
         }
         try {
-            // technically a race condition could happen here... need locks
-            // not a big deal for me though since we only create triggers at startup - DD
             triggerCollection.insert(triggerDB);
         } catch (DuplicateKey key) {
             if (replaceExisting) {
-                triggerDB.put("_id", null);
+                triggerDB.remove("_id");
                 triggerCollection.update(keyAsDBObject(newTrigger.getKey()), triggerDB);
             } else {
                 throw new ObjectAlreadyExistsException(newTrigger);
