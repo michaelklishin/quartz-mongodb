@@ -589,6 +589,7 @@ public class MongoDBJobStore implements JobStore {
                 log.debug("Failed to acquire trigger " + key + " due to a lock");
             }
         }
+        System.out.println("Acquired triggers " + triggers);
         return triggers;
     }
 

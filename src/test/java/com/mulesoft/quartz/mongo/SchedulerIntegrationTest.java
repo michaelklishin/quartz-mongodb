@@ -1,15 +1,16 @@
 package com.mulesoft.quartz.mongo;
-import static org.quartz.SimpleScheduleBuilder.*;
+import static org.quartz.SimpleScheduleBuilder.repeatSecondlyForTotalCount;
+import static org.quartz.SimpleScheduleBuilder.repeatSecondlyForever;
 import static org.quartz.TriggerBuilder.newTrigger;
 
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.Mongo;
-import com.mulesoft.quartz.mongo.MongoDBJobStore;
 
 import java.net.UnknownHostException;
 import java.util.Properties;
 
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -52,6 +53,11 @@ public class SchedulerIntegrationTest extends Assert {
         COUNTER = 0; 
         resetMongo();
         scheduler = createNewScheduler();
+    }
+    
+    @After
+    public void tearDown() throws SchedulerException {
+        scheduler.shutdown();
     }
 
     protected Scheduler createNewScheduler() throws SchedulerException {
