@@ -103,6 +103,7 @@ public class MongoDBJobStore implements JobStore {
     private String username;
     private String password;
     private SchedulerSignaler signaler;
+    protected long misfireThreshold = 5000l;
     
     public void initialize(ClassLoadHelper loadHelper, SchedulerSignaler signaler) throws SchedulerConfigException {
         this.loadHelper = loadHelper;
@@ -581,6 +582,15 @@ public class MongoDBJobStore implements JobStore {
                 locksCollection.save(lock);
                 OperableTrigger trigger = toTrigger(dbObj);
 
+                if (trigger.getNextFireTime() == null) {
+                    continue;
+                }
+
+                // deal with misfires
+                if (applyMisfire(trigger) && trigger.getNextFireTime() == null) {
+                    continue;
+                }
+                
                 log.debug("Aquired trigger " + trigger.getKey());
                 triggers.add(trigger);
             } catch (DuplicateKey e) {
@@ -593,6 +603,36 @@ public class MongoDBJobStore implements JobStore {
         return triggers;
     }
 
+    protected boolean applyMisfire(OperableTrigger trigger) throws JobPersistenceException {
+        long misfireTime = System.currentTimeMillis();
+        if (getMisfireThreshold() > 0) {
+            misfireTime -= getMisfireThreshold();
+        }
+
+        Date tnft = trigger.getNextFireTime();
+        if (tnft == null || tnft.getTime() > misfireTime 
+                || trigger.getMisfireInstruction() == Trigger.MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY) { 
+            return false; 
+        }
+
+        Calendar cal = null;
+        if (trigger.getCalendarName() != null) {
+            cal = retrieveCalendar(trigger.getCalendarName());
+        }
+
+        signaler.notifyTriggerListenersMisfired((OperableTrigger)trigger.clone());
+
+        trigger.updateAfterMisfire(cal);
+
+        if (trigger.getNextFireTime() == null) {
+            signaler.notifySchedulerListenersFinalized(trigger);
+        } else if (tnft.equals(trigger.getNextFireTime())) {
+            return false;
+        }
+
+        return true;
+    }
+    
     protected OperableTrigger toTrigger(DBObject dbObj) throws JobPersistenceException {
         TriggerKey key = new TriggerKey((String)dbObj.get(TRIGGER_KEY_NAME), (String)dbObj.get(TRIGGER_KEY_GROUP));
         return toTrigger(key, dbObj);
@@ -725,6 +765,14 @@ public class MongoDBJobStore implements JobStore {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public long getMisfireThreshold() {
+        return misfireThreshold;
+    }
+
+    public void setMisfireThreshold(long misfireThreshold) {
+        this.misfireThreshold = misfireThreshold;
     }
     
 }

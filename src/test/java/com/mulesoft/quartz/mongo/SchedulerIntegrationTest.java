@@ -115,6 +115,50 @@ public class SchedulerIntegrationTest extends Assert {
         assertEquals(0, jobCollection.find().count());
         assertEquals(0, triggerCollection.find().count());
     }
+    
+    /**
+     * Ensure that we apply misfires correctly when the scheduler starts after being shut down.
+     * @throws Exception
+     */
+    @Test
+    public void testMisfiresAfterShutdown() throws Exception {
+        JobDetail job = JobBuilder.newJob(IncrementJob.class)
+            .storeDurably()
+            .usingJobData("key", "value")
+            .withIdentity("name", "group")
+            .build();
+        
+        OperableTrigger trigger = (OperableTrigger)newTrigger()
+            .withIdentity("name", "group")
+            .forJob(job)
+            .startNow()
+            .withSchedule(repeatSecondlyForever().withMisfireHandlingInstructionNextWithRemainingCount())
+            .build();
+        
+        scheduler.scheduleJob(job, trigger);
+        
+        assertEquals(1, jobCollection.find().count());
+        assertEquals(1, triggerCollection.find().count());
+        
+        // shut down the scheduler to simulate some misfires
+        scheduler.shutdown();
+        int before = COUNTER;
+        
+        Thread.sleep(5000);
+
+        // resume scheduler with misfires
+        scheduler = createNewScheduler();
+
+        Thread.sleep(5000);
+        
+        // if misfires are applied correctly, we won't have more than 5 + before
+        assertTrue(COUNTER > 0);
+        assertTrue(COUNTER <= before + 5);
+        scheduler.deleteJob(job.getKey());
+        
+        assertEquals(0, jobCollection.find().count());
+        assertEquals(0, triggerCollection.find().count());
+    }
 
     @Test
     public void testFireWhileSchedulerIsDown() throws Exception {
