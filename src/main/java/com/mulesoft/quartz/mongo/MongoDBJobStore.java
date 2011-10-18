@@ -566,9 +566,17 @@ public class MongoDBJobStore implements JobStore {
             throws JobPersistenceException {
         BasicDBObject query = new BasicDBObject();
         query.put(TRIGGER_NEXT_FIRE_TIME, new BasicDBObject("$lte", new Date(noLaterThan)));
-        
+
+        if (log.isDebugEnabled()) {
+            log.debug("Finding up to " + maxCount + " triggers which have time less than " + new Date(noLaterThan));
+        }
         List<OperableTrigger> triggers = new ArrayList<OperableTrigger>();
         DBCursor cursor = triggerCollection.find(query);
+        
+        if (log.isDebugEnabled()) {
+            log.debug("Found " + triggers.size() + " triggers which are eligible to be run.");
+        }
+        
         while (cursor.hasNext() && maxCount > triggers.size()) {
             DBObject dbObj = cursor.next();
 
@@ -579,18 +587,26 @@ public class MongoDBJobStore implements JobStore {
             lock.put(LOCK_TIME, new Date());
             
             try {
-                locksCollection.save(lock);
                 OperableTrigger trigger = toTrigger(dbObj);
 
                 if (trigger.getNextFireTime() == null) {
+                    if (log.isDebugEnabled()) {
+                        log.debug("Skipping trigger " + trigger.getKey() + " as it has no next fire time.");
+                    }
+
                     continue;
                 }
 
                 // deal with misfires
                 if (applyMisfire(trigger) && trigger.getNextFireTime() == null) {
+                    if (log.isDebugEnabled()) {
+                        log.debug("Skipping trigger " + trigger.getKey() + " as it has no next fire time after the misfire was applied.");
+                    }
+
                     continue;
                 }
-                
+
+                locksCollection.save(lock);
                 log.debug("Aquired trigger " + trigger.getKey());
                 triggers.add(trigger);
             } catch (DuplicateKey e) {
@@ -630,6 +646,7 @@ public class MongoDBJobStore implements JobStore {
             return false;
         }
 
+        storeTrigger(trigger, true);
         return true;
     }
     
