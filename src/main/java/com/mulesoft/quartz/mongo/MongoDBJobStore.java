@@ -573,8 +573,12 @@ public class MongoDBJobStore implements JobStore {
         List<OperableTrigger> triggers = new ArrayList<OperableTrigger>();
         DBCursor cursor = triggerCollection.find(query);
         
+        BasicDBObject sort = new BasicDBObject();
+        sort.put(TRIGGER_NEXT_FIRE_TIME, Integer.valueOf(1));
+        cursor.sort(sort);
+        
         if (log.isDebugEnabled()) {
-            log.debug("Found " + triggers.size() + " triggers which are eligible to be run.");
+            log.debug("Found " + cursor.count() + " triggers which are eligible to be run.");
         }
         
         while (cursor.hasNext() && maxCount > triggers.size()) {
