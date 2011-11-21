@@ -104,6 +104,7 @@ public class MongoDBJobStore implements JobStore {
     private String password;
     private SchedulerSignaler signaler;
     protected long misfireThreshold = 5000l;
+    private long triggerTimeoutMillis = 10*60*1000L;
     
     public void initialize(ClassLoadHelper loadHelper, SchedulerSignaler signaler) throws SchedulerConfigException {
         this.loadHelper = loadHelper;
@@ -614,13 +615,27 @@ public class MongoDBJobStore implements JobStore {
                 log.debug("Aquired trigger " + trigger.getKey());
                 triggers.add(trigger);
             } catch (DuplicateKey e) {
+                
+                OperableTrigger trigger = toTrigger(dbObj);
+                
                 // someone else acquired this lock. Move on.
-                TriggerKey key = new TriggerKey((String)dbObj.get(TRIGGER_KEY_NAME), (String)dbObj.get(TRIGGER_KEY_GROUP));
-                log.debug("Failed to acquire trigger " + key + " due to a lock");
+                log.debug("Failed to acquire trigger " + trigger.getKey() + " due to a lock");
+                
+                // support for trigger lock expirations
+                if (isTriggerLockExpired(trigger)) {
+                    log.error("Lock for trigger "+trigger.getKey()+" is expired - removing lock and retrying trigger acquisition");
+                    removeTriggerLock(trigger);
+                    return acquireNextTriggers(noLaterThan, maxCount, timeWindow);
+                }
             }
         }
         
         return triggers;
+    }
+    
+    protected boolean isTriggerLockExpired(OperableTrigger trigger) {
+        long nextFireTime = trigger.getNextFireTime().getTime();
+        return (System.currentTimeMillis() - nextFireTime > triggerTimeoutMillis);
     }
 
     protected boolean applyMisfire(OperableTrigger trigger) throws JobPersistenceException {
@@ -660,9 +675,11 @@ public class MongoDBJobStore implements JobStore {
     }
 
     public void releaseAcquiredTrigger(OperableTrigger trigger) throws JobPersistenceException {
-        BasicDBObject lock = keyAsDBObject(trigger.getKey());
-        
-        locksCollection.remove(lock);
+        try {
+            removeTriggerLock(trigger);
+        } catch (Exception e) {
+            throw new JobPersistenceException(e.getLocalizedMessage(),e);
+        }
     }
 
     public List<TriggerFiredResult> triggersFired(List<OperableTrigger> triggers) throws JobPersistenceException {
@@ -794,6 +811,10 @@ public class MongoDBJobStore implements JobStore {
 
     public void setMisfireThreshold(long misfireThreshold) {
         this.misfireThreshold = misfireThreshold;
+    }
+
+    public void setTriggerTimeoutMillis(long triggerTimeoutMillis) {
+        this.triggerTimeoutMillis = triggerTimeoutMillis;
     }
     
 }
