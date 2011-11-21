@@ -1,4 +1,9 @@
 package com.mulesoft.quartz.mongo;
+import static org.mockito.Matchers.anyObject;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.quartz.SimpleScheduleBuilder.repeatSecondlyForTotalCount;
 import static org.quartz.SimpleScheduleBuilder.repeatSecondlyForever;
 import static org.quartz.TriggerBuilder.newTrigger;
@@ -7,11 +12,13 @@ import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.Mongo;
 
+import java.lang.reflect.Field;
 import java.net.UnknownHostException;
 import java.util.Properties;
 
+import junit.framework.Assert;
+
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.quartz.Job;
@@ -21,7 +28,12 @@ import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
 import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
+import org.quartz.Trigger.CompletedExecutionInstruction;
+import org.quartz.core.QuartzScheduler;
+import org.quartz.core.QuartzSchedulerResources;
+import org.quartz.impl.StdScheduler;
 import org.quartz.impl.StdSchedulerFactory;
+import org.quartz.spi.JobStore;
 import org.quartz.spi.OperableTrigger;
 
 /*
@@ -37,30 +49,65 @@ import org.quartz.spi.OperableTrigger;
 public class SchedulerIntegrationTest extends Assert {
 
     public static int COUNTER = 0;
-    
-    private Scheduler scheduler;
 
-    private Mongo mongo;
+    protected Scheduler scheduler;
 
-    private DBCollection triggerCollection;
+    protected Mongo mongo;
 
-    private DBCollection jobCollection;
+    protected DBCollection triggerCollection;
 
-    private DBCollection locksCollection;
+    protected DBCollection jobCollection;
+
+    protected DBCollection locksCollection;
+
+    protected JobStore jobStore;
 
     @Before
     public void setUp() throws Exception {
         COUNTER = 0; 
         resetMongo();
-        scheduler = createNewScheduler();
+        scheduler = createScheduler(true);
     }
     
     @After
     public void tearDown() throws SchedulerException {
-        scheduler.shutdown();
+        if (scheduler != null) {
+            scheduler.shutdown();
+        }
     }
 
-    protected Scheduler createNewScheduler() throws SchedulerException {
+    public void createJobStoreSpy(Scheduler schedulerToSpy) throws Exception {
+        Field schedField = StdScheduler.class.getDeclaredField("sched");
+        schedField.setAccessible(true);
+        QuartzScheduler quartzScheduler = (QuartzScheduler) schedField.get(schedulerToSpy);
+        
+        Field resourcesField = QuartzScheduler.class.getDeclaredField("resources");
+        resourcesField.setAccessible(true);
+        QuartzSchedulerResources resources = (QuartzSchedulerResources) resourcesField.get(quartzScheduler);
+        
+        jobStore = resources.getJobStore();
+        jobStore = spy(jobStore);
+        resources.setJobStore(jobStore);
+    }
+
+    /**
+     * Creates a second scheduler for concurrency scenarios.
+     * @return
+     * @throws Exception
+     */
+    protected Scheduler createSecondScheduler() throws Exception {
+        return createScheduler(false);
+    }
+    
+    /**
+     * Recreates the scheduler for testing shutdown/startup scenarios.
+     * @throws Exception
+     */
+    protected void recreateScheduler() throws Exception {
+        scheduler = createScheduler(true);
+    }
+    
+    protected Scheduler createScheduler(boolean createSpy) throws Exception {
         StdSchedulerFactory factory = new StdSchedulerFactory();
         Properties props = new Properties();
         props.put(StdSchedulerFactory.PROP_JOB_STORE_CLASS, MongoDBJobStore.class.getName());
@@ -71,6 +118,11 @@ public class SchedulerIntegrationTest extends Assert {
         
         factory.initialize(props);
         Scheduler scheduler = factory.getScheduler();
+        
+        if (createSpy) {
+            createJobStoreSpy(scheduler);
+        }
+        
         scheduler.start();
         return scheduler;
     }
@@ -106,8 +158,9 @@ public class SchedulerIntegrationTest extends Assert {
         assertEquals(1, jobCollection.find().count());
         assertEquals(1, triggerCollection.find().count());
         
-        Thread.sleep(2000);
-        
+        // wait for acquire to be called and the job to finish
+        verify(jobStore, timeout(2000).times(1)).triggeredJobComplete((OperableTrigger)anyObject(), (JobDetail)anyObject(), (CompletedExecutionInstruction)anyObject());
+
         assertTrue(COUNTER > 0);
         
         scheduler.deleteJob(job.getKey());
@@ -147,7 +200,7 @@ public class SchedulerIntegrationTest extends Assert {
         Thread.sleep(5000);
 
         // resume scheduler with misfires
-        scheduler = createNewScheduler();
+        recreateScheduler();
 
         Thread.sleep(5000);
         
@@ -179,9 +232,10 @@ public class SchedulerIntegrationTest extends Assert {
         scheduler.scheduleJob(job, trigger);
         scheduler.shutdown();
        
-        scheduler = createNewScheduler();
-        
-        Thread.sleep(1000);
+        recreateScheduler();
+
+        // wait for acquire to be called and the job to finish
+        verify(jobStore, timeout(2000).times(1)).triggeredJobComplete((OperableTrigger)anyObject(), (JobDetail)anyObject(), (CompletedExecutionInstruction)anyObject());
         
         assertTrue(COUNTER > 0);
     }
@@ -208,7 +262,7 @@ public class SchedulerIntegrationTest extends Assert {
         long start = System.currentTimeMillis();
         scheduler.scheduleJob(job, trigger);
         
-        Scheduler scheduler2 = createNewScheduler();
+        Scheduler scheduler2 = createSecondScheduler();
         
         Thread.sleep(10000);
         
@@ -219,6 +273,43 @@ public class SchedulerIntegrationTest extends Assert {
         long elapsed = System.currentTimeMillis() - start;
         System.out.println("GOT " + COUNTER);
         assertTrue("Got too many counts. " + COUNTER, COUNTER <= ((elapsed / 1000) + 1));
+    }
+
+    /**
+     * Verifies that all your jobs actuall run if you schedule them. We ran into issues
+     * when acquireNextTriggers returns stuff out of order, so this verifies that things get run 
+     * as they should.
+     */
+    @Test
+    public void testMultipleJobs() throws Exception {
+        createTrigger("job1");
+        createTrigger("job2");
+        createTrigger("job3");
+        
+        verify(jobStore, times(3)).storeJobAndTrigger((JobDetail)anyObject(), (OperableTrigger)anyObject());
+        
+        assertEquals(3, jobCollection.find().count());
+        assertEquals(3, triggerCollection.find().count());
+        
+        // wait for acquire to be called and the job to be stored for each job
+        verify(jobStore, timeout(2000).times(3)).triggeredJobComplete((OperableTrigger)anyObject(), (JobDetail)anyObject(), (CompletedExecutionInstruction)anyObject());
+    }
+
+    private JobDetail createTrigger(String name) throws SchedulerException {
+        JobDetail job = JobBuilder.newJob(IncrementJob.class)
+            .storeDurably()
+            .withIdentity(name, name)
+            .build();
+        
+        OperableTrigger trigger = (OperableTrigger)newTrigger()
+            .withIdentity(name, name)
+            .forJob(job)
+            .startNow()
+            .withSchedule(repeatSecondlyForever())
+            .build();
+        
+        scheduler.scheduleJob(job, trigger);
+        return job;
     }
 
     public static class IncrementJob implements Job {
