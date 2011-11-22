@@ -163,7 +163,13 @@ public class MongoDBJobStore implements JobStore {
 
     public void schedulerStarted() throws SchedulerException {
     }
+    
+    public void schedulerPaused() {
+    }
 
+    public void schedulerResumed() {
+    }
+    
     public void shutdown() {
         mongo.close();
     }

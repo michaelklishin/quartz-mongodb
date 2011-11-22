@@ -144,7 +144,6 @@ public class SchedulerIntegrationTest extends Assert {
     public void testJobStorage() throws Exception {
         JobDetail job = JobBuilder.newJob(IncrementJob.class)
             .storeDurably()
-            .usingJobData("key", "value")
             .withIdentity("name", "group")
             .build();
         
@@ -179,7 +178,6 @@ public class SchedulerIntegrationTest extends Assert {
     public void testMisfiresAfterShutdown() throws Exception {
         JobDetail job = JobBuilder.newJob(IncrementJob.class)
             .storeDurably()
-            .usingJobData("key", "value")
             .withIdentity("name", "group")
             .build();
         
@@ -219,7 +217,6 @@ public class SchedulerIntegrationTest extends Assert {
     public void testFireWhileSchedulerIsDown() throws Exception {
         JobDetail job = JobBuilder.newJob(IncrementJob.class)
             .storeDurably()
-            .usingJobData("key", "value")
             .withIdentity("name", "group")
             .build();
         
@@ -250,7 +247,6 @@ public class SchedulerIntegrationTest extends Assert {
     public void testTwoSchedulers() throws Exception {
         JobDetail job = JobBuilder.newJob(IncrementJob.class)
             .storeDurably()
-            .usingJobData("key", "value")
             .withIdentity("name", "group")
             .build();
         
