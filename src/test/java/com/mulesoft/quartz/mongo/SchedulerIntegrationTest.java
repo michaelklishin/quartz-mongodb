@@ -8,12 +8,14 @@ import static org.quartz.SimpleScheduleBuilder.repeatSecondlyForTotalCount;
 import static org.quartz.SimpleScheduleBuilder.repeatSecondlyForever;
 import static org.quartz.TriggerBuilder.newTrigger;
 
+import com.mongodb.BasicDBObject;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.Mongo;
 
 import java.lang.reflect.Field;
 import java.net.UnknownHostException;
+import java.util.Date;
 import java.util.Properties;
 
 import junit.framework.Assert;
@@ -276,7 +278,7 @@ public class SchedulerIntegrationTest extends Assert {
     }
 
     /**
-     * Verifies that all your jobs actuall run if you schedule them. We ran into issues
+     * Verifies that all your jobs actually run if you schedule them. We ran into issues
      * when acquireNextTriggers returns stuff out of order, so this verifies that things get run 
      * as they should.
      */
@@ -294,7 +296,28 @@ public class SchedulerIntegrationTest extends Assert {
         // wait for acquire to be called and the job to be stored for each job
         verify(jobStore, timeout(2000).times(3)).triggeredJobComplete((OperableTrigger)anyObject(), (JobDetail)anyObject(), (CompletedExecutionInstruction)anyObject());
     }
-
+    
+    /**
+     * Verifies that old trigger locks expire after a period of time.
+     */
+    @Test
+    public void testTriggerExpiration() throws Exception {
+        
+        // add a lock for the trigger in the DB that is older than the expiration period of 10 mins
+        BasicDBObject lock = new BasicDBObject();
+        lock.put("keyName", "triggerExpirationTest");
+        lock.put("keyGroup", "triggerExpirationTest");
+        lock.put("instanceId", "NON_CLUSTERED");
+        lock.put("time", new Date(System.currentTimeMillis()-(19*60*1000L)));
+        locksCollection.save(lock);
+        
+        // create the trigger with the same name
+        createTrigger("triggerExpirationTest");
+        
+        // wait for the lock to expire and the trigger to be aquired
+        verify(jobStore, timeout(2000).times(1)).triggeredJobComplete((OperableTrigger)anyObject(), (JobDetail)anyObject(), (CompletedExecutionInstruction)anyObject());
+    }
+    
     private JobDetail createTrigger(String name) throws SchedulerException {
         JobDetail job = JobBuilder.newJob(IncrementJob.class)
             .storeDurably()

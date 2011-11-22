@@ -621,8 +621,21 @@ public class MongoDBJobStore implements JobStore {
                 // someone else acquired this lock. Move on.
                 log.debug("Failed to acquire trigger " + trigger.getKey() + " due to a lock");
                 
+                lock = new BasicDBObject();
+                lock.put(LOCK_KEY_NAME, dbObj.get(TRIGGER_KEY_NAME));
+                lock.put(LOCK_KEY_GROUP, dbObj.get(TRIGGER_KEY_GROUP));
+                
+                DBObject existingLock;
+                DBCursor lockCursor = locksCollection.find(lock);
+                if (lockCursor.hasNext()) {
+                    existingLock = lockCursor.next();
+                } else {
+                    log.error("Error retrieving expired lock from the database. Maybe it was deleted");
+                    return acquireNextTriggers(noLaterThan, maxCount, timeWindow);
+                }
+                
                 // support for trigger lock expirations
-                if (isTriggerLockExpired(trigger)) {
+                if (isTriggerLockExpired(existingLock)) {
                     log.error("Lock for trigger "+trigger.getKey()+" is expired - removing lock and retrying trigger acquisition");
                     removeTriggerLock(trigger);
                     return acquireNextTriggers(noLaterThan, maxCount, timeWindow);
@@ -633,9 +646,10 @@ public class MongoDBJobStore implements JobStore {
         return triggers;
     }
     
-    protected boolean isTriggerLockExpired(OperableTrigger trigger) {
-        long nextFireTime = trigger.getNextFireTime().getTime();
-        return (System.currentTimeMillis() - nextFireTime > triggerTimeoutMillis);
+    protected boolean isTriggerLockExpired(DBObject lock) {
+        Date lockTime = (Date)lock.get(LOCK_TIME);
+        long elaspedTime = System.currentTimeMillis() - lockTime.getTime();
+        return ( elaspedTime > triggerTimeoutMillis);
     }
 
     protected boolean applyMisfire(OperableTrigger trigger) throws JobPersistenceException {
