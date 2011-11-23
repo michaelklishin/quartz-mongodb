@@ -774,7 +774,7 @@ public class MongoDBJobStore implements JobStore {
     }
 
     protected void removeTriggerLock(OperableTrigger trigger) {
-        log.debug("Removing trigger lock " + trigger.getKey());
+        log.debug("Removing trigger lock " + trigger.getKey() + "."+instanceId);
         BasicDBObject lock = new BasicDBObject();
         lock.put(LOCK_KEY_NAME, trigger.getKey().getName());
         lock.put(LOCK_KEY_GROUP, trigger.getKey().getGroup());
