@@ -19,6 +19,7 @@ import com.mongodb.MongoException;
 import com.mongodb.MongoException.DuplicateKey;
 import com.mongodb.MongoOptions;
 import com.mongodb.ServerAddress;
+import com.mongodb.WriteResult;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -295,7 +296,16 @@ public class MongoDBJobStore implements JobStore {
         }
         return false;
     }
-
+    
+    private JobDetail retrieveJob(OperableTrigger trigger) throws JobPersistenceException {
+        try {
+            return retrieveJob(trigger.getJobKey());
+        } catch (JobPersistenceException e) {
+            removeTriggerLock(trigger);
+            throw e;
+        }
+    }
+    
     public JobDetail retrieveJob(JobKey jobKey) throws JobPersistenceException {
         DBObject dbObject = retrieveJobDBObject(jobKey);
         
@@ -616,8 +626,8 @@ public class MongoDBJobStore implements JobStore {
 
                     continue;
                 }
-
-                locksCollection.save(lock);
+                log.debug("Inserting lock for trigger " + trigger.getKey());
+                locksCollection.insert(lock);
                 log.debug("Aquired trigger " + trigger.getKey());
                 triggers.add(trigger);
             } catch (DuplicateKey e) {
@@ -721,7 +731,7 @@ public class MongoDBJobStore implements JobStore {
             Date prevFireTime = trigger.getPreviousFireTime();
 
             TriggerFiredBundle bndle = new TriggerFiredBundle(retrieveJob(
-                    trigger.getJobKey()), trigger, cal,
+                    trigger), trigger, cal,
                     false, new Date(), trigger.getPreviousFireTime(), prevFireTime,
                     trigger.getNextFireTime());
 
@@ -779,8 +789,9 @@ public class MongoDBJobStore implements JobStore {
         lock.put(LOCK_KEY_NAME, trigger.getKey().getName());
         lock.put(LOCK_KEY_GROUP, trigger.getKey().getGroup());
         lock.put(LOCK_INSTANCE_ID, instanceId);
-
+        
         locksCollection.remove(lock);
+        log.debug("Trigger lock " + trigger.getKey() + "."+instanceId+" removed.");
     }
 
     public void setInstanceId(String instanceId) {
