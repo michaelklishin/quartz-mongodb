@@ -8,12 +8,12 @@
         <dependency>
             <groupId>org.quartz-scheduler</groupId>
             <artifactId>quartz</artifactId>
-            <version>2.1.0</version>
+            <version>2.1.2</version>
         </dependency>
         <dependency>
             <groupId>org.mongodb</groupId>
             <artifactId>mongo-java-driver</artifactId>
-            <version>2.6.3</version>
+            <version>2.7.2</version>
             <type>jar</type>
             <scope>compile</scope>
         </dependency>
@@ -30,11 +30,11 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-        	<groupId>org.slf4j</groupId>
-        	<artifactId>slf4j-log4j12</artifactId>
-        	<version>1.6.1</version>
-        	<type>jar</type>
-        	<scope>compile</scope>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-log4j12</artifactId>
+                <version>1.6.1</version>
+                <type>jar</type>
+                <scope>compile</scope>
         </dependency>
     </dependencies>
     <repositories>
