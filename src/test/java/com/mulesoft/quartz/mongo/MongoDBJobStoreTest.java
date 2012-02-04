@@ -1,6 +1,7 @@
 package com.mulesoft.quartz.mongo;
 
 import com.mongodb.DB;
+import com.mongodb.DBCollection;
 import com.mongodb.Mongo;
 import org.junit.Assert;
 import org.junit.Before;
@@ -47,7 +48,8 @@ public class MongoDBJobStoreTest extends Assert {
 
   @Test
   public void testJobStorage() throws Exception {
-    assertEquals(0, store.getJobCollection().count());
+    final DBCollection jobsCollection = store.getJobCollection();
+    assertEquals(0, jobsCollection.count());
 
     JobDetail job = JobBuilder.newJob()
         .storeDurably()
@@ -56,16 +58,15 @@ public class MongoDBJobStoreTest extends Assert {
         .build();
 
     store.storeJob(job, false);
+    assertEquals(1, jobsCollection.count());
+    assertEquals(1, store.getNumberOfJobs());
 
     try {
       store.storeJob(job, false);
-      fail("Expected dupliate");
+      fail("Expected jobs collection to have a duplicate");
     } catch (ObjectAlreadyExistsException e) {
-
+      // expected
     }
-
-    assertEquals(1, store.getJobCollection().count());
-    assertEquals(1, store.getNumberOfJobs());
 
     OperableTrigger trigger = (OperableTrigger) newTrigger()
         .withIdentity("name", "group")
@@ -78,7 +79,7 @@ public class MongoDBJobStoreTest extends Assert {
 
     try {
       store.storeTrigger(trigger, false);
-      fail("Should not be able to store twice");
+      fail("Should not be able to store the same trigger twice");
     } catch (ObjectAlreadyExistsException e) {
       // expected
     }
