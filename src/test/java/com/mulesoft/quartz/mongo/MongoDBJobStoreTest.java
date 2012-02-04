@@ -99,6 +99,8 @@ public class MongoDBJobStoreTest extends Assert {
         .build();
 
     store.storeTrigger(trigger2, false);
+    assertEquals(2, triggersCollection.count());
+    assertEquals(2, store.getNumberOfTriggers());
 
     JobDetail job2 = store.retrieveJob(job.getKey());
     assertEquals("name", job2.getKey().getName());
