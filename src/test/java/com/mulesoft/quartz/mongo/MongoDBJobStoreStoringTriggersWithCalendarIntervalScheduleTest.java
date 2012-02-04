@@ -34,7 +34,7 @@ public class MongoDBJobStoreStoringTriggersWithCalendarIntervalScheduleTest exte
         .withIdentity("shaveAllYaks", "yakCare")
         .build();
 
-    this.getStore().storeJob(job, false);
+    store.storeJob(job, false);
     assertEquals(1, jobsCollection.count());
     assertEquals(1, store.getNumberOfJobs());
 
@@ -48,7 +48,7 @@ public class MongoDBJobStoreStoringTriggersWithCalendarIntervalScheduleTest exte
     assertEquals(0, triggersCollection.count());
     assertEquals(0, store.getNumberOfTriggers());
 
-    this.getStore().storeTrigger(trigger, false);
+    store.storeTrigger(trigger, false);
     assertEquals(1, triggersCollection.count());
     assertEquals(1, store.getNumberOfTriggers());
   }
