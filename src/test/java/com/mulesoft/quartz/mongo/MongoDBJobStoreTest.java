@@ -50,6 +50,7 @@ public class MongoDBJobStoreTest extends Assert {
   public void testJobStorage() throws Exception {
     final DBCollection jobsCollection = store.getJobCollection();
     assertEquals(0, jobsCollection.count());
+    assertEquals(0, store.getNumberOfJobs());
 
     JobDetail job = JobBuilder.newJob()
         .storeDurably()
@@ -75,7 +76,13 @@ public class MongoDBJobStoreTest extends Assert {
         .withSchedule(repeatMinutelyForever())
         .build();
 
+    final DBCollection triggersCollection = store.getTriggerCollection();
+    assertEquals(0, triggersCollection.count());
+    assertEquals(0, store.getNumberOfTriggers());
+
     store.storeTrigger(trigger, false);
+    assertEquals(1, triggersCollection.count());
+    assertEquals(1, store.getNumberOfTriggers());
 
     try {
       store.storeTrigger(trigger, false);
