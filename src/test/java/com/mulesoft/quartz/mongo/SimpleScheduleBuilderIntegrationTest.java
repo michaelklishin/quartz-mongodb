@@ -38,7 +38,7 @@ import static org.quartz.TriggerBuilder.newTrigger;
  * LICENSE.txt file.
  */
 
-public class SchedulerIntegrationTest extends Assert {
+public class SimpleScheduleBuilderIntegrationTest extends Assert {
 
   public static int COUNTER = 0;
 
