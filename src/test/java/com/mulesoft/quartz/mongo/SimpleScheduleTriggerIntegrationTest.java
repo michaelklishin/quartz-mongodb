@@ -22,6 +22,7 @@ import java.net.UnknownHostException;
 import java.util.Date;
 import java.util.Properties;
 
+import static org.junit.Assert.*;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Mockito.*;
 import static org.quartz.SimpleScheduleBuilder.repeatSecondlyForTotalCount;
@@ -38,7 +39,7 @@ import static org.quartz.TriggerBuilder.newTrigger;
  * LICENSE.txt file.
  */
 
-public class SimpleScheduleTriggerIntegrationTest extends Assert {
+public class SimpleScheduleTriggerIntegrationTest {
 
   public static int COUNTER = 0;
 
