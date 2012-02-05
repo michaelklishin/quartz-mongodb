@@ -31,7 +31,7 @@ import static org.quartz.TriggerBuilder.newTrigger;
 
 public class JobsAndTriggersWithSimpleScheduleTest extends MongoDBJobStoreTest {
   @Test
-  public void testJobStorage() throws Exception {
+  public void testStoringJobsAndTriggers() throws Exception {
     assertEquals(0, jobsCollection.count());
     assertEquals(0, store.getNumberOfJobs());
 
