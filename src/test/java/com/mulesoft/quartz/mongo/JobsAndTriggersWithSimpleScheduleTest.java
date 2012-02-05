@@ -29,7 +29,7 @@ import static org.quartz.TriggerBuilder.newTrigger;
  * LICENSE.txt file.
  */
 
-public class MongoDBJobStoreStoringTriggersWithSimpleScheduleTest extends MongoDBJobStoreTest {
+public class JobsAndTriggersWithSimpleScheduleTest extends MongoDBJobStoreTest {
   @Test
   public void testJobStorage() throws Exception {
     assertEquals(0, jobsCollection.count());

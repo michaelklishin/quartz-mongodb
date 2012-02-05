@@ -106,11 +106,18 @@ public class MongoDBJobStore implements JobStore {
     private SchedulerSignaler signaler;
     protected long misfireThreshold = 5000l;
     private long triggerTimeoutMillis = 10*60*1000L;
-    
+
+    private List<TriggerPersistenceDelegate> persistenceDelegates = new ArrayList<TriggerPersistenceDelegate>();
+  
     public void initialize(ClassLoadHelper loadHelper, SchedulerSignaler signaler) throws SchedulerConfigException {
         this.loadHelper = loadHelper;
         this.signaler = signaler;
-        
+
+      persistenceDelegates.add(new SimpleTriggerPersistenceDelegate());
+      persistenceDelegates.add(new CalendarIntervalTriggerPersistenceDelegate());
+      persistenceDelegates.add(new CronTriggerPersistenceDelegate());
+      persistenceDelegates.add(new DailyTimeIntervalTriggerPersistenceDelegate());
+
         if (addresses == null || addresses.length == 0) {
             throw new SchedulerConfigException("At least one MongoDB address must be specified.");
         }
@@ -212,13 +219,10 @@ public class MongoDBJobStore implements JobStore {
         triggerDB.put(TRIGGER_PREVIOUS_FIRE_TIME, newTrigger.getPreviousFireTime());
         triggerDB.put(TRIGGER_PRIORITY, newTrigger.getPriority());
         triggerDB.put(TRIGGER_START_TIME, newTrigger.getStartTime());
-        
-        if (newTrigger instanceof SimpleTrigger) {
-            SimpleTrigger simple = (SimpleTrigger) newTrigger;
-            triggerDB.put(SIMPLE_TRIGGER_REPEAT_COUNT, simple.getRepeatCount());
-            triggerDB.put(SIMPLE_TRIGGER_REPEAT_INTERVAL, simple.getRepeatInterval());
-            triggerDB.put(SIMPLE_TRIGGER_TIMES_TRIGGERED, simple.getTimesTriggered());
-        }
+
+      TriggerPersistenceDelegate tpd = triggerPersistenceDelegateFor(newTrigger);
+        triggerDB = (BasicDBObject)tpd.injectExtraPropertiesForInsert(newTrigger, triggerDB);
+
         try {
             triggerCollection.insert(triggerDB);
         } catch (DuplicateKey key) {
@@ -395,6 +399,9 @@ public class MongoDBJobStore implements JobStore {
         } catch (Exception e) {
             throw new JobPersistenceException("Could not instantiate trigger class " + (String)dbObject.get(TRIGGER_CLASS));
         }
+
+      TriggerPersistenceDelegate tpd = triggerPersistenceDelegateFor(trigger);
+      
         trigger.setKey(triggerKey);
         trigger.setCalendarName((String)dbObject.get(TRIGGER_CALENDAR_NAME));
         trigger.setDescription((String)dbObject.get(TRIGGER_DESCRIPTION));
@@ -406,21 +413,8 @@ public class MongoDBJobStore implements JobStore {
         trigger.setPriority((Integer)dbObject.get(TRIGGER_PRIORITY));
         trigger.setStartTime((Date)dbObject.get(TRIGGER_START_TIME));
 
-        if (trigger instanceof SimpleTriggerImpl) {
-            SimpleTriggerImpl simple = (SimpleTriggerImpl) trigger;
-            Object repeatCount = dbObject.get(SIMPLE_TRIGGER_REPEAT_COUNT);
-            if (repeatCount != null) {
-                simple.setRepeatCount((Integer)repeatCount);
-            }
-            Object repeatInterval = dbObject.get(SIMPLE_TRIGGER_REPEAT_INTERVAL);
-            if (repeatInterval != null) {
-                simple.setRepeatInterval((Long)repeatInterval);
-            }
-            Object timesTriggered = dbObject.get(SIMPLE_TRIGGER_TIMES_TRIGGERED);
-            if (timesTriggered != null) {
-                simple.setTimesTriggered((Integer)timesTriggered);
-            }
-        }
+      trigger = tpd.setExtraPropertiesAfterInstantiation(trigger, dbObject);
+
         DBObject job = jobCollection.findOne(new BasicDBObject("_id", dbObject.get(TRIGGER_JOB_ID)));
         if (job != null) {
             trigger.setJobKey(new JobKey((String)job.get(JOB_KEY_NAME), (String)job.get(JOB_KEY_GROUP)));
@@ -431,7 +425,21 @@ public class MongoDBJobStore implements JobStore {
         }
     }
 
-    public boolean checkExists(JobKey jobKey) throws JobPersistenceException {
+  private TriggerPersistenceDelegate triggerPersistenceDelegateFor(OperableTrigger trigger) {
+    TriggerPersistenceDelegate result = null;
+
+    for (TriggerPersistenceDelegate d : persistenceDelegates) {
+      if(d.canHandleTriggerType(trigger)) {
+        result = d;
+        break;
+      }
+    }
+
+    assert result != null;
+    return result;
+  }
+
+  public boolean checkExists(JobKey jobKey) throws JobPersistenceException {
         return jobCollection.find(keyAsDBObject(jobKey)).count() > 0;
     }
 
