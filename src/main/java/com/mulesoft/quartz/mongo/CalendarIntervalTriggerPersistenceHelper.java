@@ -2,26 +2,26 @@ package com.mulesoft.quartz.mongo;
 
 import com.mongodb.BasicDBObjectBuilder;
 import com.mongodb.DBObject;
-import org.quartz.SimpleTrigger;
-import org.quartz.impl.triggers.SimpleTriggerImpl;
+import org.quartz.impl.triggers.CalendarIntervalTriggerImpl;
 import org.quartz.spi.OperableTrigger;
+import org.quartz.DateBuilder.IntervalUnit;
 
-public class SimpleTriggerPersistenceDelegate implements TriggerPersistenceDelegate {
-  private static final String TRIGGER_REPEAT_COUNT = "repeatCount";
+public class CalendarIntervalTriggerPersistenceHelper implements TriggerPersistenceHelper {
+  private static final String TRIGGER_REPEAT_INTERVAL_UNIT = "repeatIntervalUnit";
   private static final String TRIGGER_REPEAT_INTERVAL = "repeatInterval";
   private static final String TRIGGER_TIMES_TRIGGERED = "timesTriggered";
 
   @Override
   public boolean canHandleTriggerType(OperableTrigger trigger) {
-    return ((trigger instanceof SimpleTriggerImpl) && !((SimpleTriggerImpl)trigger).hasAdditionalProperties());
+    return ((trigger instanceof CalendarIntervalTriggerImpl) && !((CalendarIntervalTriggerImpl)trigger).hasAdditionalProperties());
   }
 
   @Override
   public DBObject injectExtraPropertiesForInsert(OperableTrigger trigger, DBObject original) {
-    SimpleTrigger t = (SimpleTrigger)trigger;
+    CalendarIntervalTriggerImpl t = (CalendarIntervalTriggerImpl)trigger;
 
     return BasicDBObjectBuilder.start(original.toMap()).
-        append(TRIGGER_REPEAT_COUNT, t.getRepeatCount()).
+        append(TRIGGER_REPEAT_INTERVAL_UNIT, t.getRepeatIntervalUnit().name()).
         append(TRIGGER_REPEAT_INTERVAL, t.getRepeatInterval()).
         append(TRIGGER_TIMES_TRIGGERED, t.getTimesTriggered()).
         get();
@@ -29,15 +29,15 @@ public class SimpleTriggerPersistenceDelegate implements TriggerPersistenceDeleg
 
   @Override
   public OperableTrigger setExtraPropertiesAfterInstantiation(OperableTrigger trigger, DBObject stored) {
-    SimpleTriggerImpl t = (SimpleTriggerImpl)trigger;
+    CalendarIntervalTriggerImpl t = (CalendarIntervalTriggerImpl)trigger;
 
-    Object repeatCount = stored.get(TRIGGER_REPEAT_COUNT);
-    if (repeatCount != null) {
-      t.setRepeatCount((Integer)repeatCount);
+    String repeatIntervalUnit = (String)stored.get(TRIGGER_REPEAT_INTERVAL_UNIT);
+    if (repeatIntervalUnit != null) {
+      t.setRepeatIntervalUnit(IntervalUnit.valueOf(repeatIntervalUnit));
     }
     Object repeatInterval = stored.get(TRIGGER_REPEAT_INTERVAL);
     if (repeatInterval != null) {
-      t.setRepeatInterval((Long)repeatInterval);
+      t.setRepeatInterval((Integer)repeatInterval);
     }
     Object timesTriggered = stored.get(TRIGGER_TIMES_TRIGGERED);
     if (timesTriggered != null) {

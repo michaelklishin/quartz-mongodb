@@ -19,7 +19,6 @@ import com.mongodb.MongoException;
 import com.mongodb.MongoException.DuplicateKey;
 import com.mongodb.MongoOptions;
 import com.mongodb.ServerAddress;
-import com.mongodb.WriteResult;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -43,13 +42,11 @@ import org.quartz.JobPersistenceException;
 import org.quartz.ObjectAlreadyExistsException;
 import org.quartz.SchedulerConfigException;
 import org.quartz.SchedulerException;
-import org.quartz.SimpleTrigger;
 import org.quartz.Trigger;
 import org.quartz.Trigger.CompletedExecutionInstruction;
 import org.quartz.Trigger.TriggerState;
 import org.quartz.TriggerKey;
 import org.quartz.impl.matchers.GroupMatcher;
-import org.quartz.impl.triggers.SimpleTriggerImpl;
 import org.quartz.spi.ClassLoadHelper;
 import org.quartz.spi.JobStore;
 import org.quartz.spi.OperableTrigger;
@@ -107,16 +104,16 @@ public class MongoDBJobStore implements JobStore {
     protected long misfireThreshold = 5000l;
     private long triggerTimeoutMillis = 10*60*1000L;
 
-    private List<TriggerPersistenceDelegate> persistenceDelegates = new ArrayList<TriggerPersistenceDelegate>();
+    private List<TriggerPersistenceHelper> persistenceHelpers = new ArrayList<TriggerPersistenceHelper>();
   
     public void initialize(ClassLoadHelper loadHelper, SchedulerSignaler signaler) throws SchedulerConfigException {
         this.loadHelper = loadHelper;
         this.signaler = signaler;
 
-      persistenceDelegates.add(new SimpleTriggerPersistenceDelegate());
-      persistenceDelegates.add(new CalendarIntervalTriggerPersistenceDelegate());
-      persistenceDelegates.add(new CronTriggerPersistenceDelegate());
-      persistenceDelegates.add(new DailyTimeIntervalTriggerPersistenceDelegate());
+      persistenceHelpers.add(new SimpleTriggerPersistenceHelper());
+      persistenceHelpers.add(new CalendarIntervalTriggerPersistenceHelper());
+      persistenceHelpers.add(new CronTriggerPersistenceHelper());
+      persistenceHelpers.add(new DailyTimeIntervalTriggerPersistenceHelper());
 
         if (addresses == null || addresses.length == 0) {
             throw new SchedulerConfigException("At least one MongoDB address must be specified.");
@@ -220,7 +217,7 @@ public class MongoDBJobStore implements JobStore {
         triggerDB.put(TRIGGER_PRIORITY, newTrigger.getPriority());
         triggerDB.put(TRIGGER_START_TIME, newTrigger.getStartTime());
 
-      TriggerPersistenceDelegate tpd = triggerPersistenceDelegateFor(newTrigger);
+      TriggerPersistenceHelper tpd = triggerPersistenceDelegateFor(newTrigger);
         triggerDB = (BasicDBObject)tpd.injectExtraPropertiesForInsert(newTrigger, triggerDB);
 
         try {
@@ -400,7 +397,7 @@ public class MongoDBJobStore implements JobStore {
             throw new JobPersistenceException("Could not instantiate trigger class " + (String)dbObject.get(TRIGGER_CLASS));
         }
 
-      TriggerPersistenceDelegate tpd = triggerPersistenceDelegateFor(trigger);
+      TriggerPersistenceHelper tpd = triggerPersistenceDelegateFor(trigger);
       
         trigger.setKey(triggerKey);
         trigger.setCalendarName((String)dbObject.get(TRIGGER_CALENDAR_NAME));
@@ -425,10 +422,10 @@ public class MongoDBJobStore implements JobStore {
         }
     }
 
-  private TriggerPersistenceDelegate triggerPersistenceDelegateFor(OperableTrigger trigger) {
-    TriggerPersistenceDelegate result = null;
+  private TriggerPersistenceHelper triggerPersistenceDelegateFor(OperableTrigger trigger) {
+    TriggerPersistenceHelper result = null;
 
-    for (TriggerPersistenceDelegate d : persistenceDelegates) {
+    for (TriggerPersistenceHelper d : persistenceHelpers) {
       if(d.canHandleTriggerType(trigger)) {
         result = d;
         break;

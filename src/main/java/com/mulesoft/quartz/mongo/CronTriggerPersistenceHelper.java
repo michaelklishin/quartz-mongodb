@@ -4,14 +4,13 @@ import com.mongodb.BasicDBObjectBuilder;
 import com.mongodb.DBObject;
 import org.quartz.CronExpression;
 import org.quartz.CronTrigger;
-import org.quartz.SimpleTrigger;
 import org.quartz.impl.triggers.CronTriggerImpl;
 import org.quartz.spi.OperableTrigger;
 
 import java.text.ParseException;
 import java.util.TimeZone;
 
-public class CronTriggerPersistenceDelegate implements TriggerPersistenceDelegate {
+public class CronTriggerPersistenceHelper implements TriggerPersistenceHelper {
   private static final String TRIGGER_CRON_EXPRESSION = "cronExpression";
   private static final String TRIGGER_TIMEZONE = "timezone";
 

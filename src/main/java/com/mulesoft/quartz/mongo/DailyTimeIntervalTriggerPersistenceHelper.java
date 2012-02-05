@@ -7,7 +7,7 @@ import org.quartz.TimeOfDay;
 import org.quartz.impl.triggers.DailyTimeIntervalTriggerImpl;
 import org.quartz.spi.OperableTrigger;
 
-public class DailyTimeIntervalTriggerPersistenceDelegate implements TriggerPersistenceDelegate {
+public class DailyTimeIntervalTriggerPersistenceHelper implements TriggerPersistenceHelper {
   private static final String TRIGGER_REPEAT_INTERVAL_UNIT = "repeatIntervalUnit";
   private static final String TRIGGER_REPEAT_INTERVAL = "repeatInterval";
   private static final String TRIGGER_TIMES_TRIGGERED = "timesTriggered";
