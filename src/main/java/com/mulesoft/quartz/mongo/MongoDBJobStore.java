@@ -279,7 +279,7 @@ public class MongoDBJobStore implements JobStore {
     DBObject dbObject = retrieveJobDBObject(jobKey);
 
     try {
-      Class<Job> jobClass = (Class<Job>) loadHelper.getClassLoader().loadClass((String) dbObject.get(JOB_CLASS));
+      Class<Job> jobClass = (Class<Job>) getJobClassLoader().loadClass((String) dbObject.get(JOB_CLASS));
 
       JobBuilder builder = JobBuilder.newJob(jobClass)
           .withIdentity((String) dbObject.get(JOB_KEY_NAME), (String) dbObject.get(JOB_KEY_GROUP))
@@ -300,6 +300,10 @@ public class MongoDBJobStore implements JobStore {
     } catch (ClassNotFoundException e) {
       throw new JobPersistenceException("Could not load job class " + dbObject.get(JOB_CLASS), e);
     }
+  }
+
+  protected ClassLoader getJobClassLoader() {
+    return loadHelper.getClassLoader();
   }
 
   protected DBObject retrieveJobDBObject(JobKey jobKey) {
@@ -357,7 +361,7 @@ public class MongoDBJobStore implements JobStore {
   protected OperableTrigger toTrigger(TriggerKey triggerKey, DBObject dbObject) throws JobPersistenceException {
     OperableTrigger trigger;
     try {
-      Class<OperableTrigger> triggerClass = (Class<OperableTrigger>) loadHelper.getClassLoader().loadClass((String) dbObject.get(TRIGGER_CLASS));
+      Class<OperableTrigger> triggerClass = (Class<OperableTrigger>) getTriggerClassLoader().loadClass((String) dbObject.get(TRIGGER_CLASS));
       trigger = triggerClass.newInstance();
     } catch (ClassNotFoundException e) {
       throw new JobPersistenceException("Could not find trigger class " + (String) dbObject.get(TRIGGER_CLASS));
@@ -388,6 +392,10 @@ public class MongoDBJobStore implements JobStore {
       // job was deleted
       return null;
     }
+  }
+
+  protected ClassLoader getTriggerClassLoader() {
+    return org.quartz.Job.class.getClassLoader();
   }
 
   private TriggerPersistenceHelper triggerPersistenceDelegateFor(OperableTrigger trigger) {
