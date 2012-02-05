@@ -3,10 +3,11 @@ package com.mulesoft.quartz.mongo;
 import org.junit.Test;
 import org.quartz.JobBuilder;
 import org.quartz.JobDetail;
+import org.quartz.TimeOfDay;
 import org.quartz.spi.OperableTrigger;
 
 import static org.junit.Assert.assertEquals;
-import static org.quartz.CronScheduleBuilder.cronSchedule;
+import static org.quartz.DailyTimeIntervalScheduleBuilder.dailyTimeIntervalSchedule;
 import static org.quartz.TriggerBuilder.newTrigger;
 
 /*
@@ -19,7 +20,7 @@ import static org.quartz.TriggerBuilder.newTrigger;
  * LICENSE.txt file.
  */
 
-public class MongoDBJobStoreStoringTriggersWithCronScheduleTest extends MongoDBJobStoreTest {
+public class JobsAndTriggersWithDailyTimeIntervalScheduleTest extends MongoDBJobStoreTest {
   @Test
   public void testJobStorageUsingCronSchedule() throws Exception {
     assertEquals(0, jobsCollection.count());
@@ -39,7 +40,10 @@ public class MongoDBJobStoreStoringTriggersWithCronScheduleTest extends MongoDBJ
         .withIdentity("yakShavingSchedule", "yakCare")
         .forJob(job)
         .startNow()
-        .withSchedule(cronSchedule("0 0 15 L-1 * ?"))
+        .withSchedule(dailyTimeIntervalSchedule().onEveryDay().
+            startingDailyAt(new TimeOfDay(12, 0, 0)).
+            endingDailyAt(new TimeOfDay(18, 0, 0)).
+            withIntervalInMinutes(2))
         .build();
 
     assertEquals(0, triggersCollection.count());
