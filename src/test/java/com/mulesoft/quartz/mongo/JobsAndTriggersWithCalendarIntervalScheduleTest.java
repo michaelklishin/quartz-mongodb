@@ -1,6 +1,8 @@
 package com.mulesoft.quartz.mongo;
 
+import com.mongodb.BasicDBObjectBuilder;
 import com.mongodb.DBCollection;
+import com.mongodb.DBObject;
 import org.junit.Before;
 import org.junit.Test;
 import org.quartz.JobBuilder;
@@ -8,6 +10,7 @@ import org.quartz.JobDetail;
 import org.quartz.spi.OperableTrigger;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 import static org.quartz.CalendarIntervalScheduleBuilder.calendarIntervalSchedule;
 import static org.quartz.TriggerBuilder.newTrigger;
@@ -39,10 +42,10 @@ public class JobsAndTriggersWithCalendarIntervalScheduleTest extends MongoDBJobS
     assertEquals(1, store.getNumberOfJobs());
 
     OperableTrigger trigger = (OperableTrigger) newTrigger()
-        .withIdentity("yakShavingSchedule", "yakCare")
+        .withIdentity("yakShavingSchedule1", "yakCare")
         .forJob(job)
         .startNow()
-        .withSchedule(calendarIntervalSchedule().withIntervalInHours(1))
+        .withSchedule(calendarIntervalSchedule().withIntervalInHours(3))
         .build();
 
     assertEquals(0, triggersCollection.count());
@@ -51,5 +54,12 @@ public class JobsAndTriggersWithCalendarIntervalScheduleTest extends MongoDBJobS
     store.storeTrigger(trigger, false);
     assertEquals(1, triggersCollection.count());
     assertEquals(1, store.getNumberOfTriggers());
+
+    DBObject loaded = triggersCollection.findOne(BasicDBObjectBuilder.start()
+        .append("keyName", "yakShavingSchedule1")
+        .append("keyGroup", "yakCare").get());
+    assertNotNull(loaded);
+    System.out.println(loaded);
+    assertEquals(Integer.valueOf(3), (Integer)loaded.get("repeatInterval"));
   }
 }
