@@ -28,7 +28,7 @@ public class MongoDBJobStoreTest {
 
   @Before
   public void setUpJobStore() throws Exception {
-    Mongo mongo = new Mongo("localhost");
+    Mongo mongo = new Mongo("127.0.0.1");
     DB db = mongo.getDB("quartz");
     db.getCollection("quartz_jobs").drop();
     db.getCollection("quartz_triggers").drop();

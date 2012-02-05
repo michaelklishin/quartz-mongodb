@@ -105,7 +105,7 @@ public class SchedulerIntegrationTest extends Assert {
     StdSchedulerFactory factory = new StdSchedulerFactory();
     Properties props = new Properties();
     props.put(StdSchedulerFactory.PROP_JOB_STORE_CLASS, MongoDBJobStore.class.getName());
-    props.put(StdSchedulerFactory.PROP_JOB_STORE_PREFIX + ".addresses", "localhost");
+    props.put(StdSchedulerFactory.PROP_JOB_STORE_PREFIX + ".addresses", "127.0.0.1");
     props.put(StdSchedulerFactory.PROP_JOB_STORE_PREFIX + ".dbName", "quartz");
     props.put(StdSchedulerFactory.PROP_JOB_STORE_PREFIX + ".collectionPrefix", "test");
     props.put(StdSchedulerFactory.PROP_THREAD_POOL_PREFIX + ".threadCount", "1");
@@ -122,7 +122,7 @@ public class SchedulerIntegrationTest extends Assert {
   }
 
   protected void resetMongo() throws UnknownHostException {
-    mongo = new Mongo("localhost");
+    mongo = new Mongo("127.0.0.1");
     DB db = mongo.getDB("quartz");
     jobCollection = db.getCollection("test_jobs");
     jobCollection.drop();
