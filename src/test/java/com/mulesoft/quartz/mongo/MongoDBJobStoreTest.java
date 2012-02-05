@@ -37,7 +37,7 @@ public class MongoDBJobStoreTest {
     store = new MongoDBJobStore();
     store.setInstanceName("test");
     store.setDbName("quartz");
-    store.setAddresses("localhost");
+    store.setAddresses("127.0.0.1");
     store.initialize(new SimpleClassLoadHelper(), null);
     jobsCollection = store.getJobCollection();
     triggersCollection = store.getTriggerCollection();
