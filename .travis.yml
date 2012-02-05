@@ -1,0 +1,4 @@
+language: java
+notifications:
+  recipients:
+    - michaelklishin@me.com
