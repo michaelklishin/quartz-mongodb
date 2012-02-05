@@ -1,11 +1,14 @@
 package com.mulesoft.quartz.mongo;
 
+import com.mongodb.BasicDBObjectBuilder;
+import com.mongodb.DBObject;
 import org.junit.Test;
 import org.quartz.JobBuilder;
 import org.quartz.JobDetail;
 import org.quartz.spi.OperableTrigger;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.quartz.CronScheduleBuilder.cronSchedule;
 import static org.quartz.TriggerBuilder.newTrigger;
 
@@ -36,7 +39,7 @@ public class JobsAndTriggersWithCronScheduleTest extends MongoDBJobStoreTest {
     assertEquals(1, store.getNumberOfJobs());
 
     OperableTrigger trigger = (OperableTrigger) newTrigger()
-        .withIdentity("yakShavingSchedule", "yakCare")
+        .withIdentity("yakShavingSchedule3", "yakCare")
         .forJob(job)
         .startNow()
         .withSchedule(cronSchedule("0 0 15 L-1 * ?"))
@@ -48,5 +51,13 @@ public class JobsAndTriggersWithCronScheduleTest extends MongoDBJobStoreTest {
     store.storeTrigger(trigger, false);
     assertEquals(1, triggersCollection.count());
     assertEquals(1, store.getNumberOfTriggers());
+
+    DBObject loaded = triggersCollection.findOne(BasicDBObjectBuilder.start()
+        .append("keyName", "yakShavingSchedule3")
+        .append("keyGroup", "yakCare").get());
+    assertNotNull(loaded);
+
+    assertEquals("0 0 15 L-1 * ?", (String)loaded.get("cronExpression"));
+    assertNotNull((String)loaded.get("timezone"));
   }
 }

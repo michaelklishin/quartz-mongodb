@@ -1,8 +1,6 @@
 package com.mulesoft.quartz.mongo;
 
-import com.mongodb.DB;
-import com.mongodb.DBCollection;
-import com.mongodb.Mongo;
+import com.mongodb.*;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -15,6 +13,7 @@ import org.quartz.spi.OperableTrigger;
 import java.util.Date;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 import static org.quartz.SimpleScheduleBuilder.repeatMinutelyForever;
 import static org.quartz.TriggerBuilder.newTrigger;
@@ -93,5 +92,13 @@ public class JobsAndTriggersWithSimpleScheduleTest extends MongoDBJobStoreTest {
     trigger2 = store.retrieveTrigger(trigger.getKey());
     assertEquals("name", trigger2.getKey().getName());
     assertEquals("group", trigger2.getKey().getGroup());
+
+    DBObject loaded = triggersCollection.findOne(BasicDBObjectBuilder.start()
+        .append("keyName", "name")
+        .append("keyGroup", "group").get());
+    assertNotNull(loaded);
+
+    assertEquals(Long.valueOf(60000), (Long)loaded.get("repeatInterval"));
+    assertEquals(Integer.valueOf(-1), (Integer)loaded.get("repeatCount"));
   }
 }

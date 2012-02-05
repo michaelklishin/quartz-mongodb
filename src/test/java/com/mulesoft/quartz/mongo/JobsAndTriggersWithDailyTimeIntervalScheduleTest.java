@@ -1,5 +1,7 @@
 package com.mulesoft.quartz.mongo;
 
+import com.mongodb.BasicDBObjectBuilder;
+import com.mongodb.DBObject;
 import org.junit.Test;
 import org.quartz.JobBuilder;
 import org.quartz.JobDetail;
@@ -7,6 +9,7 @@ import org.quartz.TimeOfDay;
 import org.quartz.spi.OperableTrigger;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.quartz.DailyTimeIntervalScheduleBuilder.dailyTimeIntervalSchedule;
 import static org.quartz.TriggerBuilder.newTrigger;
 
@@ -37,7 +40,7 @@ public class JobsAndTriggersWithDailyTimeIntervalScheduleTest extends MongoDBJob
     assertEquals(1, store.getNumberOfJobs());
 
     OperableTrigger trigger = (OperableTrigger) newTrigger()
-        .withIdentity("yakShavingSchedule", "yakCare")
+        .withIdentity("yakShavingSchedule2", "yakCare")
         .forJob(job)
         .startNow()
         .withSchedule(dailyTimeIntervalSchedule().onEveryDay().
@@ -52,5 +55,13 @@ public class JobsAndTriggersWithDailyTimeIntervalScheduleTest extends MongoDBJob
     store.storeTrigger(trigger, false);
     assertEquals(1, triggersCollection.count());
     assertEquals(1, store.getNumberOfTriggers());
+
+    DBObject loaded = triggersCollection.findOne(BasicDBObjectBuilder.start()
+        .append("keyName", "yakShavingSchedule2")
+        .append("keyGroup", "yakCare").get());
+    assertNotNull(loaded);
+
+    assertEquals(Integer.valueOf(2), (Integer)loaded.get("repeatInterval"));
+    assertEquals("MINUTE", (String)loaded.get("repeatIntervalUnit"));
   }
 }

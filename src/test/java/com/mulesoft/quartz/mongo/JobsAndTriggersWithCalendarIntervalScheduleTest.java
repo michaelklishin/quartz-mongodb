@@ -59,7 +59,8 @@ public class JobsAndTriggersWithCalendarIntervalScheduleTest extends MongoDBJobS
         .append("keyName", "yakShavingSchedule1")
         .append("keyGroup", "yakCare").get());
     assertNotNull(loaded);
-    System.out.println(loaded);
+
     assertEquals(Integer.valueOf(3), (Integer)loaded.get("repeatInterval"));
+    assertEquals("HOUR", (String)loaded.get("repeatIntervalUnit"));
   }
 }
