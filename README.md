@@ -3,6 +3,39 @@
 This is a fork of a project originally started by MuleSoft. It supports all Quartz trigger types and
 tries to be as feature complete as possible.
 
+## Maven Artifacts
+
+### The Most Recent Release
+
+With Leiningen:
+
+    [com.novemberain/quartz-mongodb "1.0.0"]
+
+With Maven:
+
+    <dependency>
+      <groupId>com.novemberain</groupId>
+      <artifactId>quartz-mongodb</artifactId>
+      <version>1.0.0</version>
+    </dependency>
+
+
+### Snapshots
+
+If you are comfortable with using snapshots, snapshot artifacts are [released to Clojars](https://clojars.org/com.novemberain/quartz-mongodb) every 24 hours.
+
+With Leiningen:
+
+    [com.novemberain/quartz-mongodb "1.1.0-SNAPSHOT"]
+
+
+With Maven:
+
+    <dependency>
+      <groupId>com.novemberain</groupId>
+      <artifactId>quartz-mongodb</artifactId>
+      <version>1.1.0-SNAPSHOT</version>
+    </dependency>
 
 ## Usage
 
