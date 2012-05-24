@@ -5,8 +5,10 @@
             [clojurewerkz.quartzite.jobs      :as qj]
             [clojurewerkz.quartzite.matchers  :as qm]
             [clojurewerkz.quartzite.schedule.simple :as s]
+            [clojurewerkz.quartzite.schedule.cron :as sc]
             [monger.collection :as mgc])
-  (:use clojure.test)
+  (:use clojure.test
+        [clj-time.core :only [months from-now]])
   (:import org.quartz.simpl.SimpleClassLoadHelper
            com.mulesoft.quartz.mongo.MongoDBJobStore)
   )
@@ -18,6 +20,8 @@
   )
 
 (def cl (SimpleClassLoadHelper.))
+(def jobs-collection "quartz_jobs")
+(def triggers-collection "quartz_triggers")
 
 (defn make-store
   []
@@ -27,17 +31,29 @@
     (.setAddresses "127.0.0.1")
     (.initialize cl nil)))
 
+(defn has-fields?
+  [m & fields]
+  (every? #(m %) fields))
+
+(defn nil-fields?
+  [m & fields]
+  (every? #(nil? (m %)) fields))
+
+;;
+;; Tests
+;;
+
 (deftest test-storing-jobs
   (let [store (make-store)
         job   (qj/build
                (qj/of-type NoOpJob)
                (qj/with-identity "test-storing-jobs" "tests"))]
     (are [coll] (is (= 0 (mgc/count coll)))
-         "quartz_jobs"
-         "quartz_triggers")
+         jobs-collection
+         triggers-collection)
     (.storeJob store job false)
-    (is (= 1 (mgc/count "quartz_jobs")))
-    (is (= 1 (.getNumberOfJobs store)))))
+    (is (= 1 (mgc/count jobs-collection) (.getNumberOfJobs store)))))
+
 
 (deftest test-storing-triggers-with-simple-schedule
   (let [store (make-store)
@@ -54,22 +70,57 @@
                                   (s/with-repeat-count 10)
                                   (s/with-interval-in-milliseconds 400))))]
     (are [coll] (is (= 0 (mgc/count coll)))
-         "quartz_jobs"
-         "quartz_triggers")
+         jobs-collection
+         triggers-collection)
     (doto store
       (.storeJob job false)
       (.storeTrigger tr false))
-    (is (= 1 (mgc/count "quartz_triggers")))
-    (is (= 1 (.getNumberOfTriggers store)))
-    (let [m (mgc/find-one-as-map "quartz_triggers" {"keyName" "test-storing-triggers1"
-                                                    "keyGroup" "tests"})]
+    (is (= 1
+           (mgc/count jobs-collection)
+           (mgc/count triggers-collection)
+           (.getNumberOfTriggers store)))
+    (let [m (mgc/find-one-as-map triggers-collection {"keyName" "test-storing-triggers1"
+                                                      "keyGroup" "tests"})]
       (is m)
       (is (= desc (:description m)))
       (is (= 400 (:repeatInterval m)))
-      (is (:startTime m))
-      (is (:finalFireTime m))
-      (is (nil? (:nextFireTime m)))
-      (is (nil? (:endTime m)))
-      (is (nil? (:previousFireTime m)))
-      (is (mgc/find-map-by-id "quartz_jobs" (:jobId m)))
-      (is (= 0 (:timesTriggered m))))))
+      (is (= 0 (:timesTriggered m)))
+      (is (has-fields? m :startTime :finalFireTime))
+      (is (nil-fields? m :nextFireTime :endTime :previousFireTime))
+      (is (mgc/find-map-by-id jobs-collection (:jobId m))))))
+
+
+(deftest test-storing-triggers-with-cron-schedule
+  (let [store (make-store)
+        desc  "just a trigger that uses a cron expression schedule"
+        job   (qj/build
+               (qj/of-type NoOpJob)
+               (qj/with-identity "test-storing-triggers2" "tests"))
+        c-exp "0 0 15 L-1 * ?"
+        tr    (qt/build
+               (qt/start-now)
+               (qt/with-identity "test-storing-triggers2" "tests")
+               (qt/with-description desc)
+               (qt/end-at (-> 2 months from-now))
+               (qt/for-job job)
+               (qt/with-schedule (sc/schedule
+                                  (sc/cron-schedule c-exp))))]
+    (are [coll] (is (= 0 (mgc/count coll)))
+         jobs-collection
+         triggers-collection)
+    (doto store
+      (.storeJob job false)
+      (.storeTrigger tr false))
+    (Thread/sleep 100)
+    (is (= 1
+           (mgc/count jobs-collection)
+           (mgc/count triggers-collection)
+           (.getNumberOfTriggers store)))
+    (let [m (mgc/find-one-as-map triggers-collection {"keyName" "test-storing-triggers2"
+                                                      "keyGroup" "tests"})]
+      (is m)
+      (is (= desc (:description m)))
+      (is (= c-exp (:cronExpression m)))
+      (is (has-fields? m :startTime :endTime :timezone))
+      (is (nil-fields? m :nextFireTime :previousFireTime :repeatInterval :timesTriggered))
+      (is (mgc/find-map-by-id jobs-collection (:jobId m))))))
