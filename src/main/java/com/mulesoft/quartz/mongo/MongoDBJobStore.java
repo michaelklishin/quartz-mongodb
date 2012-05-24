@@ -489,7 +489,7 @@ public class MongoDBJobStore implements JobStore {
     Set result = new HashSet<JobKey>();
     while(cursor.hasNext()) {
       DBObject dbo = cursor.next();
-      JobKey key = new JobKey((String)dbo.get("keyName"), (String)dbo.get("keyGroup"));
+      JobKey key = jobKeyFromDBObject(dbo);
       result.add(key);
     }
 
@@ -502,7 +502,7 @@ public class MongoDBJobStore implements JobStore {
     Set result = new HashSet<TriggerKey>();
     while(cursor.hasNext()) {
       DBObject dbo = cursor.next();
-      TriggerKey key = new TriggerKey((String)dbo.get("keyName"), (String)dbo.get("keyGroup"));
+      TriggerKey key = triggerKeyFromDBObject(dbo);
       result.add(key);
     }
 
@@ -875,5 +875,13 @@ public class MongoDBJobStore implements JobStore {
     }
 
     return builder.get();
+  }
+
+  private TriggerKey triggerKeyFromDBObject(DBObject dbo) {
+    return new TriggerKey((String)dbo.get("keyName"), (String)dbo.get("keyGroup"));
+  }
+
+  private JobKey jobKeyFromDBObject(DBObject dbo) {
+    return new JobKey((String)dbo.get("keyName"), (String)dbo.get("keyGroup"));
   }
 }
