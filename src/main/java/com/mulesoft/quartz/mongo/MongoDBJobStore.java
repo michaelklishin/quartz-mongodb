@@ -29,6 +29,10 @@ import java.net.UnknownHostException;
 import java.util.*;
 
 public class MongoDBJobStore implements JobStore {
+  public static final DBObject KEY_AND_GROUP_FIELDS = BasicDBObjectBuilder.start().
+      append("keyName", 1).
+      append("keyGroup", 1).
+      get();
   protected final Logger log = LoggerFactory.getLogger(getClass());
 
   private static final String JOB_KEY_NAME = "keyName";
@@ -480,11 +484,29 @@ public class MongoDBJobStore implements JobStore {
   }
 
   public Set<JobKey> getJobKeys(GroupMatcher<JobKey> matcher) throws JobPersistenceException {
-    throw new UnsupportedOperationException();
+    DBCursor cursor = jobCollection.find(matchingKeysConditionFor(matcher), KEY_AND_GROUP_FIELDS);
+
+    Set result = new HashSet<JobKey>();
+    while(cursor.hasNext()) {
+      DBObject dbo = cursor.next();
+      JobKey key = new JobKey((String)dbo.get("keyName"), (String)dbo.get("keyGroup"));
+      result.add(key);
+    }
+
+    return result;
   }
 
   public Set<TriggerKey> getTriggerKeys(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
-    throw new UnsupportedOperationException();
+    DBCursor cursor = triggerCollection.find(matchingKeysConditionFor(matcher), KEY_AND_GROUP_FIELDS);
+
+    Set result = new HashSet<TriggerKey>();
+    while(cursor.hasNext()) {
+      DBObject dbo = cursor.next();
+      TriggerKey key = new TriggerKey((String)dbo.get("keyName"), (String)dbo.get("keyGroup"));
+      result.add(key);
+    }
+
+    return result;
   }
 
   public List<String> getJobGroupNames() throws JobPersistenceException {
@@ -516,23 +538,27 @@ public class MongoDBJobStore implements JobStore {
   }
 
   public void pauseTrigger(TriggerKey triggerKey) throws JobPersistenceException {
-//        throw new UnsupportedOperationException();
+    // TODO
+    // throw new UnsupportedOperationException();
   }
 
   public Collection<String> pauseTriggers(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
-    throw new UnsupportedOperationException();
+    // TODO
+    // throw new UnsupportedOperationException();
   }
 
   public void pauseJob(JobKey jobKey) throws JobPersistenceException {
-//        throw new UnsupportedOperationException();
+    // TODO
+    // throw new UnsupportedOperationException();
   }
 
   public Collection<String> pauseJobs(GroupMatcher<JobKey> groupMatcher) throws JobPersistenceException {
+    // TODO
     throw new UnsupportedOperationException();
   }
 
   public void resumeTrigger(TriggerKey triggerKey) throws JobPersistenceException {
-    log.debug("Resume trigger" + triggerKey);
+    // TODO
     throw new UnsupportedOperationException();
   }
 
@@ -830,4 +856,24 @@ public class MongoDBJobStore implements JobStore {
     this.triggerTimeoutMillis = triggerTimeoutMillis;
   }
 
+  private DBObject matchingKeysConditionFor(GroupMatcher matcher) {
+    BasicDBObjectBuilder builder = BasicDBObjectBuilder.start();
+
+    final String compareToValue = matcher.getCompareToValue();
+    switch(matcher.getCompareWithOperator()) {
+      case EQUALS:
+        builder.append("keyGroup", compareToValue);
+        break;
+      case STARTS_WITH:
+        builder.append("$where", "this.keyGroup.indexOf('" + compareToValue + "') == 0");
+        break;
+      case ENDS_WITH:
+        builder.append("$where", "this.keyGroup.indexOf('" + compareToValue + "') === (this.keyGroup.length - " + String.valueOf(compareToValue.length()) + ")");
+      case CONTAINS:
+        builder.append("$where", "this.keyGroup.indexOf('" + compareToValue + "') != -1");
+        break;
+    }
+
+    return builder.get();
+  }
 }

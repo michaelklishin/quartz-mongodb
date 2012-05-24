@@ -6,6 +6,7 @@
             [clojurewerkz.quartzite.matchers  :as qm]
             [clojurewerkz.quartzite.schedule.simple :as s]
             [clojurewerkz.quartzite.schedule.cron :as sc]
+            [clojurewerkz.quartzite.schedule.daily-interval :as sd]
             [monger.collection :as mgc])
   (:use clojure.test
         [clj-time.core :only [months from-now]])
@@ -47,12 +48,27 @@
   (let [store (make-store)
         job   (qj/build
                (qj/of-type NoOpJob)
-               (qj/with-identity "test-storing-jobs" "tests"))]
+               (qj/with-identity "test-storing-jobs" "tests"))
+        key   (qj/key "test-storing-jobs" "tests")]
     (are [coll] (is (= 0 (mgc/count coll)))
          jobs-collection
          triggers-collection)
     (.storeJob store job false)
-    (is (= 1 (mgc/count jobs-collection) (.getNumberOfJobs store)))))
+    (is (= 1 (mgc/count jobs-collection) (.getNumberOfJobs store)))
+    (let [keys (.getJobKeys store (qm/group-equals "tests"))
+          f    (first keys)]
+      (is (= f key)))
+    (let [keys (.getJobKeys store (qm/group-equals "sabbra-cadabra"))]
+      (is (empty? keys)))
+    (let [keys (.getJobKeys store (qm/group-starts-with "te"))
+          f    (first keys)]
+      (is (= f key)))
+    (let [keys (.getJobKeys store (qm/group-ends-with "sts"))
+          f    (first keys)]
+      (is (= f key)))
+    (let [keys (.getJobKeys store (qm/group-contains "es"))
+          f    (first keys)]
+      (is (= f key)))))
 
 
 (deftest test-storing-triggers-with-simple-schedule
@@ -68,7 +84,8 @@
                (qt/for-job job)
                (qt/with-schedule (s/schedule
                                   (s/with-repeat-count 10)
-                                  (s/with-interval-in-milliseconds 400))))]
+                                  (s/with-interval-in-milliseconds 400))))
+        key   (qt/key "test-storing-triggers1" "tests")]
     (are [coll] (is (= 0 (mgc/count coll)))
          jobs-collection
          triggers-collection)
@@ -87,7 +104,21 @@
       (is (= 0 (:timesTriggered m)))
       (is (has-fields? m :startTime :finalFireTime))
       (is (nil-fields? m :nextFireTime :endTime :previousFireTime))
-      (is (mgc/find-map-by-id jobs-collection (:jobId m))))))
+      (is (mgc/find-map-by-id jobs-collection (:jobId m))))
+    (let [keys (.getTriggerKeys store (qm/group-equals "tests"))
+          f    (first keys)]
+      (is (= f key)))
+    (let [keys (.getTriggerKeys store (qm/group-equals "sabbra-cadabra"))]
+      (is (empty? keys)))
+    (let [keys (.getTriggerKeys store (qm/group-starts-with "te"))
+          f    (first keys)]
+      (is (= f key)))
+    (let [keys (.getTriggerKeys store (qm/group-ends-with "sts"))
+          f    (first keys)]
+      (is (= f key)))
+    (let [keys (.getTriggerKeys store (qm/group-contains "es"))
+          f    (first keys)]
+      (is (= f key)))))
 
 
 (deftest test-storing-triggers-with-cron-schedule
@@ -111,7 +142,6 @@
     (doto store
       (.storeJob job false)
       (.storeTrigger tr false))
-    (Thread/sleep 100)
     (is (= 1
            (mgc/count jobs-collection)
            (mgc/count triggers-collection)
@@ -123,4 +153,49 @@
       (is (= c-exp (:cronExpression m)))
       (is (has-fields? m :startTime :endTime :timezone))
       (is (nil-fields? m :nextFireTime :previousFireTime :repeatInterval :timesTriggered))
+      (is (mgc/find-map-by-id jobs-collection (:jobId m))))))
+
+
+
+(deftest test-storing-triggers-with-daily-interval-schedule
+  (let [store (make-store)
+        desc  "just a trigger that uses a daily interval schedule"
+        job   (qj/build
+               (qj/of-type NoOpJob)
+               (qj/with-identity "test-storing-triggers3" "tests"))
+        tr    (qt/build
+               (qt/start-now)
+               (qt/with-identity "test-storing-triggers3" "tests")
+               (qt/with-description desc)
+               (qt/end-at (-> 2 months from-now))
+               (qt/for-job job)
+               (qt/with-schedule (sd/schedule
+                                  (sd/every-day)
+                                  (sd/starting-daily-at (sd/time-of-day 9 00 00))
+                                  (sd/ending-daily-at (sd/time-of-day 18 00 00))
+                                  (sd/with-interval-in-hours 2))))]
+    (are [coll] (is (= 0 (mgc/count coll)))
+         jobs-collection
+         triggers-collection)
+    (doto store
+      (.storeJob job false)
+      (.storeTrigger tr false))
+    (is (= 1
+           (mgc/count jobs-collection)
+           (mgc/count triggers-collection)
+           (.getNumberOfTriggers store)))
+    (let [m (mgc/find-one-as-map triggers-collection {"keyName" "test-storing-triggers3"
+                                                      "keyGroup" "tests"})]
+      (is m)
+      (is (= 18 (get-in m [:endTimeOfDay :hour])))
+      (is (= 0 (get-in m [:endTimeOfDay :minute])))
+      (is (= 0 (get-in m [:endTimeOfDay :second])))
+      (is (= 9 (get-in m [:startTimeOfDay :hour])))
+      (is (= 0 (get-in m [:startTimeOfDay :minute])))
+      (is (= 0 (get-in m [:startTimeOfDay :second])))      
+      (is (= desc (:description m)))
+      (is (= 2 (:repeatInterval m)))
+      (is (= "HOUR" (:repeatIntervalUnit m)))
+      (is (has-fields? m :startTime :endTime))
+      (is (nil-fields? m :nextFireTime :previousFireTime))
       (is (mgc/find-map-by-id jobs-collection (:jobId m))))))
