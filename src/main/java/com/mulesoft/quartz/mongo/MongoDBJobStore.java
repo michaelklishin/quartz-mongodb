@@ -539,17 +539,17 @@ public class MongoDBJobStore implements JobStore {
 
   public void pauseTrigger(TriggerKey triggerKey) throws JobPersistenceException {
     // TODO
-    // throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException();
   }
 
   public Collection<String> pauseTriggers(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
     // TODO
-    // throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException();
   }
 
   public void pauseJob(JobKey jobKey) throws JobPersistenceException {
     // TODO
-    // throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException();
   }
 
   public Collection<String> pauseJobs(GroupMatcher<JobKey> groupMatcher) throws JobPersistenceException {
