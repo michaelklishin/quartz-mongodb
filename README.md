@@ -53,6 +53,13 @@ To configure, set your Quartz properties to something like this:
     org.quartz.threadPool.threadCount=1
 
 
+## Continuous Integration
+
+[![Build Status](https://secure.travis-ci.org/michaelklishin/quartz-mongodb.png?branch=master)](http://travis-ci.org/michaelklishin/quartz-mongodb)
+
+CI is hosted by [Travis CI](http://travis-ci.org/)
+
+
 ## License
 
 [Apache Public License 2.0](http://www.apache.org/licenses/LICENSE-2.0.html)
