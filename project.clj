@@ -10,6 +10,7 @@
   :test-selectors {:all     (constantly true)
                    :focus   :focus
                    :default (constantly true)}
+  :javac-options     ["-target" "1.6" "-source" "1.6"]
   :profiles {:dev {:resource-paths ["test/resources"]
                    :dependencies [[org.clojure/clojure       "1.4.0"]
                                   [clojurewerkz/quartzite    "1.0.0-SNAPSHOT"]
