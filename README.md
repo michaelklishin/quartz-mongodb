@@ -37,9 +37,12 @@ With Maven:
       <version>1.1.0-SNAPSHOT</version>
     </dependency>
 
+Please note that with minor and major version snapshots, certain backwards-incompatible changes may not match what is in the example below.
+ Documentation always follows the most recent stable release.
+
 ## Usage
 
-To configure, set your Quartz properties to something like this:
+Set your Quartz properties to something like this:
 
     # Use the MongoDB store
     org.quartz.jobStore.class=com.mulesoft.quartz.mongo.MongoDBJobStore
@@ -70,5 +73,5 @@ CI is hosted by [Travis CI](http://travis-ci.org/)
 ### Why the Fork?
 
 MuleSoft developers did not respond to attempts to submit pull requests for several months. As more and more
-functionality was added, I decided to completely separate this fork form GitHub forks network because it is
-very different. All changes were made with respect to the Apache Public License 2.0.
+functionality was added and implementation code refactored, I decided to completely separate this fork form GitHub forks network because
+the project is now too different from the original one. All changes were made with respect to the Apache Public License 2.0.
