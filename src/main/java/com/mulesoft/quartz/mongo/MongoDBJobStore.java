@@ -53,12 +53,18 @@ public class MongoDBJobStore implements JobStore {
   private static final String TRIGGER_START_TIME = "startTime";
   private static final String TRIGGER_JOB_ID = "jobId";
   private static final String TRIGGER_CLASS = "class";
+  private static final String TRIGGER_STATE = "state";
   private static final String CALENDAR_NAME = "name";
   private static final String CALENDAR_SERIALIZED_OBJECT = "serializedObject";
   private static final String LOCK_KEY_NAME = "keyName";
   private static final String LOCK_KEY_GROUP = "keyGroup";
   private static final String LOCK_INSTANCE_ID = "instanceId";
   private static final String LOCK_TIME = "time";
+
+  private static final String WAITING_TRIGGER_STATE  = "waiting";
+  private static final String ACQUIRED_TRIGGER_STATE = "acquired";
+  private static final String PAUSED_TRIGGER_STATE = "paused";
+  private static final String BLOCKED_TRIGGER_STATE = "blocked";
 
   private Mongo mongo;
   private String collectionPrefix = "quartz_";
@@ -173,31 +179,32 @@ public class MongoDBJobStore implements JobStore {
   }
 
   protected void storeTrigger(OperableTrigger newTrigger, ObjectId jobId, boolean replaceExisting) throws ObjectAlreadyExistsException {
-    BasicDBObject triggerDB = new BasicDBObject();
-    triggerDB.put(TRIGGER_CALENDAR_NAME, newTrigger.getCalendarName());
-    triggerDB.put(TRIGGER_CLASS, newTrigger.getClass().getName());
-    triggerDB.put(TRIGGER_DESCRIPTION, newTrigger.getDescription());
-    triggerDB.put(TRIGGER_END_TIME, newTrigger.getEndTime());
-    triggerDB.put(TRIGGER_FINAL_FIRE_TIME, newTrigger.getFinalFireTime());
-    triggerDB.put(TRIGGER_FIRE_INSTANCE_ID, newTrigger.getFireInstanceId());
-    triggerDB.put(TRIGGER_JOB_ID, jobId);
-    triggerDB.put(TRIGGER_KEY_NAME, newTrigger.getKey().getName());
-    triggerDB.put(TRIGGER_KEY_GROUP, newTrigger.getKey().getGroup());
-    triggerDB.put(TRIGGER_MISFIRE_INSTRUCTION, newTrigger.getMisfireInstruction());
-    triggerDB.put(TRIGGER_NEXT_FIRE_TIME, newTrigger.getNextFireTime());
-    triggerDB.put(TRIGGER_PREVIOUS_FIRE_TIME, newTrigger.getPreviousFireTime());
-    triggerDB.put(TRIGGER_PRIORITY, newTrigger.getPriority());
-    triggerDB.put(TRIGGER_START_TIME, newTrigger.getStartTime());
+    BasicDBObject trigger = new BasicDBObject();
+    trigger.put(TRIGGER_STATE, WAITING_TRIGGER_STATE);
+    trigger.put(TRIGGER_CALENDAR_NAME, newTrigger.getCalendarName());
+    trigger.put(TRIGGER_CLASS, newTrigger.getClass().getName());
+    trigger.put(TRIGGER_DESCRIPTION, newTrigger.getDescription());
+    trigger.put(TRIGGER_END_TIME, newTrigger.getEndTime());
+    trigger.put(TRIGGER_FINAL_FIRE_TIME, newTrigger.getFinalFireTime());
+    trigger.put(TRIGGER_FIRE_INSTANCE_ID, newTrigger.getFireInstanceId());
+    trigger.put(TRIGGER_JOB_ID, jobId);
+    trigger.put(TRIGGER_KEY_NAME, newTrigger.getKey().getName());
+    trigger.put(TRIGGER_KEY_GROUP, newTrigger.getKey().getGroup());
+    trigger.put(TRIGGER_MISFIRE_INSTRUCTION, newTrigger.getMisfireInstruction());
+    trigger.put(TRIGGER_NEXT_FIRE_TIME, newTrigger.getNextFireTime());
+    trigger.put(TRIGGER_PREVIOUS_FIRE_TIME, newTrigger.getPreviousFireTime());
+    trigger.put(TRIGGER_PRIORITY, newTrigger.getPriority());
+    trigger.put(TRIGGER_START_TIME, newTrigger.getStartTime());
 
     TriggerPersistenceHelper tpd = triggerPersistenceDelegateFor(newTrigger);
-    triggerDB = (BasicDBObject) tpd.injectExtraPropertiesForInsert(newTrigger, triggerDB);
+    trigger = (BasicDBObject) tpd.injectExtraPropertiesForInsert(newTrigger, trigger);
 
     try {
-      triggerCollection.insert(triggerDB);
+      triggerCollection.insert(trigger);
     } catch (DuplicateKey key) {
       if (replaceExisting) {
-        triggerDB.remove("_id");
-        triggerCollection.update(keyAsDBObject(newTrigger.getKey()), triggerDB);
+        trigger.remove("_id");
+        triggerCollection.update(keyAsDBObject(newTrigger.getKey()), trigger);
       } else {
         throw new ObjectAlreadyExistsException(newTrigger);
       }
@@ -579,7 +586,8 @@ public class MongoDBJobStore implements JobStore {
   }
 
   public void pauseAll() throws JobPersistenceException {
-//        throw new UnsupportedOperationException();
+    // TOOD
+    // triggerCollection.update(condition, update, false, true, WriteConcern.JOURNAL_SAFE);
   }
 
   public void resumeAll() throws JobPersistenceException {
@@ -865,16 +873,28 @@ public class MongoDBJobStore implements JobStore {
         builder.append("keyGroup", compareToValue);
         break;
       case STARTS_WITH:
-        builder.append("$where", "this.keyGroup.indexOf('" + compareToValue + "') == 0");
+        builder.append("keyGroup", startsWithRegexDBObject(compareToValue));
         break;
       case ENDS_WITH:
-        builder.append("$where", "this.keyGroup.indexOf('" + compareToValue + "') === (this.keyGroup.length - " + String.valueOf(compareToValue.length()) + ")");
+        builder.append("keyGroup", endsWithRegexDBObject(compareToValue));
       case CONTAINS:
-        builder.append("$where", "this.keyGroup.indexOf('" + compareToValue + "') != -1");
+        builder.append("keyGroup", containsWithRegexDBObject(compareToValue));
         break;
     }
 
     return builder.get();
+  }
+
+  private DBObject startsWithRegexDBObject(String compareToValue) {
+    return BasicDBObjectBuilder.start().append("$regex", "^" + compareToValue + ".*").get();
+  }
+
+  private DBObject endsWithRegexDBObject(String compareToValue) {
+    return BasicDBObjectBuilder.start().append("$regex", ".*" + compareToValue + "$").get();
+  }
+
+  private DBObject containsWithRegexDBObject(String compareToValue) {
+    return BasicDBObjectBuilder.start().append("$regex", compareToValue).get();
   }
 
   private TriggerKey triggerKeyFromDBObject(DBObject dbo) {
