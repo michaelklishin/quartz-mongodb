@@ -125,26 +125,7 @@ public class MongoDBJobStore implements JobStore {
     calendarCollection = db.getCollection(collectionPrefix + "calendars");
     locksCollection = db.getCollection(collectionPrefix + "locks");
 
-    BasicDBObject keys = new BasicDBObject();
-    keys.put(JOB_KEY_NAME, 1);
-    keys.put(JOB_KEY_GROUP, 1);
-    jobCollection.ensureIndex(keys, null, true);
-
-    keys = new BasicDBObject();
-    keys.put(TRIGGER_KEY_NAME, 1);
-    keys.put(TRIGGER_KEY_GROUP, 1);
-    triggerCollection.ensureIndex(keys, null, true);
-
-    keys = new BasicDBObject();
-    keys.put(LOCK_KEY_NAME, 1);
-    keys.put(LOCK_KEY_GROUP, 1);
-    locksCollection.ensureIndex(keys, null, true);
-    // remove all locks for this instance on startup
-    locksCollection.remove(new BasicDBObject(LOCK_INSTANCE_ID, instanceId));
-
-    keys = new BasicDBObject();
-    keys.put(CALENDAR_NAME, 1);
-    calendarCollection.ensureIndex(keys, null, true);
+    ensureIndexes();
   }
 
   public void schedulerStarted() throws SchedulerException {
@@ -181,77 +162,9 @@ public class MongoDBJobStore implements JobStore {
     storeTrigger(newTrigger, jobId, false);
   }
 
-  protected void storeTrigger(OperableTrigger newTrigger, ObjectId jobId, boolean replaceExisting) throws ObjectAlreadyExistsException {
-    BasicDBObject trigger = new BasicDBObject();
-    trigger.put(TRIGGER_STATE, WAITING_TRIGGER_STATE);
-    trigger.put(TRIGGER_CALENDAR_NAME, newTrigger.getCalendarName());
-    trigger.put(TRIGGER_CLASS, newTrigger.getClass().getName());
-    trigger.put(TRIGGER_DESCRIPTION, newTrigger.getDescription());
-    trigger.put(TRIGGER_END_TIME, newTrigger.getEndTime());
-    trigger.put(TRIGGER_FINAL_FIRE_TIME, newTrigger.getFinalFireTime());
-    trigger.put(TRIGGER_FIRE_INSTANCE_ID, newTrigger.getFireInstanceId());
-    trigger.put(TRIGGER_JOB_ID, jobId);
-    trigger.put(TRIGGER_KEY_NAME, newTrigger.getKey().getName());
-    trigger.put(TRIGGER_KEY_GROUP, newTrigger.getKey().getGroup());
-    trigger.put(TRIGGER_MISFIRE_INSTRUCTION, newTrigger.getMisfireInstruction());
-    trigger.put(TRIGGER_NEXT_FIRE_TIME, newTrigger.getNextFireTime());
-    trigger.put(TRIGGER_PREVIOUS_FIRE_TIME, newTrigger.getPreviousFireTime());
-    trigger.put(TRIGGER_PRIORITY, newTrigger.getPriority());
-    trigger.put(TRIGGER_START_TIME, newTrigger.getStartTime());
-
-    TriggerPersistenceHelper tpd = triggerPersistenceDelegateFor(newTrigger);
-    trigger = (BasicDBObject) tpd.injectExtraPropertiesForInsert(newTrigger, trigger);
-
-    try {
-      triggerCollection.insert(trigger);
-    } catch (DuplicateKey key) {
-      if (replaceExisting) {
-        trigger.remove("_id");
-        triggerCollection.update(keyAsDBObject(newTrigger.getKey()), trigger);
-      } else {
-        throw new ObjectAlreadyExistsException(newTrigger);
-      }
-    }
-  }
-
   public void storeJob(JobDetail newJob, boolean replaceExisting) throws ObjectAlreadyExistsException,
       JobPersistenceException {
     storeJobInMongo(newJob, replaceExisting);
-  }
-
-  protected ObjectId storeJobInMongo(JobDetail newJob, boolean replaceExisting) throws ObjectAlreadyExistsException {
-    JobKey key = newJob.getKey();
-
-    BasicDBObject job = keyAsDBObject(key);
-
-    if (replaceExisting) {
-      DBObject result = jobCollection.findOne(job);
-      if (result != null) {
-        result = job;
-      }
-    }
-
-    job.put(JOB_KEY_NAME, key.getName());
-    job.put(JOB_KEY_GROUP, key.getGroup());
-    job.put(JOB_DESCRIPTION, newJob.getDescription());
-    job.put(JOB_CLASS, newJob.getJobClass().getName());
-
-    job.putAll(newJob.getJobDataMap());
-
-    try {
-      jobCollection.insert(job);
-
-      return (ObjectId) job.get("_id");
-    } catch (DuplicateKey e) {
-      throw new ObjectAlreadyExistsException(e.getMessage());
-    }
-  }
-
-  protected BasicDBObject keyAsDBObject(Key key) {
-    BasicDBObject job = new BasicDBObject();
-    job.put(JOB_KEY_NAME, key.getName());
-    job.put(JOB_KEY_GROUP, key.getGroup());
-    return job;
   }
 
   public void storeJobsAndTriggers(Map<JobDetail, List<Trigger>> triggersAndJobs, boolean replace)
@@ -280,17 +193,8 @@ public class MongoDBJobStore implements JobStore {
     return false;
   }
 
-  private JobDetail retrieveJob(OperableTrigger trigger) throws JobPersistenceException {
-    try {
-      return retrieveJob(trigger.getJobKey());
-    } catch (JobPersistenceException e) {
-      removeTriggerLock(trigger);
-      throw e;
-    }
-  }
-
   public JobDetail retrieveJob(JobKey jobKey) throws JobPersistenceException {
-    DBObject dbObject = retrieveJobDBObject(jobKey);
+    DBObject dbObject = findJobByKey(jobKey);
 
     try {
       Class<Job> jobClass = (Class<Job>) getJobClassLoader().loadClass((String) dbObject.get(JOB_CLASS));
@@ -314,15 +218,6 @@ public class MongoDBJobStore implements JobStore {
     } catch (ClassNotFoundException e) {
       throw new JobPersistenceException("Could not load job class " + dbObject.get(JOB_CLASS), e);
     }
-  }
-
-  protected ClassLoader getJobClassLoader() {
-    return loadHelper.getClassLoader();
-  }
-
-  protected DBObject retrieveJobDBObject(JobKey jobKey) {
-    DBObject dbObject = jobCollection.findOne(keyAsDBObject(jobKey));
-    return dbObject;
   }
 
   public void storeTrigger(OperableTrigger newTrigger, boolean replaceExisting) throws ObjectAlreadyExistsException,
@@ -372,60 +267,6 @@ public class MongoDBJobStore implements JobStore {
     return toTrigger(triggerKey, dbObject);
   }
 
-  protected OperableTrigger toTrigger(TriggerKey triggerKey, DBObject dbObject) throws JobPersistenceException {
-    OperableTrigger trigger;
-    try {
-      Class<OperableTrigger> triggerClass = (Class<OperableTrigger>) getTriggerClassLoader().loadClass((String) dbObject.get(TRIGGER_CLASS));
-      trigger = triggerClass.newInstance();
-    } catch (ClassNotFoundException e) {
-      throw new JobPersistenceException("Could not find trigger class " + (String) dbObject.get(TRIGGER_CLASS));
-    } catch (Exception e) {
-      throw new JobPersistenceException("Could not instantiate trigger class " + (String) dbObject.get(TRIGGER_CLASS));
-    }
-
-    TriggerPersistenceHelper tpd = triggerPersistenceDelegateFor(trigger);
-
-    trigger.setKey(triggerKey);
-    trigger.setCalendarName((String) dbObject.get(TRIGGER_CALENDAR_NAME));
-    trigger.setDescription((String) dbObject.get(TRIGGER_DESCRIPTION));
-    trigger.setEndTime((Date) dbObject.get(TRIGGER_END_TIME));
-    trigger.setFireInstanceId((String) dbObject.get(TRIGGER_FIRE_INSTANCE_ID));
-    trigger.setMisfireInstruction((Integer) dbObject.get(TRIGGER_MISFIRE_INSTRUCTION));
-    trigger.setNextFireTime((Date) dbObject.get(TRIGGER_NEXT_FIRE_TIME));
-    trigger.setPreviousFireTime((Date) dbObject.get(TRIGGER_PREVIOUS_FIRE_TIME));
-    trigger.setPriority((Integer) dbObject.get(TRIGGER_PRIORITY));
-    trigger.setStartTime((Date) dbObject.get(TRIGGER_START_TIME));
-
-    trigger = tpd.setExtraPropertiesAfterInstantiation(trigger, dbObject);
-
-    DBObject job = jobCollection.findOne(new BasicDBObject("_id", dbObject.get(TRIGGER_JOB_ID)));
-    if (job != null) {
-      trigger.setJobKey(new JobKey((String) job.get(JOB_KEY_NAME), (String) job.get(JOB_KEY_GROUP)));
-      return trigger;
-    } else {
-      // job was deleted
-      return null;
-    }
-  }
-
-  protected ClassLoader getTriggerClassLoader() {
-    return org.quartz.Job.class.getClassLoader();
-  }
-
-  private TriggerPersistenceHelper triggerPersistenceDelegateFor(OperableTrigger trigger) {
-    TriggerPersistenceHelper result = null;
-
-    for (TriggerPersistenceHelper d : persistenceHelpers) {
-      if (d.canHandleTriggerType(trigger)) {
-        result = d;
-        break;
-      }
-    }
-
-    assert result != null;
-    return result;
-  }
-
   public boolean checkExists(JobKey jobKey) throws JobPersistenceException {
     return jobCollection.find(keyAsDBObject(jobKey)).count() > 0;
   }
@@ -454,18 +295,6 @@ public class MongoDBJobStore implements JobStore {
     dbObject.put(CALENDAR_SERIALIZED_OBJECT, serialize(calendar));
 
     calendarCollection.insert(dbObject);
-  }
-
-  private Object serialize(Calendar calendar) throws JobPersistenceException {
-    ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
-    try {
-      ObjectOutputStream objectStream = new ObjectOutputStream(byteStream);
-      objectStream.writeObject(calendar);
-      objectStream.close();
-      return byteStream.toByteArray();
-    } catch (IOException e) {
-      throw new JobPersistenceException("Could not serialize Calendar.", e);
-    }
   }
 
   public boolean removeCalendar(String calName) throws JobPersistenceException {
@@ -532,7 +361,7 @@ public class MongoDBJobStore implements JobStore {
   }
 
   public List<OperableTrigger> getTriggersForJob(JobKey jobKey) throws JobPersistenceException {
-    DBObject dbObject = retrieveJobDBObject(jobKey);
+    DBObject dbObject = findJobByKey(jobKey);
 
     List<OperableTrigger> triggers = new ArrayList<OperableTrigger>();
     DBCursor cursor = triggerCollection.find(new BasicDBObject(TRIGGER_JOB_ID, dbObject.get("_id")));
@@ -544,6 +373,7 @@ public class MongoDBJobStore implements JobStore {
   }
 
   public TriggerState getTriggerState(TriggerKey triggerKey) throws JobPersistenceException {
+    // TODO
     throw new UnsupportedOperationException();
   }
 
@@ -573,28 +403,33 @@ public class MongoDBJobStore implements JobStore {
   }
 
   public Collection<String> resumeTriggers(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
+    // TODO
     throw new UnsupportedOperationException();
   }
 
   public Set<String> getPausedTriggerGroups() throws JobPersistenceException {
+    // TODO
     throw new UnsupportedOperationException();
   }
 
   public void resumeJob(JobKey jobKey) throws JobPersistenceException {
+    // No-TODO
     throw new UnsupportedOperationException();
   }
 
   public Collection<String> resumeJobs(GroupMatcher<JobKey> matcher) throws JobPersistenceException {
+    // TODO
     throw new UnsupportedOperationException();
   }
 
   public void pauseAll() throws JobPersistenceException {
-    // TOOD
+    // TODO
     // triggerCollection.update(condition, update, false, true, WriteConcern.JOURNAL_SAFE);
   }
 
   public void resumeAll() throws JobPersistenceException {
-//        throw new UnsupportedOperationException();
+    // TODO
+    // throw new UnsupportedOperationException();
   }
 
   public List<OperableTrigger> acquireNextTriggers(long noLaterThan, int maxCount, long timeWindow)
@@ -680,48 +515,6 @@ public class MongoDBJobStore implements JobStore {
     return triggers;
   }
 
-  protected boolean isTriggerLockExpired(DBObject lock) {
-    Date lockTime = (Date) lock.get(LOCK_TIME);
-    long elaspedTime = System.currentTimeMillis() - lockTime.getTime();
-    return (elaspedTime > triggerTimeoutMillis);
-  }
-
-  protected boolean applyMisfire(OperableTrigger trigger) throws JobPersistenceException {
-    long misfireTime = System.currentTimeMillis();
-    if (getMisfireThreshold() > 0) {
-      misfireTime -= getMisfireThreshold();
-    }
-
-    Date tnft = trigger.getNextFireTime();
-    if (tnft == null || tnft.getTime() > misfireTime
-        || trigger.getMisfireInstruction() == Trigger.MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY) {
-      return false;
-    }
-
-    Calendar cal = null;
-    if (trigger.getCalendarName() != null) {
-      cal = retrieveCalendar(trigger.getCalendarName());
-    }
-
-    signaler.notifyTriggerListenersMisfired((OperableTrigger) trigger.clone());
-
-    trigger.updateAfterMisfire(cal);
-
-    if (trigger.getNextFireTime() == null) {
-      signaler.notifySchedulerListenersFinalized(trigger);
-    } else if (tnft.equals(trigger.getNextFireTime())) {
-      return false;
-    }
-
-    storeTrigger(trigger, true);
-    return true;
-  }
-
-  protected OperableTrigger toTrigger(DBObject dbObj) throws JobPersistenceException {
-    TriggerKey key = new TriggerKey((String) dbObj.get(TRIGGER_KEY_NAME), (String) dbObj.get(TRIGGER_KEY_GROUP));
-    return toTrigger(key, dbObj);
-  }
-
   public void releaseAcquiredTrigger(OperableTrigger trigger) throws JobPersistenceException {
     try {
       removeTriggerLock(trigger);
@@ -801,26 +594,16 @@ public class MongoDBJobStore implements JobStore {
     removeTriggerLock(trigger);
   }
 
-  protected void removeTriggerLock(OperableTrigger trigger) {
-    log.debug("Removing trigger lock " + trigger.getKey() + "." + instanceId);
-    BasicDBObject lock = new BasicDBObject();
-    lock.put(LOCK_KEY_NAME, trigger.getKey().getName());
-    lock.put(LOCK_KEY_GROUP, trigger.getKey().getGroup());
-    lock.put(LOCK_INSTANCE_ID, instanceId);
-
-    locksCollection.remove(lock);
-    log.debug("Trigger lock " + trigger.getKey() + "." + instanceId + " removed.");
-  }
-
   public void setInstanceId(String instanceId) {
     this.instanceId = instanceId;
   }
 
   public void setInstanceName(String schedName) {
+    // No-op
   }
 
   public void setThreadPoolSize(int poolSize) {
-
+    // No-op
   }
 
   public void setAddresses(String addresses) {
@@ -833,6 +616,14 @@ public class MongoDBJobStore implements JobStore {
 
   public DBCollection getTriggerCollection() {
     return triggerCollection;
+  }
+
+  public DBCollection getCalendarCollection() {
+    return calendarCollection;
+  }
+
+  public DBCollection getLocksCollection() {
+    return locksCollection;
   }
 
   public String getDbName() {
@@ -865,5 +656,238 @@ public class MongoDBJobStore implements JobStore {
 
   public void setTriggerTimeoutMillis(long triggerTimeoutMillis) {
     this.triggerTimeoutMillis = triggerTimeoutMillis;
+  }
+
+
+  //
+  // Implementation
+  //
+
+  protected OperableTrigger toTrigger(DBObject dbObj) throws JobPersistenceException {
+    TriggerKey key = new TriggerKey((String) dbObj.get(TRIGGER_KEY_NAME), (String) dbObj.get(TRIGGER_KEY_GROUP));
+    return toTrigger(key, dbObj);
+  }
+
+  protected OperableTrigger toTrigger(TriggerKey triggerKey, DBObject dbObject) throws JobPersistenceException {
+    OperableTrigger trigger;
+    try {
+      Class<OperableTrigger> triggerClass = (Class<OperableTrigger>) getTriggerClassLoader().loadClass((String) dbObject.get(TRIGGER_CLASS));
+      trigger = triggerClass.newInstance();
+    } catch (ClassNotFoundException e) {
+      throw new JobPersistenceException("Could not find trigger class " + (String) dbObject.get(TRIGGER_CLASS));
+    } catch (Exception e) {
+      throw new JobPersistenceException("Could not instantiate trigger class " + (String) dbObject.get(TRIGGER_CLASS));
+    }
+
+    TriggerPersistenceHelper tpd = triggerPersistenceDelegateFor(trigger);
+
+    trigger.setKey(triggerKey);
+    trigger.setCalendarName((String) dbObject.get(TRIGGER_CALENDAR_NAME));
+    trigger.setDescription((String) dbObject.get(TRIGGER_DESCRIPTION));
+    trigger.setEndTime((Date) dbObject.get(TRIGGER_END_TIME));
+    trigger.setFireInstanceId((String) dbObject.get(TRIGGER_FIRE_INSTANCE_ID));
+    trigger.setMisfireInstruction((Integer) dbObject.get(TRIGGER_MISFIRE_INSTRUCTION));
+    trigger.setNextFireTime((Date) dbObject.get(TRIGGER_NEXT_FIRE_TIME));
+    trigger.setPreviousFireTime((Date) dbObject.get(TRIGGER_PREVIOUS_FIRE_TIME));
+    trigger.setPriority((Integer) dbObject.get(TRIGGER_PRIORITY));
+    trigger.setStartTime((Date) dbObject.get(TRIGGER_START_TIME));
+
+    trigger = tpd.setExtraPropertiesAfterInstantiation(trigger, dbObject);
+
+    DBObject job = jobCollection.findOne(new BasicDBObject("_id", dbObject.get(TRIGGER_JOB_ID)));
+    if (job != null) {
+      trigger.setJobKey(new JobKey((String) job.get(JOB_KEY_NAME), (String) job.get(JOB_KEY_GROUP)));
+      return trigger;
+    } else {
+      // job was deleted
+      return null;
+    }
+  }
+
+  protected ClassLoader getTriggerClassLoader() {
+    return org.quartz.Job.class.getClassLoader();
+  }
+
+  private TriggerPersistenceHelper triggerPersistenceDelegateFor(OperableTrigger trigger) {
+    TriggerPersistenceHelper result = null;
+
+    for (TriggerPersistenceHelper d : persistenceHelpers) {
+      if (d.canHandleTriggerType(trigger)) {
+        result = d;
+        break;
+      }
+    }
+
+    assert result != null;
+    return result;
+  }
+
+  protected boolean isTriggerLockExpired(DBObject lock) {
+    Date lockTime = (Date) lock.get(LOCK_TIME);
+    long elaspedTime = System.currentTimeMillis() - lockTime.getTime();
+    return (elaspedTime > triggerTimeoutMillis);
+  }
+
+  protected boolean applyMisfire(OperableTrigger trigger) throws JobPersistenceException {
+    long misfireTime = System.currentTimeMillis();
+    if (getMisfireThreshold() > 0) {
+      misfireTime -= getMisfireThreshold();
+    }
+
+    Date tnft = trigger.getNextFireTime();
+    if (tnft == null || tnft.getTime() > misfireTime
+        || trigger.getMisfireInstruction() == Trigger.MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY) {
+      return false;
+    }
+
+    Calendar cal = null;
+    if (trigger.getCalendarName() != null) {
+      cal = retrieveCalendar(trigger.getCalendarName());
+    }
+
+    signaler.notifyTriggerListenersMisfired((OperableTrigger) trigger.clone());
+
+    trigger.updateAfterMisfire(cal);
+
+    if (trigger.getNextFireTime() == null) {
+      signaler.notifySchedulerListenersFinalized(trigger);
+    } else if (tnft.equals(trigger.getNextFireTime())) {
+      return false;
+    }
+
+    storeTrigger(trigger, true);
+    return true;
+  }
+
+
+  private Object serialize(Calendar calendar) throws JobPersistenceException {
+    ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
+    try {
+      ObjectOutputStream objectStream = new ObjectOutputStream(byteStream);
+      objectStream.writeObject(calendar);
+      objectStream.close();
+      return byteStream.toByteArray();
+    } catch (IOException e) {
+      throw new JobPersistenceException("Could not serialize Calendar.", e);
+    }
+  }
+
+  private void ensureIndexes() {
+    BasicDBObject keys = new BasicDBObject();
+    keys.put(JOB_KEY_NAME, 1);
+    keys.put(JOB_KEY_GROUP, 1);
+    jobCollection.ensureIndex(keys, null, true);
+
+    keys = new BasicDBObject();
+    keys.put(TRIGGER_KEY_NAME, 1);
+    keys.put(TRIGGER_KEY_GROUP, 1);
+    triggerCollection.ensureIndex(keys, null, true);
+
+    keys = new BasicDBObject();
+    keys.put(LOCK_KEY_NAME, 1);
+    keys.put(LOCK_KEY_GROUP, 1);
+    locksCollection.ensureIndex(keys, null, true);
+    // remove all locks for this instance on startup
+    locksCollection.remove(new BasicDBObject(LOCK_INSTANCE_ID, instanceId));
+
+    keys = new BasicDBObject();
+    keys.put(CALENDAR_NAME, 1);
+    calendarCollection.ensureIndex(keys, null, true);
+  }
+
+  protected void storeTrigger(OperableTrigger newTrigger, ObjectId jobId, boolean replaceExisting) throws ObjectAlreadyExistsException {
+    BasicDBObject trigger = new BasicDBObject();
+    trigger.put(TRIGGER_STATE, WAITING_TRIGGER_STATE);
+    trigger.put(TRIGGER_CALENDAR_NAME, newTrigger.getCalendarName());
+    trigger.put(TRIGGER_CLASS, newTrigger.getClass().getName());
+    trigger.put(TRIGGER_DESCRIPTION, newTrigger.getDescription());
+    trigger.put(TRIGGER_END_TIME, newTrigger.getEndTime());
+    trigger.put(TRIGGER_FINAL_FIRE_TIME, newTrigger.getFinalFireTime());
+    trigger.put(TRIGGER_FIRE_INSTANCE_ID, newTrigger.getFireInstanceId());
+    trigger.put(TRIGGER_JOB_ID, jobId);
+    trigger.put(TRIGGER_KEY_NAME, newTrigger.getKey().getName());
+    trigger.put(TRIGGER_KEY_GROUP, newTrigger.getKey().getGroup());
+    trigger.put(TRIGGER_MISFIRE_INSTRUCTION, newTrigger.getMisfireInstruction());
+    trigger.put(TRIGGER_NEXT_FIRE_TIME, newTrigger.getNextFireTime());
+    trigger.put(TRIGGER_PREVIOUS_FIRE_TIME, newTrigger.getPreviousFireTime());
+    trigger.put(TRIGGER_PRIORITY, newTrigger.getPriority());
+    trigger.put(TRIGGER_START_TIME, newTrigger.getStartTime());
+
+    TriggerPersistenceHelper tpd = triggerPersistenceDelegateFor(newTrigger);
+    trigger = (BasicDBObject) tpd.injectExtraPropertiesForInsert(newTrigger, trigger);
+
+    try {
+      triggerCollection.insert(trigger);
+    } catch (DuplicateKey key) {
+      if (replaceExisting) {
+        trigger.remove("_id");
+        triggerCollection.update(keyAsDBObject(newTrigger.getKey()), trigger);
+      } else {
+        throw new ObjectAlreadyExistsException(newTrigger);
+      }
+    }
+  }
+
+  protected ObjectId storeJobInMongo(JobDetail newJob, boolean replaceExisting) throws ObjectAlreadyExistsException {
+    JobKey key = newJob.getKey();
+
+    BasicDBObject job = keyAsDBObject(key);
+
+    if (replaceExisting) {
+      DBObject result = jobCollection.findOne(job);
+      if (result != null) {
+        result = job;
+      }
+    }
+
+    job.put(JOB_KEY_NAME, key.getName());
+    job.put(JOB_KEY_GROUP, key.getGroup());
+    job.put(JOB_DESCRIPTION, newJob.getDescription());
+    job.put(JOB_CLASS, newJob.getJobClass().getName());
+
+    job.putAll(newJob.getJobDataMap());
+
+    try {
+      jobCollection.insert(job);
+
+      return (ObjectId) job.get("_id");
+    } catch (DuplicateKey e) {
+      throw new ObjectAlreadyExistsException(e.getMessage());
+    }
+  }
+
+  protected BasicDBObject keyAsDBObject(Key key) {
+    BasicDBObject job = new BasicDBObject();
+    job.put(JOB_KEY_NAME, key.getName());
+    job.put(JOB_KEY_GROUP, key.getGroup());
+    return job;
+  }
+
+  protected void removeTriggerLock(OperableTrigger trigger) {
+    log.debug("Removing trigger lock " + trigger.getKey() + "." + instanceId);
+    BasicDBObject lock = new BasicDBObject();
+    lock.put(LOCK_KEY_NAME, trigger.getKey().getName());
+    lock.put(LOCK_KEY_GROUP, trigger.getKey().getGroup());
+    lock.put(LOCK_INSTANCE_ID, instanceId);
+
+    locksCollection.remove(lock);
+    log.debug("Trigger lock " + trigger.getKey() + "." + instanceId + " removed.");
+  }
+
+  protected ClassLoader getJobClassLoader() {
+    return loadHelper.getClassLoader();
+  }
+
+  private JobDetail retrieveJob(OperableTrigger trigger) throws JobPersistenceException {
+    try {
+      return retrieveJob(trigger.getJobKey());
+    } catch (JobPersistenceException e) {
+      removeTriggerLock(trigger);
+      throw e;
+    }
+  }
+
+  protected DBObject findJobByKey(JobKey jobKey) {
+    return jobCollection.findOne(keyAsDBObject(jobKey));
   }
 }
