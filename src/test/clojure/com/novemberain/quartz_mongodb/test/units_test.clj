@@ -48,12 +48,12 @@
 (deftest test-storing-jobs
   (let [store (make-store)
         job (qj/build
-      (qj/of-type NoOpJob)
-      (qj/with-identity "test-storing-jobs" "tests"))
+             (qj/of-type NoOpJob)
+             (qj/with-identity "test-storing-jobs" "tests"))
         key (qj/key "test-storing-jobs" "tests")]
     (are [coll] (is (= 0 (mgc/count coll)))
-      jobs-collection
-      triggers-collection)
+         jobs-collection
+         triggers-collection)
     (.storeJob store job false)
     (is (= 1 (mgc/count jobs-collection) (.getNumberOfJobs store)))
     (let [keys (.getJobKeys store (qm/group-equals "tests"))
@@ -76,27 +76,27 @@
   (let [store (make-store)
         desc "just a trigger"
         job (qj/build
-      (qj/of-type NoOpJob)
-      (qj/with-identity "test-storing-triggers1" "tests"))
+             (qj/of-type NoOpJob)
+             (qj/with-identity "test-storing-triggers1" "tests"))
         tr (qt/build
-      (qt/start-now)
-      (qt/with-identity "test-storing-triggers1" "tests")
-      (qt/with-description desc)
-      (qt/for-job job)
-      (qt/with-schedule (s/schedule
-                          (s/with-repeat-count 10)
-                          (s/with-interval-in-milliseconds 400))))
+            (qt/start-now)
+            (qt/with-identity "test-storing-triggers1" "tests")
+            (qt/with-description desc)
+            (qt/for-job job)
+            (qt/with-schedule (s/schedule
+                               (s/with-repeat-count 10)
+                               (s/with-interval-in-milliseconds 400))))
         key (qt/key "test-storing-triggers1" "tests")]
     (are [coll] (is (= 0 (mgc/count coll)))
-      jobs-collection
-      triggers-collection)
+         jobs-collection
+         triggers-collection)
     (doto store
       (.storeJob job false)
       (.storeTrigger tr false))
     (is (= 1
-          (mgc/count jobs-collection)
-          (mgc/count triggers-collection)
-          (.getNumberOfTriggers store)))
+           (mgc/count jobs-collection)
+           (mgc/count triggers-collection)
+           (.getNumberOfTriggers store)))
     (let [m (mgc/find-one-as-map triggers-collection {"keyName" "test-storing-triggers1"
                                                       "keyGroup" "tests"})]
       (is m)
@@ -127,27 +127,27 @@
   (let [store (make-store)
         desc "just a trigger that uses a cron expression schedule"
         job (qj/build
-      (qj/of-type NoOpJob)
-      (qj/with-identity "test-storing-triggers2" "tests"))
+             (qj/of-type NoOpJob)
+             (qj/with-identity "test-storing-triggers2" "tests"))
         c-exp "0 0 15 L-1 * ?"
         tr (qt/build
-      (qt/start-now)
-      (qt/with-identity "test-storing-triggers2" "tests")
-      (qt/with-description desc)
-      (qt/end-at (-> 2 months from-now))
-      (qt/for-job job)
-      (qt/with-schedule (sc/schedule
-                          (sc/cron-schedule c-exp))))]
+            (qt/start-now)
+            (qt/with-identity "test-storing-triggers2" "tests")
+            (qt/with-description desc)
+            (qt/end-at (-> 2 months from-now))
+            (qt/for-job job)
+            (qt/with-schedule (sc/schedule
+                               (sc/cron-schedule c-exp))))]
     (are [coll] (is (= 0 (mgc/count coll)))
-      jobs-collection
-      triggers-collection)
+         jobs-collection
+         triggers-collection)
     (doto store
       (.storeJob job false)
       (.storeTrigger tr false))
     (is (= 1
-          (mgc/count jobs-collection)
-          (mgc/count triggers-collection)
-          (.getNumberOfTriggers store)))
+           (mgc/count jobs-collection)
+           (mgc/count triggers-collection)
+           (.getNumberOfTriggers store)))
     (let [m (mgc/find-one-as-map triggers-collection {"keyName" "test-storing-triggers2"
                                                       "keyGroup" "tests"})]
       (is m)
@@ -163,29 +163,29 @@
   (let [store (make-store)
         desc "just a trigger that uses a daily interval schedule"
         job (qj/build
-      (qj/of-type NoOpJob)
-      (qj/with-identity "test-storing-triggers3" "tests"))
+             (qj/of-type NoOpJob)
+             (qj/with-identity "test-storing-triggers3" "tests"))
         tr (qt/build
-      (qt/start-now)
-      (qt/with-identity "test-storing-triggers3" "tests")
-      (qt/with-description desc)
-      (qt/end-at (-> 2 months from-now))
-      (qt/for-job job)
-      (qt/with-schedule (sd/schedule
-                          (sd/every-day)
-                          (sd/starting-daily-at (sd/time-of-day 9 00 00))
-                          (sd/ending-daily-at (sd/time-of-day 18 00 00))
-                          (sd/with-interval-in-hours 2))))]
+            (qt/start-now)
+            (qt/with-identity "test-storing-triggers3" "tests")
+            (qt/with-description desc)
+            (qt/end-at (-> 2 months from-now))
+            (qt/for-job job)
+            (qt/with-schedule (sd/schedule
+                               (sd/every-day)
+                               (sd/starting-daily-at (sd/time-of-day 9 00 00))
+                               (sd/ending-daily-at (sd/time-of-day 18 00 00))
+                               (sd/with-interval-in-hours 2))))]
     (are [coll] (is (= 0 (mgc/count coll)))
-      jobs-collection
-      triggers-collection)
+         jobs-collection
+         triggers-collection)
     (doto store
       (.storeJob job false)
       (.storeTrigger tr false))
     (is (= 1
-          (mgc/count jobs-collection)
-          (mgc/count triggers-collection)
-          (.getNumberOfTriggers store)))
+           (mgc/count jobs-collection)
+           (mgc/count triggers-collection)
+           (.getNumberOfTriggers store)))
     (let [m (mgc/find-one-as-map triggers-collection {"keyName" "test-storing-triggers3"
                                                       "keyGroup" "tests"})]
       (is m)
@@ -208,19 +208,19 @@
   (let [store (make-store)
         desc "just a trigger that uses a daily interval schedule"
         job (qj/build
-      (qj/of-type NoOpJob)
-      (qj/with-identity "test-storing-triggers4" "tests"))
+             (qj/of-type NoOpJob)
+             (qj/with-identity "test-storing-triggers4" "tests"))
         tr (qt/build
-      (qt/start-now)
-      (qt/with-identity "test-storing-triggers4" "tests")
-      (qt/with-description desc)
-      (qt/end-at (-> 2 months from-now))
-      (qt/for-job job)
-      (qt/with-schedule (scl/schedule
-                          (scl/with-interval-in-hours 4))))]
+            (qt/start-now)
+            (qt/with-identity "test-storing-triggers4" "tests")
+            (qt/with-description desc)
+            (qt/end-at (-> 2 months from-now))
+            (qt/for-job job)
+            (qt/with-schedule (scl/schedule
+                               (scl/with-interval-in-hours 4))))]
     (are [coll] (is (= 0 (mgc/count coll)))
-      jobs-collection
-      triggers-collection)
+         jobs-collection
+         triggers-collection)
     (doto store
       (.storeJob job false)
       (.storeTrigger tr false))
