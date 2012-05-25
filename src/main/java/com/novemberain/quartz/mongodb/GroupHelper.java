@@ -22,7 +22,18 @@ public class GroupHelper {
 
 
   public Set<String> groupsThatMatch(GroupMatcher matcher) {
-    DBCursor cursor = collection.find(queryHelper.matchingKeysConditionFor(matcher), FIELDS);
+    // TODO: switch to the distinct command
+    return keyGroupNamesFrom(collection.find(queryHelper.matchingKeysConditionFor(matcher), FIELDS));
+  }
+
+  public Set<String> allGroups() {
+    // TODO: switch to the distinct command
+    return keyGroupNamesFrom(collection.find());
+  }
+
+
+
+  protected Set<String> keyGroupNamesFrom(DBCursor cursor) {
     HashSet<String> hs = new HashSet<String>();
 
     for(DBObject dbo : cursor) {

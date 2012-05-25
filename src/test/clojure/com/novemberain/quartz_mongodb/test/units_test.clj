@@ -307,11 +307,13 @@
       (is m)
       (is (= "waiting" (:state m)))
       (is (= "NORMAL" (str (.getTriggerState store tk2)))))
+    (is (= #{"main-tests"} (.getPausedTriggerGroups store)))
     (.resumeTriggers store (qm/group-ends-with "tests"))
     (let [m (mgc/find-one-as-map triggers-collection {"keyName" "test-pause-triggers1"
                                                       "keyGroup" "main-tests"})]
       (is (= "waiting" (:state m)))
-      (is (= "NORMAL" (str (.getTriggerState store tk1)))))))
+      (is (= "NORMAL" (str (.getTriggerState store tk1)))))
+    (is (empty? (.getPausedTriggerGroups store)))))
 
 
 (deftest test-pause-all-triggers
@@ -353,7 +355,9 @@
       (is m)
       (is (= "waiting" (:state m)))
       (is (= "NORMAL" (str (.getTriggerState store tk2)))))
+    (is (= #{"main-tests" "alt-tests"} (.getPausedTriggerGroups store)))
     (.resumeAll store)
+    (is (empty? (.getPausedTriggerGroups store)))
     (let [m (mgc/find-one-as-map triggers-collection {"keyName" "test-pause-all-triggers1"
                                                       "keyGroup" "main-tests"})]
       (is (= "waiting" (:state m)))

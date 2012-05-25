@@ -77,6 +77,7 @@ public class MongoDBJobStore implements JobStore {
   private DBCollection calendarCollection;
   private ClassLoadHelper loadHelper;
   private DBCollection locksCollection;
+  private DBCollection pausedGroupsCollection;
   private String instanceId;
   private String[] addresses;
   private String username;
@@ -365,14 +366,55 @@ public class MongoDBJobStore implements JobStore {
 
   public void pauseTrigger(TriggerKey triggerKey) throws JobPersistenceException {
     triggerCollection.update(keyToDBObject(triggerKey), updateThatSetsTriggerStateTo(STATE_PAUSED));
+    this.markGroupAsPaused(triggerKey.getGroup());
   }
 
   public Collection<String> pauseTriggers(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
-    GroupHelper groupHelper = new GroupHelper(triggerCollection, queryHelper);
+    final GroupHelper groupHelper = new GroupHelper(triggerCollection, queryHelper);
     triggerCollection.update(queryHelper.matchingKeysConditionFor(matcher), updateThatSetsTriggerStateTo(STATE_PAUSED), false, true);
 
-    return groupHelper.groupsThatMatch(matcher);
+    final Set<String> set = groupHelper.groupsThatMatch(matcher);
+    markGroupsAsPaused(set);
+
+    return set;
   }
+
+  public void resumeTrigger(TriggerKey triggerKey) throws JobPersistenceException {
+    // TODO: port blocking behavior and misfired triggers handling from StdJDBCDelegate in Quartz
+    triggerCollection.update(keyToDBObject(triggerKey), updateThatSetsTriggerStateTo(STATE_WAITING));
+    this.unmarkGroupAsPaused(triggerKey.getGroup());
+  }
+
+  public Collection<String> resumeTriggers(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
+    final GroupHelper groupHelper = new GroupHelper(triggerCollection, queryHelper);
+    triggerCollection.update(queryHelper.matchingKeysConditionFor(matcher), updateThatSetsTriggerStateTo(STATE_WAITING), false, true);
+
+    final Set<String> set = groupHelper.groupsThatMatch(matcher);
+    this.unmarkGroupsAsPaused(set);
+    return set;
+  }
+
+  public Set<String> getPausedTriggerGroups() throws JobPersistenceException {
+    Set<String> set = new HashSet<String>();
+    for(DBObject dbo : pausedGroupsCollection.find()){
+      set.add((String) dbo.get(TRIGGER_KEY_GROUP));
+    }
+    return set;
+  }
+
+  public void pauseAll() throws JobPersistenceException {
+    final GroupHelper groupHelper = new GroupHelper(triggerCollection, queryHelper);
+    triggerCollection.update(new BasicDBObject(), updateThatSetsTriggerStateTo(STATE_PAUSED));
+    this.markGroupsAsPaused(groupHelper.allGroups());
+  }
+
+  public void resumeAll() throws JobPersistenceException {
+    final GroupHelper groupHelper = new GroupHelper(triggerCollection, queryHelper);
+    triggerCollection.update(new BasicDBObject(), updateThatSetsTriggerStateTo(STATE_WAITING));
+    this.unmarkGroupsAsPaused(groupHelper.allGroups());
+  }
+
+
 
   public void pauseJob(JobKey jobKey) throws JobPersistenceException {
     // TODO
@@ -380,23 +422,6 @@ public class MongoDBJobStore implements JobStore {
   }
 
   public Collection<String> pauseJobs(GroupMatcher<JobKey> groupMatcher) throws JobPersistenceException {
-    // TODO
-    throw new UnsupportedOperationException();
-  }
-
-  public void resumeTrigger(TriggerKey triggerKey) throws JobPersistenceException {
-    // TODO: port blocking behavior and misfired triggers handling from StdJDBCDelegate in Quartz
-    triggerCollection.update(keyToDBObject(triggerKey), updateThatSetsTriggerStateTo(STATE_WAITING));
-  }
-
-  public Collection<String> resumeTriggers(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
-    GroupHelper groupHelper = new GroupHelper(triggerCollection, queryHelper);
-    triggerCollection.update(queryHelper.matchingKeysConditionFor(matcher), updateThatSetsTriggerStateTo(STATE_WAITING), false, true);
-
-    return groupHelper.groupsThatMatch(matcher);
-  }
-
-  public Set<String> getPausedTriggerGroups() throws JobPersistenceException {
     // TODO
     throw new UnsupportedOperationException();
   }
@@ -411,13 +436,9 @@ public class MongoDBJobStore implements JobStore {
     throw new UnsupportedOperationException();
   }
 
-  public void pauseAll() throws JobPersistenceException {
-    triggerCollection.update(new BasicDBObject(), updateThatSetsTriggerStateTo(STATE_PAUSED));
-  }
 
-  public void resumeAll() throws JobPersistenceException {
-    triggerCollection.update(new BasicDBObject(), updateThatSetsTriggerStateTo(STATE_WAITING));
-  }
+
+
 
   public List<OperableTrigger> acquireNextTriggers(long noLaterThan, int maxCount, long timeWindow)
       throws JobPersistenceException {
@@ -655,6 +676,8 @@ public class MongoDBJobStore implements JobStore {
     triggerCollection = db.getCollection(collectionPrefix + "triggers");
     calendarCollection = db.getCollection(collectionPrefix + "calendars");
     locksCollection = db.getCollection(collectionPrefix + "locks");
+
+    pausedGroupsCollection = db.getCollection(collectionPrefix + "paused_groups");
   }
 
   private DB selectDatabase(Mongo mongo) {
@@ -963,6 +986,25 @@ public class MongoDBJobStore implements JobStore {
     return BasicDBObjectBuilder.
         start("$set", new BasicDBObject(TRIGGER_STATE, state)).
         get();
+  }
+
+  private void markGroupAsPaused(String group) {
+    pausedGroupsCollection.insert(new BasicDBObject(TRIGGER_KEY_GROUP, group));
+  }
+  private void markGroupsAsPaused(Collection<String> groups) {
+    List<DBObject> list = new ArrayList<DBObject>();
+    for(String s : groups) {
+      list.add(new BasicDBObject(TRIGGER_KEY_GROUP, s));
+    }
+    pausedGroupsCollection.insert(list);
+  }
+
+  private void unmarkGroupAsPaused(String group) {
+    pausedGroupsCollection.remove(new BasicDBObject(TRIGGER_KEY_GROUP, group));
+  }
+  private void unmarkGroupsAsPaused(Collection<String> groups) {
+    DBObject condition = QueryBuilder.start(TRIGGER_KEY_GROUP).in(groups).get();
+    pausedGroupsCollection.remove(condition);
   }
 
 }

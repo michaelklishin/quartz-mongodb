@@ -18,6 +18,7 @@
               (mgcol/remove "quartz_jobs")
               (mgcol/remove "quartz_locks")
               (mgcol/remove "quartz_calendars")
+              (mgcol/remove "quartz_paused_groups")              
               (quartz/clear!))]
     (rfn)
     (f)
