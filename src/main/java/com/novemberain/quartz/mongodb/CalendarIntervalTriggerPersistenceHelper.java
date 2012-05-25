@@ -1,10 +1,10 @@
-package com.mulesoft.quartz.mongo;
+package com.novemberain.quartz.mongodb;
 
 import com.mongodb.BasicDBObjectBuilder;
 import com.mongodb.DBObject;
+import org.quartz.DateBuilder.IntervalUnit;
 import org.quartz.impl.triggers.CalendarIntervalTriggerImpl;
 import org.quartz.spi.OperableTrigger;
-import org.quartz.DateBuilder.IntervalUnit;
 
 public class CalendarIntervalTriggerPersistenceHelper implements TriggerPersistenceHelper {
   private static final String TRIGGER_REPEAT_INTERVAL_UNIT = "repeatIntervalUnit";
@@ -13,12 +13,12 @@ public class CalendarIntervalTriggerPersistenceHelper implements TriggerPersiste
 
   @Override
   public boolean canHandleTriggerType(OperableTrigger trigger) {
-    return ((trigger instanceof CalendarIntervalTriggerImpl) && !((CalendarIntervalTriggerImpl)trigger).hasAdditionalProperties());
+    return ((trigger instanceof CalendarIntervalTriggerImpl) && !((CalendarIntervalTriggerImpl) trigger).hasAdditionalProperties());
   }
 
   @Override
   public DBObject injectExtraPropertiesForInsert(OperableTrigger trigger, DBObject original) {
-    CalendarIntervalTriggerImpl t = (CalendarIntervalTriggerImpl)trigger;
+    CalendarIntervalTriggerImpl t = (CalendarIntervalTriggerImpl) trigger;
 
     return BasicDBObjectBuilder.start(original.toMap()).
         append(TRIGGER_REPEAT_INTERVAL_UNIT, t.getRepeatIntervalUnit().name()).
@@ -29,19 +29,19 @@ public class CalendarIntervalTriggerPersistenceHelper implements TriggerPersiste
 
   @Override
   public OperableTrigger setExtraPropertiesAfterInstantiation(OperableTrigger trigger, DBObject stored) {
-    CalendarIntervalTriggerImpl t = (CalendarIntervalTriggerImpl)trigger;
+    CalendarIntervalTriggerImpl t = (CalendarIntervalTriggerImpl) trigger;
 
-    String repeatIntervalUnit = (String)stored.get(TRIGGER_REPEAT_INTERVAL_UNIT);
+    String repeatIntervalUnit = (String) stored.get(TRIGGER_REPEAT_INTERVAL_UNIT);
     if (repeatIntervalUnit != null) {
       t.setRepeatIntervalUnit(IntervalUnit.valueOf(repeatIntervalUnit));
     }
     Object repeatInterval = stored.get(TRIGGER_REPEAT_INTERVAL);
     if (repeatInterval != null) {
-      t.setRepeatInterval((Integer)repeatInterval);
+      t.setRepeatInterval((Integer) repeatInterval);
     }
     Object timesTriggered = stored.get(TRIGGER_TIMES_TRIGGERED);
     if (timesTriggered != null) {
-      t.setTimesTriggered((Integer)timesTriggered);
+      t.setTimesTriggered((Integer) timesTriggered);
     }
 
     return t;

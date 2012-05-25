@@ -1,4 +1,4 @@
-package com.mulesoft.quartz.mongo;
+package com.novemberain.quartz.mongodb;
 
 import com.mongodb.BasicDBObjectBuilder;
 import com.mongodb.DBObject;
@@ -12,16 +12,16 @@ public class DailyTimeIntervalTriggerPersistenceHelper implements TriggerPersist
   private static final String TRIGGER_REPEAT_INTERVAL = "repeatInterval";
   private static final String TRIGGER_TIMES_TRIGGERED = "timesTriggered";
   private static final String TRIGGER_START_TIME_OF_DAY = "startTimeOfDay";
-  private static final String TRIGGER_END_TIME_OF_DAY = "endTimeOfDay";  
+  private static final String TRIGGER_END_TIME_OF_DAY = "endTimeOfDay";
 
   @Override
   public boolean canHandleTriggerType(OperableTrigger trigger) {
-    return ((trigger instanceof DailyTimeIntervalTrigger) && !((DailyTimeIntervalTriggerImpl)trigger).hasAdditionalProperties());
+    return ((trigger instanceof DailyTimeIntervalTrigger) && !((DailyTimeIntervalTriggerImpl) trigger).hasAdditionalProperties());
   }
 
   @Override
   public DBObject injectExtraPropertiesForInsert(OperableTrigger trigger, DBObject original) {
-    DailyTimeIntervalTriggerImpl t = (DailyTimeIntervalTriggerImpl)trigger;
+    DailyTimeIntervalTriggerImpl t = (DailyTimeIntervalTriggerImpl) trigger;
 
     return BasicDBObjectBuilder.start(original.toMap()).
         append(TRIGGER_REPEAT_INTERVAL_UNIT, t.getRepeatIntervalUnit().name()).
@@ -42,26 +42,26 @@ public class DailyTimeIntervalTriggerPersistenceHelper implements TriggerPersist
 
   @Override
   public OperableTrigger setExtraPropertiesAfterInstantiation(OperableTrigger trigger, DBObject stored) {
-    DailyTimeIntervalTriggerImpl t = (DailyTimeIntervalTriggerImpl)trigger;
+    DailyTimeIntervalTriggerImpl t = (DailyTimeIntervalTriggerImpl) trigger;
 
     Object interval_unit = stored.get(TRIGGER_REPEAT_INTERVAL_UNIT);
     if (interval_unit != null) {
-      t.setRepeatCount((Integer)interval_unit);
+      t.setRepeatCount((Integer) interval_unit);
     }
     Object repeatInterval = stored.get(TRIGGER_REPEAT_INTERVAL);
     if (repeatInterval != null) {
-      t.setRepeatInterval((Integer)repeatInterval);
+      t.setRepeatInterval((Integer) repeatInterval);
     }
     Object timesTriggered = stored.get(TRIGGER_TIMES_TRIGGERED);
     if (timesTriggered != null) {
-      t.setTimesTriggered((Integer)timesTriggered);
+      t.setTimesTriggered((Integer) timesTriggered);
     }
 
-    DBObject startTOD = (DBObject)stored.get(TRIGGER_START_TIME_OF_DAY);
+    DBObject startTOD = (DBObject) stored.get(TRIGGER_START_TIME_OF_DAY);
     if (startTOD != null) {
       t.setStartTimeOfDay(fromDBObject(startTOD));
     }
-    DBObject endTOD = (DBObject)stored.get(TRIGGER_END_TIME_OF_DAY);
+    DBObject endTOD = (DBObject) stored.get(TRIGGER_END_TIME_OF_DAY);
     if (endTOD != null) {
       t.setEndTimeOfDay(fromDBObject(endTOD));
     }
@@ -70,6 +70,6 @@ public class DailyTimeIntervalTriggerPersistenceHelper implements TriggerPersist
   }
 
   private TimeOfDay fromDBObject(DBObject endTOD) {
-    return new TimeOfDay((Integer)endTOD.get("hour"), (Integer)endTOD.get("minute"), (Integer)endTOD.get("second"));
+    return new TimeOfDay((Integer) endTOD.get("hour"), (Integer) endTOD.get("minute"), (Integer) endTOD.get("second"));
   }
 }

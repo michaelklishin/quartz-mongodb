@@ -1,4 +1,4 @@
-package com.mulesoft.quartz.mongo;
+package com.novemberain.quartz.mongodb;
 
 import com.mongodb.BasicDBObjectBuilder;
 import com.mongodb.DBObject;

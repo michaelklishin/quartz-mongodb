@@ -1,4 +1,4 @@
-package com.mulesoft.quartz.mongo;
+package com.novemberain.quartz.mongodb;
 
 import com.mongodb.DBObject;
 import org.quartz.spi.OperableTrigger;
@@ -7,5 +7,6 @@ public interface TriggerPersistenceHelper {
   public boolean canHandleTriggerType(OperableTrigger trigger);
 
   public DBObject injectExtraPropertiesForInsert(OperableTrigger trigger, DBObject original);
+
   public OperableTrigger setExtraPropertiesAfterInstantiation(OperableTrigger trigger, DBObject stored);
 }

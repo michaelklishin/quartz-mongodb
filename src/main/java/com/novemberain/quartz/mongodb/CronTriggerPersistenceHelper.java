@@ -1,4 +1,4 @@
-package com.mulesoft.quartz.mongo;
+package com.novemberain.quartz.mongodb;
 
 import com.mongodb.BasicDBObjectBuilder;
 import com.mongodb.DBObject;
@@ -16,12 +16,12 @@ public class CronTriggerPersistenceHelper implements TriggerPersistenceHelper {
 
   @Override
   public boolean canHandleTriggerType(OperableTrigger trigger) {
-    return ((trigger instanceof CronTriggerImpl) && !((CronTriggerImpl)trigger).hasAdditionalProperties());
+    return ((trigger instanceof CronTriggerImpl) && !((CronTriggerImpl) trigger).hasAdditionalProperties());
   }
 
   @Override
   public DBObject injectExtraPropertiesForInsert(OperableTrigger trigger, DBObject original) {
-    CronTrigger t = (CronTrigger)trigger;
+    CronTrigger t = (CronTrigger) trigger;
 
     return BasicDBObjectBuilder.start(original.toMap()).
         append(TRIGGER_CRON_EXPRESSION, t.getCronExpression()).
@@ -31,12 +31,12 @@ public class CronTriggerPersistenceHelper implements TriggerPersistenceHelper {
 
   @Override
   public OperableTrigger setExtraPropertiesAfterInstantiation(OperableTrigger trigger, DBObject stored) {
-    CronTriggerImpl t = (CronTriggerImpl)trigger;
+    CronTriggerImpl t = (CronTriggerImpl) trigger;
 
     Object expression = stored.get(TRIGGER_CRON_EXPRESSION);
-    if (expression!= null) {
+    if (expression != null) {
       try {
-        t.setCronExpression(new CronExpression((String)expression));
+        t.setCronExpression(new CronExpression((String) expression));
       } catch (ParseException e) {
         // no good handling strategy and
         // checked exceptions route sucks just as much.

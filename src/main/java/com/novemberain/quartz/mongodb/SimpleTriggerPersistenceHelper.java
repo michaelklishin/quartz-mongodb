@@ -1,4 +1,4 @@
-package com.mulesoft.quartz.mongo;
+package com.novemberain.quartz.mongodb;
 
 import com.mongodb.BasicDBObjectBuilder;
 import com.mongodb.DBObject;
@@ -13,12 +13,12 @@ public class SimpleTriggerPersistenceHelper implements TriggerPersistenceHelper 
 
   @Override
   public boolean canHandleTriggerType(OperableTrigger trigger) {
-    return ((trigger instanceof SimpleTriggerImpl) && !((SimpleTriggerImpl)trigger).hasAdditionalProperties());
+    return ((trigger instanceof SimpleTriggerImpl) && !((SimpleTriggerImpl) trigger).hasAdditionalProperties());
   }
 
   @Override
   public DBObject injectExtraPropertiesForInsert(OperableTrigger trigger, DBObject original) {
-    SimpleTrigger t = (SimpleTrigger)trigger;
+    SimpleTrigger t = (SimpleTrigger) trigger;
 
     return BasicDBObjectBuilder.start(original.toMap()).
         append(TRIGGER_REPEAT_COUNT, t.getRepeatCount()).
@@ -29,11 +29,11 @@ public class SimpleTriggerPersistenceHelper implements TriggerPersistenceHelper 
 
   @Override
   public OperableTrigger setExtraPropertiesAfterInstantiation(OperableTrigger trigger, DBObject stored) {
-    SimpleTriggerImpl t = (SimpleTriggerImpl)trigger;
+    SimpleTriggerImpl t = (SimpleTriggerImpl) trigger;
 
     Object repeatCount = stored.get(TRIGGER_REPEAT_COUNT);
     if (repeatCount != null) {
-      t.setRepeatCount((Integer)repeatCount);
+      t.setRepeatCount((Integer) repeatCount);
     }
     Object repeatInterval = stored.get(TRIGGER_REPEAT_INTERVAL);
     if (repeatInterval != null) {

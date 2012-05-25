@@ -7,7 +7,7 @@
  * license, a copy of which has been included with this distribution in the
  * LICENSE.txt file.
  */
-package com.mulesoft.quartz.mongo;
+package com.novemberain.quartz.mongodb;
 
 import com.mongodb.*;
 import com.mongodb.MongoException.DuplicateKey;
@@ -89,49 +89,25 @@ public class MongoDBJobStore implements JobStore {
     this.loadHelper = loadHelper;
     this.signaler = signaler;
 
-    persistenceHelpers.add(new SimpleTriggerPersistenceHelper());
-    persistenceHelpers.add(new CalendarIntervalTriggerPersistenceHelper());
-    persistenceHelpers.add(new CronTriggerPersistenceHelper());
-    persistenceHelpers.add(new DailyTimeIntervalTriggerPersistenceHelper());
-
-    this.queryHelper = new QueryHelper();
+    initializeHelpers();
 
     if (addresses == null || addresses.length == 0) {
       throw new SchedulerConfigException("At least one MongoDB address must be specified.");
     }
 
-    MongoOptions options = new MongoOptions();
-    options.safe = true; // need to do this to ensure we get DuplicateKey exceptions
+    this.mongo = connectToMongoDB();
 
-    try {
-      ArrayList<ServerAddress> serverAddresses = new ArrayList<ServerAddress>();
-      for (String a : addresses) {
-        serverAddresses.add(new ServerAddress(a));
-      }
-      mongo = new Mongo(serverAddresses, options);
-
-    } catch (UnknownHostException e) {
-      throw new SchedulerConfigException("Could not connect to MongoDB.", e);
-    } catch (MongoException e) {
-      throw new SchedulerConfigException("Could not connect to MongoDB.", e);
-    }
-
-    DB db = mongo.getDB(dbName);
-    if (username != null) {
-      db.authenticate(username, password.toCharArray());
-    }
-    jobCollection = db.getCollection(collectionPrefix + "jobs");
-    triggerCollection = db.getCollection(collectionPrefix + "triggers");
-    calendarCollection = db.getCollection(collectionPrefix + "calendars");
-    locksCollection = db.getCollection(collectionPrefix + "locks");
-
+    DB db = selectDatabase(this.mongo);
+    initializeCollections(db);
     ensureIndexes();
   }
 
   public void schedulerStarted() throws SchedulerException {
+    // No-op
   }
 
   public void schedulerPaused() {
+    // No-op
   }
 
   public void schedulerResumed() {
@@ -286,6 +262,7 @@ public class MongoDBJobStore implements JobStore {
                             boolean replaceExisting,
                             boolean updateTriggers)
       throws ObjectAlreadyExistsException, JobPersistenceException {
+    // TODO
     if (updateTriggers) {
       throw new UnsupportedOperationException("Updating triggers is not supported.");
     }
@@ -299,7 +276,7 @@ public class MongoDBJobStore implements JobStore {
 
   public boolean removeCalendar(String calName) throws JobPersistenceException {
     BasicDBObject searchObj = new BasicDBObject(CALENDAR_NAME, calName);
-    if (calendarCollection.find(searchObj).count() > 0) {
+    if (calendarCollection.count(searchObj) > 0) {
       calendarCollection.remove(searchObj);
       return true;
     }
@@ -319,7 +296,11 @@ public class MongoDBJobStore implements JobStore {
   }
 
   public int getNumberOfCalendars() throws JobPersistenceException {
-    return calendarCollection.find().count();
+    return (int) calendarCollection.count();
+  }
+
+  public int getNumberOfLocks() {
+    return (int) locksCollection.count();
   }
 
   public Set<JobKey> getJobKeys(GroupMatcher<JobKey> matcher) throws JobPersistenceException {
@@ -663,6 +644,41 @@ public class MongoDBJobStore implements JobStore {
   // Implementation
   //
 
+  private void initializeCollections(DB db) {
+    jobCollection = db.getCollection(collectionPrefix + "jobs");
+    triggerCollection = db.getCollection(collectionPrefix + "triggers");
+    calendarCollection = db.getCollection(collectionPrefix + "calendars");
+    locksCollection = db.getCollection(collectionPrefix + "locks");
+  }
+
+  private DB selectDatabase(Mongo mongo) {
+    DB db = this.mongo.getDB(dbName);
+    // MongoDB defaults are insane, set a reasonable write concern explicitly. MK.
+    db.setWriteConcern(WriteConcern.JOURNAL_SAFE);
+    if (username != null) {
+      db.authenticate(username, password.toCharArray());
+    }
+    return db;
+  }
+
+  private Mongo connectToMongoDB() throws SchedulerConfigException {
+    MongoOptions options = new MongoOptions();
+    options.safe = true;
+
+    try {
+      ArrayList<ServerAddress> serverAddresses = new ArrayList<ServerAddress>();
+      for (String a : addresses) {
+        serverAddresses.add(new ServerAddress(a));
+      }
+      return new Mongo(serverAddresses, options);
+
+    } catch (UnknownHostException e) {
+      throw new SchedulerConfigException("Could not connect to MongoDB.", e);
+    } catch (MongoException e) {
+      throw new SchedulerConfigException("Could not connect to MongoDB.", e);
+    }
+  }
+
   protected OperableTrigger toTrigger(DBObject dbObj) throws JobPersistenceException {
     TriggerKey key = new TriggerKey((String) dbObj.get(TRIGGER_KEY_NAME), (String) dbObj.get(TRIGGER_KEY_GROUP));
     return toTrigger(key, dbObj);
@@ -889,5 +905,14 @@ public class MongoDBJobStore implements JobStore {
 
   protected DBObject findJobByKey(JobKey jobKey) {
     return jobCollection.findOne(keyAsDBObject(jobKey));
+  }
+
+  private void initializeHelpers() {
+    persistenceHelpers.add(new SimpleTriggerPersistenceHelper());
+    persistenceHelpers.add(new CalendarIntervalTriggerPersistenceHelper());
+    persistenceHelpers.add(new CronTriggerPersistenceHelper());
+    persistenceHelpers.add(new DailyTimeIntervalTriggerPersistenceHelper());
+
+    this.queryHelper = new QueryHelper();
   }
 }
