@@ -61,7 +61,7 @@ public class MongoDBJobStore implements JobStore {
   private static final String LOCK_INSTANCE_ID = "instanceId";
   private static final String LOCK_TIME = "time";
 
-  private static final String WAITING_TRIGGER_STATE  = "waiting";
+  private static final String WAITING_TRIGGER_STATE = "waiting";
   private static final String ACQUIRED_TRIGGER_STATE = "acquired";
   private static final String PAUSED_TRIGGER_STATE = "paused";
   private static final String BLOCKED_TRIGGER_STATE = "blocked";
@@ -83,6 +83,7 @@ public class MongoDBJobStore implements JobStore {
   private long triggerTimeoutMillis = 10 * 60 * 1000L;
 
   private List<TriggerPersistenceHelper> persistenceHelpers = new ArrayList<TriggerPersistenceHelper>();
+  private QueryHelper queryHelper;
 
   public void initialize(ClassLoadHelper loadHelper, SchedulerSignaler signaler) throws SchedulerConfigException {
     this.loadHelper = loadHelper;
@@ -92,6 +93,8 @@ public class MongoDBJobStore implements JobStore {
     persistenceHelpers.add(new CalendarIntervalTriggerPersistenceHelper());
     persistenceHelpers.add(new CronTriggerPersistenceHelper());
     persistenceHelpers.add(new DailyTimeIntervalTriggerPersistenceHelper());
+
+    this.queryHelper = new QueryHelper();
 
     if (addresses == null || addresses.length == 0) {
       throw new SchedulerConfigException("At least one MongoDB address must be specified.");
@@ -491,12 +494,12 @@ public class MongoDBJobStore implements JobStore {
   }
 
   public Set<JobKey> getJobKeys(GroupMatcher<JobKey> matcher) throws JobPersistenceException {
-    DBCursor cursor = jobCollection.find(matchingKeysConditionFor(matcher), KEY_AND_GROUP_FIELDS);
+    DBCursor cursor = jobCollection.find(queryHelper.matchingKeysConditionFor(matcher), KEY_AND_GROUP_FIELDS);
 
     Set result = new HashSet<JobKey>();
-    while(cursor.hasNext()) {
+    while (cursor.hasNext()) {
       DBObject dbo = cursor.next();
-      JobKey key = jobKeyFromDBObject(dbo);
+      JobKey key = queryHelper.jobKeyFromDBObject(dbo);
       result.add(key);
     }
 
@@ -504,12 +507,12 @@ public class MongoDBJobStore implements JobStore {
   }
 
   public Set<TriggerKey> getTriggerKeys(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
-    DBCursor cursor = triggerCollection.find(matchingKeysConditionFor(matcher), KEY_AND_GROUP_FIELDS);
+    DBCursor cursor = triggerCollection.find(queryHelper.matchingKeysConditionFor(matcher), KEY_AND_GROUP_FIELDS);
 
     Set result = new HashSet<TriggerKey>();
-    while(cursor.hasNext()) {
+    while (cursor.hasNext()) {
       DBObject dbo = cursor.next();
-      TriggerKey key = triggerKeyFromDBObject(dbo);
+      TriggerKey key = queryHelper.triggerKeyFromDBObject(dbo);
       result.add(key);
     }
 
@@ -862,46 +865,5 @@ public class MongoDBJobStore implements JobStore {
 
   public void setTriggerTimeoutMillis(long triggerTimeoutMillis) {
     this.triggerTimeoutMillis = triggerTimeoutMillis;
-  }
-
-  private DBObject matchingKeysConditionFor(GroupMatcher matcher) {
-    BasicDBObjectBuilder builder = BasicDBObjectBuilder.start();
-
-    final String compareToValue = matcher.getCompareToValue();
-    switch(matcher.getCompareWithOperator()) {
-      case EQUALS:
-        builder.append("keyGroup", compareToValue);
-        break;
-      case STARTS_WITH:
-        builder.append("keyGroup", startsWithRegexDBObject(compareToValue));
-        break;
-      case ENDS_WITH:
-        builder.append("keyGroup", endsWithRegexDBObject(compareToValue));
-      case CONTAINS:
-        builder.append("keyGroup", containsWithRegexDBObject(compareToValue));
-        break;
-    }
-
-    return builder.get();
-  }
-
-  private DBObject startsWithRegexDBObject(String compareToValue) {
-    return BasicDBObjectBuilder.start().append("$regex", "^" + compareToValue + ".*").get();
-  }
-
-  private DBObject endsWithRegexDBObject(String compareToValue) {
-    return BasicDBObjectBuilder.start().append("$regex", ".*" + compareToValue + "$").get();
-  }
-
-  private DBObject containsWithRegexDBObject(String compareToValue) {
-    return BasicDBObjectBuilder.start().append("$regex", compareToValue).get();
-  }
-
-  private TriggerKey triggerKeyFromDBObject(DBObject dbo) {
-    return new TriggerKey((String)dbo.get("keyName"), (String)dbo.get("keyGroup"));
-  }
-
-  private JobKey jobKeyFromDBObject(DBObject dbo) {
-    return new JobKey((String)dbo.get("keyName"), (String)dbo.get("keyGroup"));
   }
 }
