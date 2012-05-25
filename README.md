@@ -48,11 +48,11 @@ Set your Quartz properties to something like this:
     org.quartz.jobStore.class=com.mulesoft.quartz.mongo.MongoDBJobStore
     # comma separated list of mongodb hosts/replica set seeds
     org.quartz.jobStore.addresses=host1,host2
-    # Mongo database name
+    # database name
     org.quartz.jobStore.dbName=quartz
     # Will be used to create collections like mycol_jobs, mycol_triggers, mycol_calendars, mycol_locks
     org.quartz.jobStore.collectionPrefix=mycol
-    # not sure why Quartz requires this, but it does and we don't use it
+    # thread count setting is ignored by the MongoDB store but Quartz requries it
     org.quartz.threadPool.threadCount=1
 
 
