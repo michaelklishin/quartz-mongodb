@@ -12,7 +12,7 @@
   (:use clojure.test
         [clj-time.core :only [months from-now]])
   (:import org.quartz.simpl.SimpleClassLoadHelper
-           com.mulesoft.quartz. mongodb.MongoDBJobStore)
+           com.novemberain.quartz.mongodb.MongoDBJobStore)
   )
 
 (use-fixtures :each h/purge-quartz-store)
@@ -78,9 +78,10 @@
         job (qj/build
              (qj/of-type NoOpJob)
              (qj/with-identity "test-storing-triggers1" "tests"))
+        tk (qt/key "test-storing-triggers1" "tests")
         tr (qt/build
             (qt/start-now)
-            (qt/with-identity "test-storing-triggers1" "tests")
+            (qt/with-identity tk)
             (qt/with-description desc)
             (qt/for-job job)
             (qt/with-schedule (s/schedule
@@ -93,6 +94,7 @@
     (doto store
       (.storeJob job false)
       (.storeTrigger tr false))
+    (is (= "NORMAL" (str (.getTriggerState store tk))))
     (is (= 1
            (mgc/count jobs-collection)
            (mgc/count triggers-collection)
