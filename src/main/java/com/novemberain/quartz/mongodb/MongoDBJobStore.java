@@ -92,8 +92,6 @@ public class MongoDBJobStore implements JobStore {
     this.loadHelper = loadHelper;
     this.signaler = signaler;
 
-    initializeHelpers();
-
     if (addresses == null || addresses.length == 0) {
       throw new SchedulerConfigException("At least one MongoDB address must be specified.");
     }
@@ -103,6 +101,8 @@ public class MongoDBJobStore implements JobStore {
     DB db = selectDatabase(this.mongo);
     initializeCollections(db);
     ensureIndexes();
+
+    initializeHelpers();
   }
 
   public void schedulerStarted() throws SchedulerException {
@@ -368,8 +368,10 @@ public class MongoDBJobStore implements JobStore {
   }
 
   public Collection<String> pauseTriggers(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
-    // TODO
-    throw new UnsupportedOperationException();
+    GroupHelper groupHelper = new GroupHelper(triggerCollection, queryHelper);
+    triggerCollection.update(queryHelper.matchingKeysConditionFor(matcher), updateThatSetsTriggerStateTo(STATE_PAUSED), false, true);
+
+    return groupHelper.groupsThatMatch(matcher);
   }
 
   public void pauseJob(JobKey jobKey) throws JobPersistenceException {
@@ -383,8 +385,8 @@ public class MongoDBJobStore implements JobStore {
   }
 
   public void resumeTrigger(TriggerKey triggerKey) throws JobPersistenceException {
-    // TODO
-    throw new UnsupportedOperationException();
+    // TODO: port blocking behavior and misfired triggers handling from StdJDBCDelegate in Quartz
+    triggerCollection.update(keyToDBObject(triggerKey), updateThatSetsTriggerStateTo(STATE_WAITING));
   }
 
   public Collection<String> resumeTriggers(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
@@ -962,4 +964,5 @@ public class MongoDBJobStore implements JobStore {
         start("$set", new BasicDBObject(TRIGGER_STATE, state)).
         get();
   }
+
 }

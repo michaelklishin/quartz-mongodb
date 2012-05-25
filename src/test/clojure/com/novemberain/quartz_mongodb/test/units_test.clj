@@ -235,3 +235,81 @@
       (is (has-fields? m :startTime :endTime ))
       (is (nil-fields? m :nextFireTime :previousFireTime ))
       (is (mgc/find-map-by-id jobs-collection (:jobId m))))))
+
+
+(deftest test-pause-trigger
+  (let [store (make-store)
+        job (qj/build
+             (qj/of-type NoOpJob)
+             (qj/with-identity "test-pause-trigger" "tests"))
+        tk (qt/key "test-pause-trigger" "tests")
+        tr (qt/build
+            (qt/start-now)
+            (qt/with-identity "test-pause-trigger" "tests")
+            (qt/end-at (-> 2 months from-now))
+            (qt/for-job job)
+            (qt/with-schedule (scl/schedule
+                               (scl/with-interval-in-hours 4))))]
+    (are [coll] (is (= 0 (mgc/count coll)))
+         jobs-collection
+         triggers-collection)
+    (doto store
+      (.storeJob job false)
+      (.storeTrigger tr false))
+    (.pauseTrigger store tk)
+    (let [m (mgc/find-one-as-map triggers-collection {"keyName" "test-pause-trigger"
+                                                      "keyGroup" "tests"})]
+      (is m)
+      (is (= "PAUSED" (str (.getTriggerState store tk)))))
+    (.resumeTrigger store tk)
+    (let [m (mgc/find-one-as-map triggers-collection {"keyName" "test-pause-trigger"
+                                                      "keyGroup" "tests"})]
+      (is (= "NORMAL" (str (.getTriggerState store tk)))))))
+
+
+(deftest test-pause-triggers
+  (let [store (make-store)
+        job (qj/build
+             (qj/of-type NoOpJob)
+             (qj/with-identity "job-in-test-pause-triggers" "main-tests"))
+        tk1 (qt/key "test-pause-triggers1" "main-tests")
+        tr1 (qt/build
+             (qt/start-now)
+             (qt/with-identity tk1)
+             (qt/end-at (-> 2 months from-now))
+             (qt/for-job job)
+             (qt/with-schedule (scl/schedule
+                                (scl/with-interval-in-hours 4))))
+        tk2 (qt/key "test-pause-triggers2" "alt-tests")
+        tr2 (qt/build
+             (qt/start-now)
+             (qt/with-identity tk2)
+             (qt/for-job job)
+             (qt/with-schedule (s/schedule
+                                (s/with-repeat-count 10)
+                                (s/with-interval-in-milliseconds 400))))]
+    (are [coll] (is (= 0 (mgc/count coll)))
+         jobs-collection
+         triggers-collection)
+    (doto store
+      (.storeJob job false)
+      (.storeTrigger tr1 false)
+      (.storeTrigger tr2 false))
+    (is (= 2 (mgc/count triggers-collection) (.getNumberOfTriggers store)))
+    (.pauseTriggers store (qm/group-starts-with "main"))
+    (Thread/sleep 150)
+    (let [m (mgc/find-one-as-map triggers-collection {"keyName" "test-pause-triggers1"
+                                                      "keyGroup" "main-tests"})]
+      (is m)
+      (is (= "paused" (:state m)))
+      (is (= "PAUSED" (str (.getTriggerState store tk1)))))
+    (let [m (mgc/find-one-as-map triggers-collection {"keyName" "test-pause-triggers2"
+                                                      "keyGroup" "alt-tests"})]
+      (is m)
+      (is (= "waiting" (:state m)))
+      (is (= "NORMAL" (str (.getTriggerState store tk2)))))
+    (.resumeTrigger store tk1)
+    (let [m (mgc/find-one-as-map triggers-collection {"keyName" "test-pause-triggers1"
+                                                      "keyGroup" "main-tests"})]
+      (is (= "waiting" (:state m)))
+      (is (= "NORMAL" (str (.getTriggerState store tk1)))))))
