@@ -362,3 +362,35 @@
                                                       "keyGroup" "main-tests"})]
       (is (= "waiting" (:state m)))
       (is (= "NORMAL" (str (.getTriggerState store tk1)))))))
+
+
+
+(deftest test-pause-job
+  (let [store (make-store)
+        jk  (qj/key "test-pause-job" "tests")
+        job (qj/build
+             (qj/of-type NoOpJob)
+             (qj/with-identity "test-pause-job" "tests"))
+        tk (qt/key "test-pause-job" "tests")
+        tr (qt/build
+            (qt/start-now)
+            (qt/with-identity "test-pause-job" "tests")
+            (qt/end-at (-> 2 months from-now))
+            (qt/for-job job)
+            (qt/with-schedule (scl/schedule
+                               (scl/with-interval-in-hours 4))))]
+    (are [coll] (is (= 0 (mgc/count coll)))
+         jobs-collection
+         triggers-collection)
+    (doto store
+      (.storeJob job false)
+      (.storeTrigger tr false))
+    (.pauseJob store jk)
+    (let [m (mgc/find-one-as-map triggers-collection {"keyName" "test-pause-job"
+                                                      "keyGroup" "tests"})]
+      (is m)
+      (is (= "PAUSED" (str (.getTriggerState store tk)))))
+    (.resumeTrigger store tk)
+    (let [m (mgc/find-one-as-map triggers-collection {"keyName" "test-pause-job"
+                                                      "keyGroup" "tests"})]
+      (is (= "NORMAL" (str (.getTriggerState store tk)))))))

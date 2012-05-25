@@ -417,8 +417,16 @@ public class MongoDBJobStore implements JobStore {
 
 
   public void pauseJob(JobKey jobKey) throws JobPersistenceException {
-    // TODO
-    throw new UnsupportedOperationException();
+    final DBObject jdbo = findJobDocumentByKey(jobKey);
+    final ObjectId jobId = (ObjectId)jdbo.get("_id");
+    final GroupHelper groupHelper = new GroupHelper(triggerCollection, queryHelper);
+    List<String> groups = groupHelper.groupsForJobId(jobId);
+    triggerCollection.update(new BasicDBObject(TRIGGER_JOB_ID, jobId), updateThatSetsTriggerStateTo(STATE_PAUSED));
+    this.markGroupsAsPaused(groups);
+  }
+
+  private DBObject findTriggerDocumentByJobId(ObjectId jobId) {
+    return triggerCollection.findOne();
   }
 
   public Collection<String> pauseJobs(GroupMatcher<JobKey> groupMatcher) throws JobPersistenceException {
