@@ -390,8 +390,10 @@ public class MongoDBJobStore implements JobStore {
   }
 
   public Collection<String> resumeTriggers(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
-    // TODO
-    throw new UnsupportedOperationException();
+    GroupHelper groupHelper = new GroupHelper(triggerCollection, queryHelper);
+    triggerCollection.update(queryHelper.matchingKeysConditionFor(matcher), updateThatSetsTriggerStateTo(STATE_WAITING), false, true);
+
+    return groupHelper.groupsThatMatch(matcher);
   }
 
   public Set<String> getPausedTriggerGroups() throws JobPersistenceException {
@@ -410,13 +412,11 @@ public class MongoDBJobStore implements JobStore {
   }
 
   public void pauseAll() throws JobPersistenceException {
-    // TODO
-    // triggerCollection.update(condition, update, false, true, WriteConcern.JOURNAL_SAFE);
+    triggerCollection.update(new BasicDBObject(), updateThatSetsTriggerStateTo(STATE_PAUSED));
   }
 
   public void resumeAll() throws JobPersistenceException {
-    // TODO
-    // throw new UnsupportedOperationException();
+    triggerCollection.update(new BasicDBObject(), updateThatSetsTriggerStateTo(STATE_WAITING));
   }
 
   public List<OperableTrigger> acquireNextTriggers(long noLaterThan, int maxCount, long timeWindow)
