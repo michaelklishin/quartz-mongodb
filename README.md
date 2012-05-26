@@ -5,6 +5,8 @@ tries to be as feature complete as possible.
 
 ## Maven Artifacts
 
+Artifacts are released to clojars.org.
+
 ### The Most Recent Release
 
 With Leiningen:
