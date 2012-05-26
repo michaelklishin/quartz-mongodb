@@ -2,9 +2,12 @@ package com.novemberain.quartz.mongodb;
 
 import com.mongodb.BasicDBObjectBuilder;
 import com.mongodb.DBObject;
-import org.quartz.JobKey;
-import org.quartz.TriggerKey;
+import com.mongodb.QueryBuilder;
 import org.quartz.impl.matchers.GroupMatcher;
+
+import java.util.Collection;
+
+import static com.novemberain.quartz.mongodb.Keys.KEY_GROUP;
 
 public class QueryHelper {
   public DBObject matchingKeysConditionFor(GroupMatcher matcher) {
@@ -40,11 +43,7 @@ public class QueryHelper {
     return BasicDBObjectBuilder.start().append("$regex", compareToValue).get();
   }
 
-  public TriggerKey triggerKeyFromDBObject(DBObject dbo) {
-    return new TriggerKey((String) dbo.get("keyName"), (String) dbo.get("keyGroup"));
-  }
-
-  public JobKey jobKeyFromDBObject(DBObject dbo) {
-    return new JobKey((String) dbo.get("keyName"), (String) dbo.get("keyGroup"));
+  public DBObject inGroups(Collection<String> groups) {
+    return QueryBuilder.start(KEY_GROUP).in(groups).get();
   }
 }
