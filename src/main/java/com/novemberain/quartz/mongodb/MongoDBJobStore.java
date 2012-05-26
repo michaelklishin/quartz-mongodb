@@ -258,6 +258,8 @@ public class MongoDBJobStore implements JobStore {
     jobCollection.remove(new BasicDBObject());
     triggerCollection.remove(new BasicDBObject());
     calendarCollection.remove(new BasicDBObject());
+    pausedJobGroupsCollection.remove(new BasicDBObject());
+    pausedTriggerGroupsCollection.remove(new BasicDBObject());
   }
 
   public void storeCalendar(String name,
