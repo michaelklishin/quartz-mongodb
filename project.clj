@@ -11,7 +11,7 @@
                    :focus   :focus
                    :default (constantly true)}
   :javac-options     ["-target" "1.6" "-source" "1.6"]
-  :profiles {:dev {:resource-paths ["test/resources"]
+  :profiles {:dev {:resource-paths ["src/test/resources"]
                    :dependencies [[org.clojure/clojure       "1.4.0"]
                                   [clojurewerkz/quartzite    "1.0.0-SNAPSHOT"]
                                   [com.novemberain/monger    "1.0.0-beta7"]
