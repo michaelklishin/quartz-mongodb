@@ -245,21 +245,23 @@
   [ctx]
   (swap! counter7 inc))
 
-(deftest ^:focus test-double-scheduling
-         (is (sched/started?))
-         (let [job     (j/build
-                        (j/of-type JobG)
-                        (j/with-identity "clojurewerkz.quartzite.test.execution.job7" "tests"))
-               trigger  (t/build
-                         (t/start-at (-> 2 secs from-now))
-                         (t/with-schedule (calin/schedule
-                                           (calin/with-interval-in-seconds 2))))]
-           (is (sched/schedule job trigger))
-           ;; schedule will raise an exception
-           (is (thrown?
-                org.quartz.ObjectAlreadyExistsException
-                (sched/schedule job trigger)))
-           ;; but maybe-schedule will not
-           (is (not (sched/maybe-schedule job trigger)))
-           (Thread/sleep 7000)
-           (is (= 3 @counter7))))
+(deftest test-double-scheduling
+  (is (sched/started?))
+  (let [job     (j/build
+                 (j/of-type JobG)
+                 (j/with-identity "clojurewerkz.quartzite.test.execution.job7" "tests"))
+        trigger  (t/build
+                  (t/start-at (-> 2 secs from-now))
+                  (t/with-schedule (calin/schedule
+                                    (calin/with-interval-in-seconds 2))))]
+    (is (sched/schedule job trigger))
+    ;; schedule will raise an exception
+    (is (thrown?
+         org.quartz.ObjectAlreadyExistsException
+         (sched/schedule job trigger)))
+    ;; but maybe-schedule will not
+    (is (not (sched/maybe-schedule job trigger)))
+    (is (not (sched/maybe-schedule job trigger)))
+    (is (not (sched/maybe-schedule job trigger)))
+    (Thread/sleep 7000)
+    (is (= 3 @counter7))))
