@@ -77,8 +77,13 @@
                   (t/with-schedule (s/schedule
                                     (s/with-repeat-count 10)
                                     (s/with-interval-in-milliseconds 400))))]
+    (is (not (sched/all-scheduled? jk tk)))
+    (is (not (sched/scheduled? jk)))
+    (is (not (sched/scheduled? tk)))
     (sched/schedule job trigger)
     (is (sched/all-scheduled? jk tk))
+    (is (sched/scheduled? jk))
+    (is (sched/scheduled? tk))
     (is (not (empty? (sched/get-triggers [tk]))))
     (is (not (empty? (sched/get-jobs [jk]))))
     (let [t (sched/get-trigger tk)
