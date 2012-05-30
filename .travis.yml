@@ -4,3 +4,7 @@ script: lein2 javac, test
 notifications:
   recipients:
     - michaelklishin@me.com
+jdk:
+  - openjdk6
+  - openjdk7
+  - oraclejdk7
