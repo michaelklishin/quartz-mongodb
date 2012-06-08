@@ -30,12 +30,10 @@ import java.util.*;
 import static com.novemberain.quartz.mongodb.Keys.*;
 
 public class MongoDBJobStore implements JobStore {
-  public static final DBObject KEY_AND_GROUP_FIELDS = BasicDBObjectBuilder.start().
-      append("keyName", 1).
-      append("keyGroup", 1).
-      get();
   protected final Logger log = LoggerFactory.getLogger(getClass());
 
+  private static final String COL_JOB_GROUP = "keyGroup";
+  private static final String COL_JOB_NAME = "keyName";
 
   private static final String JOB_DESCRIPTION = "jobDescription";
   private static final String JOB_CLASS = "jobClass";
@@ -64,6 +62,11 @@ public class MongoDBJobStore implements JobStore {
   public static final String STATE_PAUSED_BLOCKED = "pausedBlocked";
   public static final String STATE_BLOCKED = "blocked";
   public static final String STATE_ERROR = "error";
+
+  public static final DBObject KEY_AND_GROUP_FIELDS = BasicDBObjectBuilder.start().
+            append(COL_JOB_GROUP, 1).
+            append(COL_JOB_NAME, 1).
+            get();
 
   private Mongo mongo;
   private String collectionPrefix = "quartz_";
@@ -336,11 +339,11 @@ public class MongoDBJobStore implements JobStore {
   }
 
   public List<String> getJobGroupNames() throws JobPersistenceException {
-    throw new UnsupportedOperationException();
+    return new ArrayList<String>(jobCollection.distinct(COL_JOB_GROUP));
   }
 
   public List<String> getTriggerGroupNames() throws JobPersistenceException {
-    throw new UnsupportedOperationException();
+    return new ArrayList<String>(triggerCollection.distinct(COL_JOB_GROUP));
   }
 
   public List<String> getCalendarNames() throws JobPersistenceException {

@@ -21,6 +21,12 @@
   [ctx]
   )
 
+(defn make-no-op-job
+  [name job-group]
+  (qj/build
+   (qj/of-type NoOpJob)
+   (qj/with-identity name job-group)))
+
 (def cl (SimpleClassLoadHelper.))
 (def jobs-collection "quartz_jobs")
 (def triggers-collection "quartz_triggers")
@@ -47,9 +53,7 @@
 
 (deftest test-storing-jobs
   (let [store (make-store)
-        job (qj/build
-             (qj/of-type NoOpJob)
-             (qj/with-identity "test-storing-jobs" "tests"))
+        job   (make-no-op-job "test-storing-jobs" "tests")
         key (qj/key "test-storing-jobs" "tests")]
     (are [coll] (is (= 0 (mgc/count coll)))
          jobs-collection
@@ -74,10 +78,8 @@
 
 (deftest test-storing-triggers-with-simple-schedule
   (let [store (make-store)
-        desc "just a trigger"
-        job (qj/build
-             (qj/of-type NoOpJob)
-             (qj/with-identity "test-storing-triggers1" "tests"))
+        desc  "just a trigger"
+        job   (make-no-op-job "test-storing-triggers1" "tests")
         tk (qt/key "test-storing-triggers1" "tests")
         tr (qt/build
             (qt/start-now)
@@ -127,10 +129,8 @@
 
 (deftest test-storing-triggers-with-cron-schedule
   (let [store (make-store)
-        desc "just a trigger that uses a cron expression schedule"
-        job (qj/build
-             (qj/of-type NoOpJob)
-             (qj/with-identity "test-storing-triggers2" "tests"))
+        desc  "just a trigger that uses a cron expression schedule"
+        job   (make-no-op-job "test-storing-triggers2" "tests")
         c-exp "0 0 15 L-1 * ?"
         tr (qt/build
             (qt/start-now)
@@ -163,10 +163,8 @@
 
 (deftest test-storing-triggers-with-daily-interval-schedule
   (let [store (make-store)
-        desc "just a trigger that uses a daily interval schedule"
-        job (qj/build
-             (qj/of-type NoOpJob)
-             (qj/with-identity "test-storing-triggers3" "tests"))
+        desc  "just a trigger that uses a daily interval schedule"
+        job   (make-no-op-job "test-storing-triggers3" "tests")
         tr (qt/build
             (qt/start-now)
             (qt/with-identity "test-storing-triggers3" "tests")
@@ -208,10 +206,8 @@
 
 (deftest test-storing-triggers-with-calendar-interval-schedule
   (let [store (make-store)
-        desc "just a trigger that uses a daily interval schedule"
-        job (qj/build
-             (qj/of-type NoOpJob)
-             (qj/with-identity "test-storing-triggers4" "tests"))
+        desc  "just a trigger that uses a daily interval schedule"
+        job   (make-no-op-job "test-storing-triggers4" "tests")
         tr (qt/build
             (qt/start-now)
             (qt/with-identity "test-storing-triggers4" "tests")
@@ -239,9 +235,7 @@
 
 (deftest test-pause-trigger
   (let [store (make-store)
-        job (qj/build
-             (qj/of-type NoOpJob)
-             (qj/with-identity "test-pause-trigger" "tests"))
+        job   (make-no-op-job"test-pause-trigger" "tests")
         tk (qt/key "test-pause-trigger" "tests")
         tr (qt/build
             (qt/start-now)
@@ -269,9 +263,7 @@
 
 (deftest test-pause-triggers
   (let [store (make-store)
-        job (qj/build
-             (qj/of-type NoOpJob)
-             (qj/with-identity "job-in-test-pause-triggers" "main-tests"))
+        job   (make-no-op-job "job-in-test-pause-triggers" "main-tests")
         tk1 (qt/key "test-pause-triggers1" "main-tests")
         tr1 (qt/build
              (qt/start-now)
@@ -315,12 +307,53 @@
       (is (= "NORMAL" (str (.getTriggerState store tk1)))))
     (is (empty? (.getPausedTriggerGroups store)))))
 
+(deftest test-job-group-names
+  (let [store (make-store)
+        job-1 (make-no-op-job "job-in-test-job-group-names" "test-job-1")
+        job-2 (make-no-op-job "job-in-test-job-group-names" "test-job-2")]
+    (doto store
+      (.storeJob job-1 false)
+      (.storeJob job-2 false))
+
+    (let [job-group-names (vec (.getJobGroupNames store))]
+      (is (= 2 (count job-group-names)))
+      (is (= "test-job-1" (first job-group-names)))
+      (is (= "test-job-2" (second job-group-names))))))
+
+(deftest test-trigger-group-names
+  (let [store (make-store)
+        job-1 (make-no-op-job "job-in-test-trigger-group-names" "test-job-1")
+        tk-1 (qt/build
+              (qt/start-now)
+              (qt/with-identity "trigger-in-test-trigger-group-names" "test-trigger-1")
+              (qt/with-description "descroption")
+              (qt/end-at (-> 2 months from-now))
+              (qt/for-job job-1)
+              (qt/with-schedule (scl/schedule
+                                 (scl/with-interval-in-hours 4))))
+        job-2 (make-no-op-job "job-in-test-trigger-group-names" "test-job-2")
+        tk-2  (qt/build
+               (qt/start-now)
+               (qt/with-identity "trigger-in-test-trigger-group-names" "test-trigger-2")
+               (qt/with-description "descroption")
+               (qt/end-at (-> 2 months from-now))
+               (qt/for-job job-2)
+               (qt/with-schedule (scl/schedule
+                                  (scl/with-interval-in-hours 4))))]
+    (doto store
+      (.storeJob job-1 false)
+      (.storeTrigger tk-1 false)
+      (.storeJob job-2 false)
+      (.storeTrigger tk-2 false))
+
+    (let [trigger-group-names (vec (.getTriggerGroupNames store))]
+      (is (= 2 (count trigger-group-names)))
+      (is (= "test-trigger-1" (first trigger-group-names)))
+      (is (= "test-trigger-2" (second trigger-group-names))))))
 
 (deftest test-pause-all-triggers
   (let [store (make-store)
-        job (qj/build
-             (qj/of-type NoOpJob)
-             (qj/with-identity "job-in-test-pause-all-triggers" "main-tests"))
+        job   (make-no-op-job "job-in-test-pause-all-triggers" "main-tests")
         tk1 (qt/key "test-pause-all-triggers1" "main-tests")
         tr1 (qt/build
              (qt/start-now)
@@ -367,10 +400,8 @@
 
 (deftest test-pause-job
   (let [store (make-store)
-        jk (qj/key "test-pause-job" "tests")
-        job (qj/build
-             (qj/of-type NoOpJob)
-             (qj/with-identity "test-pause-job" "tests"))
+        jk    (qj/key "test-pause-job" "tests")
+        job   (make-no-op-job "test-pause-job" "tests")
         tk (qt/key "test-pause-job" "tests")
         tr (qt/build
             (qt/start-now)
@@ -398,9 +429,7 @@
 
 (deftest test-pause-jobs
   (let [store (make-store)
-        j1 (qj/build
-            (qj/of-type NoOpJob)
-            (qj/with-identity "job-in-test-pause-jobs1" "main-tests"))
+        j1  (make-no-op-job "job-in-test-pause-jobs1" "main-tests")
         tk1 (qt/key "test-pause-jobs1" "main-tests")
         tr1 (qt/build
              (qt/start-now)
@@ -409,9 +438,7 @@
              (qt/for-job j1)
              (qt/with-schedule (scl/schedule
                                 (scl/with-interval-in-hours 4))))
-        j2 (qj/build
-            (qj/of-type NoOpJob)
-            (qj/with-identity "job-in-test-pause-jobs2" "alt-tests"))
+        j2 (make-no-op-job "job-in-test-pause-jobs2" "alt-tests")
         tk2 (qt/key "test-pause-jobs2" "alt-tests")
         tr2 (qt/build
              (qt/start-now)
