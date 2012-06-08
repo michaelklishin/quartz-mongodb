@@ -32,9 +32,6 @@ import static com.novemberain.quartz.mongodb.Keys.*;
 public class MongoDBJobStore implements JobStore {
   protected final Logger log = LoggerFactory.getLogger(getClass());
 
-  private static final String COL_JOB_GROUP = "keyGroup";
-  private static final String COL_JOB_NAME = "keyName";
-
   private static final String JOB_DESCRIPTION = "jobDescription";
   private static final String JOB_CLASS = "jobClass";
   private static final String TRIGGER_CALENDAR_NAME = "calendarName";
@@ -64,8 +61,8 @@ public class MongoDBJobStore implements JobStore {
   public static final String STATE_ERROR = "error";
 
   public static final DBObject KEY_AND_GROUP_FIELDS = BasicDBObjectBuilder.start().
-            append(COL_JOB_GROUP, 1).
-            append(COL_JOB_NAME, 1).
+            append(KEY_GROUP, 1).
+            append(KEY_NAME, 1).
             get();
 
   private Mongo mongo;
@@ -339,11 +336,11 @@ public class MongoDBJobStore implements JobStore {
   }
 
   public List<String> getJobGroupNames() throws JobPersistenceException {
-    return new ArrayList<String>(jobCollection.distinct(COL_JOB_GROUP));
+    return new ArrayList<String>(jobCollection.distinct(KEY_GROUP));
   }
 
   public List<String> getTriggerGroupNames() throws JobPersistenceException {
-    return new ArrayList<String>(triggerCollection.distinct(COL_JOB_GROUP));
+    return new ArrayList<String>(triggerCollection.distinct(KEY_GROUP));
   }
 
   public List<String> getCalendarNames() throws JobPersistenceException {
