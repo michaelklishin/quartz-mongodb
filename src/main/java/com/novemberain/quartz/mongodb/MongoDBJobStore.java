@@ -27,38 +27,11 @@ import java.io.ObjectOutputStream;
 import java.net.UnknownHostException;
 import java.util.*;
 
+import com.novemberain.quartz.mongodb.Constants;
 import static com.novemberain.quartz.mongodb.Keys.*;
 
-public class MongoDBJobStore implements JobStore {
+public class MongoDBJobStore implements JobStore, Constants {
   protected final Logger log = LoggerFactory.getLogger(getClass());
-
-  private static final String JOB_DESCRIPTION = "jobDescription";
-  private static final String JOB_CLASS = "jobClass";
-  private static final String TRIGGER_CALENDAR_NAME = "calendarName";
-  private static final String TRIGGER_DESCRIPTION = "description";
-  private static final String TRIGGER_END_TIME = "endTime";
-  private static final String TRIGGER_FINAL_FIRE_TIME = "finalFireTime";
-  private static final String TRIGGER_FIRE_INSTANCE_ID = "fireInstanceId";
-  private static final String TRIGGER_MISFIRE_INSTRUCTION = "misfireInstruction";
-  private static final String TRIGGER_NEXT_FIRE_TIME = "nextFireTime";
-  private static final String TRIGGER_PREVIOUS_FIRE_TIME = "previousFireTime";
-  private static final String TRIGGER_PRIORITY = "priority";
-  private static final String TRIGGER_START_TIME = "startTime";
-  private static final String TRIGGER_JOB_ID = "jobId";
-  private static final String TRIGGER_CLASS = "class";
-  private static final String TRIGGER_STATE = "state";
-  private static final String CALENDAR_NAME = "name";
-  private static final String CALENDAR_SERIALIZED_OBJECT = "serializedObject";
-  private static final String LOCK_INSTANCE_ID = "instanceId";
-  private static final String LOCK_TIME = "time";
-
-  public static final String STATE_WAITING = "waiting";
-  public static final String STATE_DELETED = "deleted";
-  public static final String STATE_COMPLETE = "complete";
-  public static final String STATE_PAUSED = "paused";
-  public static final String STATE_PAUSED_BLOCKED = "pausedBlocked";
-  public static final String STATE_BLOCKED = "blocked";
-  public static final String STATE_ERROR = "error";
 
   public static final DBObject KEY_AND_GROUP_FIELDS = BasicDBObjectBuilder.start().
             append(KEY_GROUP, 1).
@@ -83,7 +56,7 @@ public class MongoDBJobStore implements JobStore {
   protected long misfireThreshold = 5000l;
   private long triggerTimeoutMillis = 10 * 60 * 1000L;
 
-  private List<TriggerPersistenceHelper> persistenceHelpers = new ArrayList<TriggerPersistenceHelper>();
+  private List<TriggerPersistenceHelper> persistenceHelpers;
   private QueryHelper queryHelper;
 
   public void initialize(ClassLoadHelper loadHelper, SchedulerSignaler signaler) throws SchedulerConfigException {
@@ -131,6 +104,9 @@ public class MongoDBJobStore implements JobStore {
     return true;
   }
 
+  /**
+   *  Job and Trigger storage Methods
+   */
   public void storeJobAndTrigger(JobDetail newJob, OperableTrigger newTrigger) throws ObjectAlreadyExistsException,
       JobPersistenceException {
     ObjectId jobId = storeJobInMongo(newJob, false);
@@ -944,6 +920,8 @@ public class MongoDBJobStore implements JobStore {
   }
 
   private void initializeHelpers() {
+    this.persistenceHelpers = new ArrayList<TriggerPersistenceHelper>();
+
     persistenceHelpers.add(new SimpleTriggerPersistenceHelper());
     persistenceHelpers.add(new CalendarIntervalTriggerPersistenceHelper());
     persistenceHelpers.add(new CronTriggerPersistenceHelper());
