@@ -9,9 +9,12 @@
             [clojurewerkz.quartzite.schedule.calendar-interval :as calin]
             [monger.collection :as mgc])
   (:use clojure.test
-        [clj-time.core :only [months from-now]])
+        [clj-time.core :only [secs months from-now]]
+        [clj-time.coerce :only [to-long]])
   (:import org.quartz.simpl.SimpleClassLoadHelper
-           com.novemberain.quartz.mongodb.MongoDBJobStore)
+           org.quartz.impl.triggers.SimpleTriggerImpl
+           org.quartz.impl.JobDetailImpl
+           com.novemberain.quartz.mongodb.MongoDBJobStore))
 
 (use-fixtures :each h/purge-quartz-store)
 
@@ -471,3 +474,59 @@
       (is (= "waiting" (:state m)))
       (is (= "NORMAL" (str (.getTriggerState store tk1)))))
     (is (empty? (.getPausedTriggerGroups store)))))
+
+
+(deftest test-aquire-next-trigger
+  (let [store (make-store)
+        j1  (make-no-op-job "job-in-test-aquire-next-trigger-job1" "main-tests")
+        tk1 (t/key "test-aquire-next-trigger-trigger1" "main-tests")
+        tr1 (t/build
+             (t/start-at (-> 2 secs from-now))
+             (t/with-identity tk1)
+             (t/end-at (-> 2 months from-now))
+             (t/for-job j1)
+             (t/with-schedule (s/schedule
+                               (s/with-repeat-count 2)
+                               (s/with-interval-in-seconds 400))))
+
+        j2  (make-no-op-job "job-in-test-aquire-next-trigger-job2" "main-tests")
+        tk2 (t/key "test-aquire-next-trigger-trigger2" "main-tests")
+        tr2 (t/build
+             (t/start-at (-> 5 secs from-now))
+             (t/with-identity tk2)
+             (t/end-at (-> 2 months from-now))
+             (t/for-job j2)
+             (t/with-schedule (s/schedule
+                               (s/with-repeat-count 2)
+                               (s/with-interval-in-seconds 400))))
+
+        j3  (make-no-op-job "job-in-test-aquire-next-trigger-job3" "main-tests")
+        tk3 (t/key "test-aquire-next-trigger-trigger3" "main-tests")
+        tr3 (t/build
+             (t/start-at (-> 10 secs from-now))
+             (t/with-identity tk3)
+             (t/end-at (-> 2 months from-now))
+             (t/for-job j3)
+             (t/with-schedule (s/schedule
+                               (s/with-repeat-count 2)
+                               (s/with-interval-in-seconds 400))))]
+
+    (.computeFirstFireTime tr1 nil)
+    (.computeFirstFireTime tr2 nil)
+    (.computeFirstFireTime tr3 nil)
+
+    (doto store
+      (.storeJob j1 false)
+      (.storeTrigger tr1 false)
+      (.storeJob j2 false)
+      (.storeTrigger tr2 false)
+      (.storeJob j3 false)
+      (.storeTrigger tr3 false))
+
+    (is (empty? (.acquireNextTriggers store 10 1 0)))
+
+    (let [ff      (.. tr1 (getNextFireTime) (getTime))]
+      (is (= tk1 (.. store (acquireNextTriggers (+ ff 10000) 1 0) (get 0) (getKey))))
+      (is (= tk2 (.. store (acquireNextTriggers (+ ff 10000) 1 0) (get 0) (getKey))))
+      (is (= tk3 (.. store (acquireNextTriggers (+ ff 10000) 1 0) (get 0) (getKey))))
+      (is (empty? (.. store (acquireNextTriggers (+ ff 10000) 1 0)))))))
