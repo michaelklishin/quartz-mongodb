@@ -14,7 +14,7 @@
   :profiles {:dev {:resource-paths ["src/test/resources"]
                    :dependencies [[org.clojure/clojure       "1.4.0"]
                                   [clojurewerkz/quartzite    "1.0.0-rc6"]
-                                  [com.novemberain/monger    "1.0.0-beta7"]
+                                  [com.novemberain/monger    "1.0.0-rc1"]
                                   [org.clojure/tools.logging "0.2.3" :exclusions [org.clojure/clojure]]
                                   [org.slf4j/slf4j-simple    "1.6.2"]
                                   [org.slf4j/slf4j-api       "1.6.2"]]}}
