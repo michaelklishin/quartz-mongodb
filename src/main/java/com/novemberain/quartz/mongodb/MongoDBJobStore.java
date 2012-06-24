@@ -433,6 +433,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     if (log.isDebugEnabled()) {
       log.debug("Finding up to " + maxCount + " triggers which have time less than " + new Date(noLaterThan));
     }
+
     List<OperableTrigger> triggers = new ArrayList<OperableTrigger>();
     DBCursor cursor = triggerCollection.find(query);
 
@@ -715,13 +716,13 @@ public class MongoDBJobStore implements JobStore, Constants {
     trigger.setKey(triggerKey);
     trigger.setCalendarName((String) dbObject.get(TRIGGER_CALENDAR_NAME));
     trigger.setDescription((String) dbObject.get(TRIGGER_DESCRIPTION));
+    trigger.setStartTime((Date) dbObject.get(TRIGGER_START_TIME));
     trigger.setEndTime((Date) dbObject.get(TRIGGER_END_TIME));
     trigger.setFireInstanceId((String) dbObject.get(TRIGGER_FIRE_INSTANCE_ID));
     trigger.setMisfireInstruction((Integer) dbObject.get(TRIGGER_MISFIRE_INSTRUCTION));
     trigger.setNextFireTime((Date) dbObject.get(TRIGGER_NEXT_FIRE_TIME));
     trigger.setPreviousFireTime((Date) dbObject.get(TRIGGER_PREVIOUS_FIRE_TIME));
     trigger.setPriority((Integer) dbObject.get(TRIGGER_PRIORITY));
-    trigger.setStartTime((Date) dbObject.get(TRIGGER_START_TIME));
 
     trigger = tpd.setExtraPropertiesAfterInstantiation(trigger, dbObject);
 
