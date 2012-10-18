@@ -493,7 +493,7 @@ public class MongoDBJobStore implements JobStore, Constants {
         if (lockCursor.hasNext()) {
           existingLock = lockCursor.next();
         } else {
-          log.error("Error retrieving expired lock from the database. Maybe it was deleted");
+          log.warn("Error retrieving expired lock from the database. Maybe it was deleted");
           return acquireNextTriggers(noLaterThan, maxCount, timeWindow);
         }
 
