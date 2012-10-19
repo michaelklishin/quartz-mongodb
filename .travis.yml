@@ -1,6 +1,6 @@
 language: java
 install: lein2 deps
-script: lein2 javac, test
+script: lein2 do javac, test
 notifications:
   recipients:
     - michaelklishin@me.com
@@ -8,3 +8,5 @@ jdk:
   - openjdk6
   - openjdk7
   - oraclejdk7
+services:
+  - mongodb
