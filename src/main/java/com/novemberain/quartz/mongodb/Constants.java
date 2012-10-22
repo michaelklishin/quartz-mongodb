@@ -4,6 +4,7 @@ public interface Constants {
 
   public static final String JOB_DESCRIPTION = "jobDescription";
   public static final String JOB_CLASS = "jobClass";
+  public static final String JOB_DURABILITY = "durability";
   public static final String TRIGGER_CALENDAR_NAME = "calendarName";
   public static final String TRIGGER_DESCRIPTION = "description";
   public static final String TRIGGER_END_TIME = "endTime";
