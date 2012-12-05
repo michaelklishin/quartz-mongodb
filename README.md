@@ -28,7 +28,7 @@ If you are comfortable with using snapshots, snapshot artifacts are [released to
 
 With Leiningen:
 
-    [com.novemberain/quartz-mongodb "1.1.0-SNAPSHOT"]
+    [com.novemberain/quartz-mongodb "1.1.0-beta5"]
 
 
 With Maven:
@@ -36,7 +36,7 @@ With Maven:
     <dependency>
       <groupId>com.novemberain</groupId>
       <artifactId>quartz-mongodb</artifactId>
-      <version>1.1.0-SNAPSHOT</version>
+      <version>1.1.0-beta5</version>
     </dependency>
 
 Please note that with minor and major version snapshots, certain backwards-incompatible changes may not match what is in the example below.
