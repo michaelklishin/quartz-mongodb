@@ -548,10 +548,7 @@ public class MongoDBJobStore implements JobStore, Constants {
         if (cal == null)
           continue;
       }
-
-      trigger.triggered(cal);
-      storeTrigger(trigger, true);
-
+      
       Date prevFireTime = trigger.getPreviousFireTime();
 
       TriggerFiredBundle bndle = new TriggerFiredBundle(retrieveJob(
@@ -566,6 +563,10 @@ public class MongoDBJobStore implements JobStore, Constants {
       }
 
       results.add(new TriggerFiredResult(bndle));
+      
+      trigger.triggered(cal);
+      storeTrigger(trigger, true);
+
     }
     return results;
   }
