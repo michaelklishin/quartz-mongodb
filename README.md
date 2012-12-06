@@ -11,24 +11,7 @@ Artifacts are released to clojars.org.
 
 With Leiningen:
 
-    [com.novemberain/quartz-mongodb "1.0.0"]
-
-With Maven:
-
-    <dependency>
-      <groupId>com.novemberain</groupId>
-      <artifactId>quartz-mongodb</artifactId>
-      <version>1.0.0</version>
-    </dependency>
-
-
-### Snapshots
-
-If you are comfortable with using snapshots, snapshot artifacts are [released to Clojars](https://clojars.org/com.novemberain/quartz-mongodb) every 24 hours.
-
-With Leiningen:
-
-    [com.novemberain/quartz-mongodb "1.1.0-beta5"]
+    [com.novemberain/quartz-mongodb "1.1.0-beta6"]
 
 
 With Maven:
@@ -36,11 +19,9 @@ With Maven:
     <dependency>
       <groupId>com.novemberain</groupId>
       <artifactId>quartz-mongodb</artifactId>
-      <version>1.1.0-beta5</version>
+      <version>1.1.0-beta6</version>
     </dependency>
 
-Please note that with minor and major version snapshots, certain backwards-incompatible changes may not match what is in the example below.
- Documentation always follows the most recent stable release.
 
 ## Usage
 
