@@ -506,6 +506,7 @@ public class MongoDBJobStore implements JobStore, Constants {
         lock = new BasicDBObject();
         lock.put(LOCK_KEY_NAME, dbObj.get(KEY_NAME));
         lock.put(LOCK_KEY_GROUP, dbObj.get(KEY_GROUP));
+        lock.put(LOCK_INSTANCE_ID, instanceId);
 
         DBObject existingLock;
         DBCursor lockCursor = locksCollection.find(lock);
