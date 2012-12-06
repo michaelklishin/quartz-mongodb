@@ -1,3 +1,8 @@
+## Changes between quartz-mongodb 1.1.0-beta5 and 1.1.0-beta6
+
+Quartz-MongoDB now store instance id in lock documents.
+
+
 ## Changes between quartz-mongodb 1.1.0-beta4 and 1.1.0-beta5
 
 Fixed a problem with JobExecutionContext.getPreviousFireTime() returning current execution time
