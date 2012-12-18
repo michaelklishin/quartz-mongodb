@@ -506,7 +506,6 @@ public class MongoDBJobStore implements JobStore, Constants {
         lock = new BasicDBObject();
         lock.put(LOCK_KEY_NAME, dbObj.get(KEY_NAME));
         lock.put(LOCK_KEY_GROUP, dbObj.get(KEY_GROUP));
-        lock.put(LOCK_INSTANCE_ID, instanceId);
 
         DBObject existingLock;
         DBCursor lockCursor = locksCollection.find(lock);
@@ -562,7 +561,6 @@ public class MongoDBJobStore implements JobStore, Constants {
       if (job.isConcurrentExectionDisallowed()) {
         throw new UnsupportedOperationException("ConcurrentExecutionDisallowed is not supported currently.");
       }
-
       results.add(new TriggerFiredResult(bndle));
       
       trigger.triggered(cal);
@@ -914,7 +912,9 @@ public class MongoDBJobStore implements JobStore, Constants {
     BasicDBObject lock = new BasicDBObject();
     lock.put(LOCK_KEY_NAME, trigger.getKey().getName());
     lock.put(LOCK_KEY_GROUP, trigger.getKey().getGroup());
-    lock.put(LOCK_INSTANCE_ID, instanceId);
+
+    // Coment this out, as expired trigger locks should be deleted by any another instance
+    // lock.put(LOCK_INSTANCE_ID, instanceId);
 
     locksCollection.remove(lock);
     log.debug("Trigger lock " + trigger.getKey() + "." + instanceId + " removed.");
