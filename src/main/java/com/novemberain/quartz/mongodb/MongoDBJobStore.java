@@ -150,6 +150,10 @@ public class MongoDBJobStore implements JobStore, Constants {
   @SuppressWarnings("unchecked")
   public JobDetail retrieveJob(JobKey jobKey) throws JobPersistenceException {
     DBObject dbObject = findJobDocumentByKey(jobKey);
+    if (dbObject == null) {
+      //Return null if job does not exist, per interface
+      return null;
+    }
 
     try {
       Class<Job> jobClass = (Class<Job>) getJobClassLoader().loadClass((String) dbObject.get(JOB_CLASS));
