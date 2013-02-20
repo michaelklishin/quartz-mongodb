@@ -160,7 +160,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
       JobBuilder builder = JobBuilder.newJob(jobClass)
           .withIdentity((String) dbObject.get(JOB_KEY_NAME), (String) dbObject.get(JOB_KEY_GROUP))
-          .withDescription((String) dbObject.get(JOB_KEY_NAME));
+          .withDescription((String) dbObject.get(JOB_DESCRIPTION));
 
       JobDataMap jobData = new JobDataMap();
       for (String key : dbObject.keySet()) {
