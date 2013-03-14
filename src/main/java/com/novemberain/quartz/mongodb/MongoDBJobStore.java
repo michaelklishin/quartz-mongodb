@@ -522,7 +522,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
         // support for trigger lock expirations
         if (isTriggerLockExpired(existingLock)) {
-          log.error("Lock for trigger " + trigger.getKey() + " is expired - removing lock and retrying trigger acquisition");
+          log.warn("Lock for trigger " + trigger.getKey() + " is expired - removing lock and retrying trigger acquisition");
           removeTriggerLock(trigger);
           return acquireNextTriggers(noLaterThan, maxCount, timeWindow);
         }
