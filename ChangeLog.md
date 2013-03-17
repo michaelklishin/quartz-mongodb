@@ -1,3 +1,18 @@
+## Changes between quartz-mongodb 1.1.0-beta6 and 1.1.0
+
+### MongoDB Java Driver Upgrade
+
+MongoDB Java driver was upgraded to `2.10.x`.
+
+### Quartz Upgrade
+
+Quartz was upgraded to `2.1.7`.
+
+### Joda Time Upgrade
+
+Joda Time was upgraded to `2.2`.
+
+
 ## Changes between quartz-mongodb 1.1.0-beta5 and 1.1.0-beta6
 
 Quartz-MongoDB now store instance id in lock documents.

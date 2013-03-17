@@ -11,7 +11,7 @@ Artifacts are released to clojars.org.
 
 With Leiningen:
 
-    [com.novemberain/quartz-mongodb "1.1.0-beta6"]
+    [com.novemberain/quartz-mongodb "1.1.0"]
 
 
 With Maven:
@@ -19,7 +19,7 @@ With Maven:
     <dependency>
       <groupId>com.novemberain</groupId>
       <artifactId>quartz-mongodb</artifactId>
-      <version>1.1.0-beta6</version>
+      <version>1.1.0</version>
     </dependency>
 
 
