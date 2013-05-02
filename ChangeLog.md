@@ -1,3 +1,10 @@
+## Changes between quartz-mongodb 1.1.0 and 1.2.0-beta1
+
+### MongoDB Java Driver Upgrade
+
+MongoDB Java driver was upgraded to `2.11.x`.
+
+
 ## Changes between quartz-mongodb 1.1.0-beta6 and 1.1.0
 
 ### MongoDB Java Driver Upgrade
