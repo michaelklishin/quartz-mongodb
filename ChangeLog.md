@@ -1,5 +1,13 @@
 ## Changes between quartz-mongodb 1.1.0 and 1.2.0-beta1
 
+### Additional Indexes
+
+The store will now create additional indexes on trigger fire times
+to support cases with more than 64 MB of trigger documents.
+
+GH issue: #13.
+
+
 ### Existing Jobs Now Can Be Replaced
 
 `MongoDBJobStore` now supports replacing existing jobs.
