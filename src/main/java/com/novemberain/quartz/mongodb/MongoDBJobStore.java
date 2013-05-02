@@ -68,6 +68,9 @@ public class MongoDBJobStore implements JobStore, Constants {
     }
 
     this.mongo = connectToMongoDB();
+    if(this.mongo == null) {
+      throw new SchedulerConfigException("Could not connect to MongoDB! Please check that quartz-mongodb configuration is correct.");
+    }
 
     DB db = selectDatabase(this.mongo);
     initializeCollections(db);
