@@ -1,3 +1,10 @@
+## Changes between quartz-mongodb 1.2.0-beta1 and 1.2.0-beta2
+
+### Spring Code Cleanup
+
+Multiple warnings and one string comparison bug fix were eliminated.
+
+
 ## Changes between quartz-mongodb 1.1.0 and 1.2.0-beta1
 
 ### Additional Indexes
