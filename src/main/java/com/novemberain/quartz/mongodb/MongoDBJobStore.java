@@ -839,6 +839,8 @@ public class MongoDBJobStore implements JobStore, Constants {
     keys = new BasicDBObject();
     keys.put(KEY_NAME, 1);
     keys.put(KEY_GROUP, 1);
+    keys.put(TRIGGER_NEXT_FIRE_TIME, 1);
+    keys.put(TRIGGER_PREVIOUS_FIRE_TIME, 1);
     triggerCollection.ensureIndex(keys, null, true);
 
     keys = new BasicDBObject();
