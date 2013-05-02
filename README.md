@@ -5,13 +5,23 @@ tries to be as feature complete as possible.
 
 ## Maven Artifacts
 
-Artifacts are released to clojars.org.
+Artifacts are released to [clojars.org](http://clojars.org).
+
+If you are using Maven, add the following repository
+definition to your `pom.xml`:
+
+``` xml
+<repository>
+  <id>clojars.org</id>
+  <url>http://clojars.org/repo</url>
+</repository>
+```
 
 ### The Most Recent Release
 
 With Leiningen:
 
-    [com.novemberain/quartz-mongodb "1.1.0"]
+    [com.novemberain/quartz-mongodb "1.2.0-beta1"]
 
 
 With Maven:
@@ -19,7 +29,7 @@ With Maven:
     <dependency>
       <groupId>com.novemberain</groupId>
       <artifactId>quartz-mongodb</artifactId>
-      <version>1.1.0</version>
+      <version>1.2.0-beta1</version>
     </dependency>
 
 
