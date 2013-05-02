@@ -1,5 +1,11 @@
 ## Changes between quartz-mongodb 1.1.0 and 1.2.0-beta1
 
+### Existing Jobs Now Can Be Replaced
+
+`MongoDBJobStore` now supports replacing existing jobs.
+
+GH issue: #20.
+
 ### Guards Against Misconfiguration
 
 `MongoDBJobStore` constructor will now raise a `SchedulerConfigException`
