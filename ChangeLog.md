@@ -1,5 +1,12 @@
 ## Changes between quartz-mongodb 1.1.0 and 1.2.0-beta1
 
+### Guards Against Misconfiguration
+
+`MongoDBJobStore` constructor will now raise a `SchedulerConfigException`
+if it fails to connect to MongoDB (typically because of a misconfiguration).
+
+GH issue: #19.
+
 ### MongoDB Java Driver Upgrade
 
 MongoDB Java driver was upgraded to `2.11.x`.
