@@ -889,14 +889,8 @@ public class MongoDBJobStore implements JobStore, Constants {
   protected ObjectId storeJobInMongo(JobDetail newJob, boolean replaceExisting) throws ObjectAlreadyExistsException {
     JobKey key = newJob.getKey();
 
-    BasicDBObject job = keyToDBObject(key);
-
-    if (replaceExisting) {
-      DBObject result = jobCollection.findOne(job);
-      if (result != null) {
-        result = job;
-      }
-    }
+    BasicDBObject keyDbo = keyToDBObject(key);
+    BasicDBObject job    = keyToDBObject(key);
 
     job.put(JOB_KEY_NAME, key.getName());
     job.put(JOB_KEY_GROUP, key.getGroup());
@@ -906,7 +900,11 @@ public class MongoDBJobStore implements JobStore, Constants {
     job.putAll(newJob.getJobDataMap());
 
     try {
-      jobCollection.insert(job);
+      if (replaceExisting) {
+        jobCollection.update(keyDbo, job);
+      } else {
+        jobCollection.insert(job);
+      }
 
       return (ObjectId) job.get("_id");
     } catch (DuplicateKey e) {
