@@ -203,20 +203,18 @@ public class MongoDBJobStore implements JobStore, Constants {
     if (triggers.count() > 0) {
       DBObject trigger = triggers.next();
       if (trigger.containsField(TRIGGER_JOB_ID)) {
-        // There is only 1 job per trigger so no need to look further than 1 job.
+        // There is only 1 job per trigger so no need to look further.
         DBObject job = jobCollection.findOne(new BasicDBObject("_id", trigger.get(TRIGGER_JOB_ID)));
-        // Durability is not yet implemented in MongoDBJOBStore so next will always be true
+        // Remove the orphaned job if it's durable and has no other triggers associated with it,
+        // remove it
         if (!job.containsField(JOB_DURABILITY) || job.get(JOB_DURABILITY).toString().equals("false")) {
-          // Check if this job is referenced by other triggers.
-          BasicDBObject query = new BasicDBObject();
-          query.put(TRIGGER_JOB_ID, job.get("_id"));
-          DBCursor referencedTriggers = triggerCollection.find(query);
-          if (referencedTriggers != null && referencedTriggers.count() <= 1) {
+          DBCursor referencedTriggers = triggerCollection.find(new BasicDBObject(TRIGGER_JOB_ID, job.get("_id")));
+          if (referencedTriggers != null && referencedTriggers.count() == 0) {
             jobCollection.remove(job);
           }
         }
       } else {
-        log.debug("The triggger had no associated jobs");
+        log.debug("The trigger had no associated jobs");
       }
       triggerCollection.remove(dbObject);
 
