@@ -1,7 +1,6 @@
 # A MongoDB-based store for Quartz.
 
-This is a fork of a project originally started by MuleSoft. It supports all Quartz trigger types and
-tries to be as feature complete as possible.
+This is a MongoDB-backed job store for the [Quartz scheduler](http://quartz-scheduler.org/).
 
 ## Maven Artifacts
 
@@ -21,7 +20,7 @@ definition to your `pom.xml`:
 
 With Leiningen:
 
-    [com.novemberain/quartz-mongodb "1.2.0-beta1"]
+    [com.novemberain/quartz-mongodb "1.2.0"]
 
 
 With Maven:
@@ -29,7 +28,7 @@ With Maven:
     <dependency>
       <groupId>com.novemberain</groupId>
       <artifactId>quartz-mongodb</artifactId>
-      <version>1.2.0-beta1</version>
+      <version>1.2.0</version>
     </dependency>
 
 
@@ -63,8 +62,16 @@ CI is hosted by [Travis CI](http://travis-ci.org/)
 
 ## FAQ
 
+### Project Origins
+
+The project was originally started by MuleSoft. It supports all Quartz trigger types and
+tries to be as feature complete as possible.
+
 ### Why the Fork?
 
-MuleSoft developers did not respond to attempts to submit pull requests for several months. As more and more
-functionality was added and implementation code refactored, I decided to completely separate this fork form GitHub forks network because
-the project is now too different from the original one. All changes were made with respect to the Apache Public License 2.0.
+MuleSoft developers did not respond to attempts to submit pull
+requests for several months. As more and more functionality was added
+and implementation code refactored, I decided to completely separate
+this fork form GitHub forks network because the project is now too
+different from the original one. All changes were made with respect to
+the Apache Public License 2.0.
