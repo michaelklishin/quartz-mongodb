@@ -1,4 +1,9 @@
-## Changes between quartz-mongodb 1.2.0-beta1 and 1.2.0-beta2
+## Changes between quartz-mongodb 1.2.0-beta1 and 1.2.0
+
+### Bug Fixes
+
+Several improvements to make the store follow reference implementations
+in Quartz more closely.
 
 ### Spring Code Cleanup
 
