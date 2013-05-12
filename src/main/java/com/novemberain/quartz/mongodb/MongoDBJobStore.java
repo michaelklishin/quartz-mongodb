@@ -232,8 +232,22 @@ public class MongoDBJobStore implements JobStore, Constants {
   }
 
   public boolean replaceTrigger(TriggerKey triggerKey, OperableTrigger newTrigger) throws JobPersistenceException {
+    OperableTrigger trigger = retrieveTrigger(triggerKey);
+    if(trigger == null) {
+      return false;
+    }
+
+    if (!trigger.getJobKey().equals(newTrigger.getJobKey())) {
+      throw new JobPersistenceException("New trigger is not related to the same job as the old trigger.");
+    }
+
     removeTrigger(triggerKey);
-    storeTrigger(newTrigger, false);
+    try {
+      storeTrigger(newTrigger, false);
+    } catch(JobPersistenceException jpe) {
+      storeTrigger(trigger, false); // put previous trigger back...
+      throw jpe;
+    }
     return true;
   }
 
