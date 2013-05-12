@@ -496,7 +496,7 @@ public class MongoDBJobStore implements JobStore, Constants {
       try {
         OperableTrigger trigger = toTrigger(dbObj);
 
-        if (trigger.getNextFireTime() == null) {
+        if (trigger == null || trigger.getNextFireTime() == null) {
           if (log.isDebugEnabled()) {
             log.debug("Skipping trigger " + trigger.getKey() + " as it has no next fire time.");
           }
