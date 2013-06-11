@@ -1,3 +1,14 @@
+## Changes between quartz-mongodb 1.3.0-beta1 and 1.3.0
+
+### Job Durability is Now Correctly Stored
+
+Job durability attribute is now properly stored in the job document.
+
+### Orphaned JobDetails Removed
+
+JobDetail should no longer be orphaned after deleting the only trigger referencing it.
+
+
 ## Changes between quartz-mongodb 1.2.0-beta1 and 1.2.0
 
 ### Bug Fixes
