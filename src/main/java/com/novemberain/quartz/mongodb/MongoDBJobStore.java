@@ -912,6 +912,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     job.put(JOB_KEY_GROUP, key.getGroup());
     job.put(JOB_DESCRIPTION, newJob.getDescription());
     job.put(JOB_CLASS, newJob.getJobClass().getName());
+    job.put(JOB_DURABILITY, newJob.isDurable());
 
     job.putAll(newJob.getJobDataMap());
 
