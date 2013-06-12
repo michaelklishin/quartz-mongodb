@@ -209,7 +209,7 @@ public class MongoDBJobStore implements JobStore, Constants {
         // remove it
         if (!job.containsField(JOB_DURABILITY) || job.get(JOB_DURABILITY).toString().equals("false")) {
           DBCursor referencedTriggers = triggerCollection.find(new BasicDBObject(TRIGGER_JOB_ID, job.get("_id")));
-          if (referencedTriggers != null && referencedTriggers.count() < 1) {
+          if (referencedTriggers != null && referencedTriggers.count() <= 1) {
             jobCollection.remove(job);
           }
         }
