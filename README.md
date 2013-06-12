@@ -37,7 +37,7 @@ With Maven:
 Set your Quartz properties to something like this:
 
     # Use the MongoDB store
-    org.quartz.jobStore.class=com.mulesoft.quartz.mongo.MongoDBJobStore
+    org.quartz.jobStore.class=com.novemberain.quartz.mongodb.MongoDBJobStore
     # comma separated list of mongodb hosts/replica set seeds
     org.quartz.jobStore.addresses=host1,host2
     # database name
