@@ -6,6 +6,7 @@ import org.quartz.DailyTimeIntervalTrigger;
 import org.quartz.TimeOfDay;
 import org.quartz.impl.triggers.DailyTimeIntervalTriggerImpl;
 import org.quartz.spi.OperableTrigger;
+import org.quartz.DateBuilder;
 
 public class DailyTimeIntervalTriggerPersistenceHelper implements TriggerPersistenceHelper {
   private static final String TRIGGER_REPEAT_INTERVAL_UNIT = "repeatIntervalUnit";
@@ -46,7 +47,7 @@ public class DailyTimeIntervalTriggerPersistenceHelper implements TriggerPersist
 
     Object interval_unit = stored.get(TRIGGER_REPEAT_INTERVAL_UNIT);
     if (interval_unit != null) {
-      t.setRepeatCount((Integer) interval_unit);
+      t.setRepeatIntervalUnit(DateBuilder.IntervalUnit.valueOf((String) interval_unit));
     }
     Object repeatInterval = stored.get(TRIGGER_REPEAT_INTERVAL);
     if (repeatInterval != null) {
