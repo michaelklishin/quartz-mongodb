@@ -1,12 +1,13 @@
-## Changes between quartz-mongodb 1.3.0-beta1 and 1.3.0
+## Changes between quartz-mongodb 1.2.0 and 1.3.0-beta1
 
-### Job Durability is Now Correctly Stored
+### Duplicate Triggers Issue is Fixed
 
-Job durability attribute is now properly stored in the job document.
+Triggers now should be updated correctly.
 
-### Orphaned JobDetails Removed
+### DailyTimeIntervalTriggers are Stored Successfully
 
-JobDetail should no longer be orphaned after deleting the only trigger referencing it.
+DailyTimeIntervalTriggers are now deserialized correctly.
+
 
 
 ## Changes between quartz-mongodb 1.2.0-beta1 and 1.2.0
