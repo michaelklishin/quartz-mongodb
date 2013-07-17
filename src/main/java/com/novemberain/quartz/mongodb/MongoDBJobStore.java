@@ -913,9 +913,10 @@ public class MongoDBJobStore implements JobStore, Constants {
     job.put(JOB_DURABILITY, newJob.isDurable());
 
     job.putAll(newJob.getJobDataMap());
-
+    
+    boolean existing = jobCollection.findOne(keyDbo) != null;
     try {
-      if (replaceExisting) {
+      if (existing && replaceExisting) {
         jobCollection.update(keyDbo, job);
       } else {
         jobCollection.insert(job);
