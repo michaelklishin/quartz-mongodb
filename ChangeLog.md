@@ -1,4 +1,9 @@
-## Changes between quartz-mongodb 1.2.0 and 1.3.0-beta1
+## Changes between quartz-mongodb 1.2.0 and 1.3.0
+
+### storeJobInMongo Behavior is More Compatible with the JDBC Store
+
+JDBC store always stores a job that does not exist, regardless of the value of
+the `replaceExisting` argument. Now MongoDB store does the same.
 
 ### Duplicate Triggers Issue is Fixed
 
