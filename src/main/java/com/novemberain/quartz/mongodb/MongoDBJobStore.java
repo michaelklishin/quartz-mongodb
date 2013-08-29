@@ -49,6 +49,7 @@ public class MongoDBJobStore implements JobStore, Constants {
   private DBCollection pausedJobGroupsCollection;
   private String instanceId;
   private String[] addresses;
+  private String mongoUri;
   private String username;
   private String password;
   private SchedulerSignaler signaler;
@@ -62,8 +63,8 @@ public class MongoDBJobStore implements JobStore, Constants {
     this.loadHelper = loadHelper;
     this.signaler = signaler;
 
-    if (addresses == null || addresses.length == 0) {
-      throw new SchedulerConfigException("At least one MongoDB address must be specified.");
+    if (mongoUri == null && (addresses == null || addresses.length == 0)) {
+      throw new SchedulerConfigException("At least one MongoDB address or a MongoDB URI must be specified .");
     }
 
     this.mongo = connectToMongoDB();
@@ -671,6 +672,10 @@ public class MongoDBJobStore implements JobStore, Constants {
     collectionPrefix = prefix + "_";
   }
 
+  public void setMongoUri(final String mongoUri) {
+	  this.mongoUri = mongoUri;
+  }
+  
   public void setUsername(String username) {
     this.username = username;
   }
@@ -716,7 +721,10 @@ public class MongoDBJobStore implements JobStore, Constants {
     return db;
   }
 
-  private Mongo connectToMongoDB() throws SchedulerConfigException {
+  private Mongo connectToMongoDB() throws SchedulerConfigException { 
+	if(mongoUri != null){
+		return connectToMongoDB(mongoUri);
+	}
     MongoOptions options = new MongoOptions();
     options.safe = true;
 
@@ -732,6 +740,14 @@ public class MongoDBJobStore implements JobStore, Constants {
     } catch (MongoException e) {
       throw new SchedulerConfigException("Could not connect to MongoDB.", e);
     }
+  }
+  
+  private Mongo connectToMongoDB(final String mongoUriAsString) throws SchedulerConfigException {
+	  try {
+		  return new MongoClient(new MongoClientURI(mongoUriAsString));
+	 } catch (final UnknownHostException | MongoException e) {
+		 throw new SchedulerConfigException("Could not connect to MongoDB.", e);
+	 }
   }
 
   protected OperableTrigger toTrigger(DBObject dbObj) throws JobPersistenceException {
