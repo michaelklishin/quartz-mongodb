@@ -38,7 +38,9 @@ Set your Quartz properties to something like this:
 
     # Use the MongoDB store
     org.quartz.jobStore.class=com.novemberain.quartz.mongodb.MongoDBJobStore
-    # comma separated list of mongodb hosts/replica set seeds
+    # MongoDB URI (optional if 'org.quartz.jobStore.addresses' is set)
+    org.quartz.jobStore.mongoUri=mongodb://localhost:27020
+    # comma separated list of mongodb hosts/replica set seeds (optional if 'org.quartz.jobStore.mongoUri' is set)
     org.quartz.jobStore.addresses=host1,host2
     # database name
     org.quartz.jobStore.dbName=quartz
