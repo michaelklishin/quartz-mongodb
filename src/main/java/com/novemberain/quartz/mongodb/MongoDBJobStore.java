@@ -736,18 +736,20 @@ public class MongoDBJobStore implements JobStore, Constants {
       return new Mongo(serverAddresses, options);
 
     } catch (UnknownHostException e) {
-      throw new SchedulerConfigException("Could not connect to MongoDB.", e);
+      throw new SchedulerConfigException("Could not connect to MongoDB", e);
     } catch (MongoException e) {
-      throw new SchedulerConfigException("Could not connect to MongoDB.", e);
+      throw new SchedulerConfigException("Could not connect to MongoDB", e);
     }
   }
   
   private Mongo connectToMongoDB(final String mongoUriAsString) throws SchedulerConfigException {
 	  try {
 		  return new MongoClient(new MongoClientURI(mongoUriAsString));
-	 } catch (final UnknownHostException | MongoException e) {
-		 throw new SchedulerConfigException("Could not connect to MongoDB.", e);
-	 }
+	 } catch (final UnknownHostException e) {
+		 throw new SchedulerConfigException("Could not connect to MongoDB", e);
+	 } catch (final MongoException e) {
+          throw new SchedulerConfigException("MongoDB driver thrown an exception", e);
+      }
   }
 
   protected OperableTrigger toTrigger(DBObject dbObj) throws JobPersistenceException {
