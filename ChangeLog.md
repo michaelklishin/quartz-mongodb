@@ -1,5 +1,23 @@
 ## Changes between quartz-mongodb 1.2.0 and 1.3.0
 
+### Connection Failures Throw Scheduler Exceptions
+
+Connection failures will now result in Quartz scheduler exceptions
+being thrown (as Quartz expects it to be), not MongoDB driver's.
+
+### URI Connections
+
+It is now possible to connect using a MongoDB URI:
+
+``` ini
+org.quartz.jobStore.class=com.novemberain.quartz.mongodb.MongoDBJobStore
+# Use the mongo URI to connect
+org.quartz.jobStore.mongoUri= mongodb://localhost:27020
+org.quartz.jobStore.dbName=quartz
+org.quartz.jobStore.collectionPrefix=mycol
+org.quartz.threadPool.threadCount=100
+```
+
 ### storeJobInMongo Behavior is More Compatible with the JDBC Store
 
 JDBC store always stores a job that does not exist, regardless of the value of
