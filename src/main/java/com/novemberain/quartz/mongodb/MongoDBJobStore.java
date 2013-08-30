@@ -860,27 +860,36 @@ public class MongoDBJobStore implements JobStore, Constants {
     }
   }
 
-  private void ensureIndexes() {
-    BasicDBObject keys = new BasicDBObject();
-    keys.put(JOB_KEY_NAME, 1);
-    keys.put(JOB_KEY_GROUP, 1);
-    jobCollection.ensureIndex(keys, null, true);
-
-    keys = new BasicDBObject();
-    keys.put(KEY_NAME, 1);
-    keys.put(KEY_GROUP, 1);
-    triggerCollection.ensureIndex(keys, null, true);
-
-    keys = new BasicDBObject();
-    keys.put(LOCK_KEY_NAME, 1);
-    keys.put(LOCK_KEY_GROUP, 1);
-    locksCollection.ensureIndex(keys, null, true);
-    // remove all locks for this instance on startup
-    locksCollection.remove(new BasicDBObject(LOCK_INSTANCE_ID, instanceId));
-
-    keys = new BasicDBObject();
-    keys.put(CALENDAR_NAME, 1);
-    calendarCollection.ensureIndex(keys, null, true);
+  /**
+   * Initializes the indexes for the scheduler collections.
+   * 
+   * @throws SchedulerConfigException if an error occurred communicating with the MongoDB server.
+   */
+  private void ensureIndexes() throws SchedulerConfigException {
+    try {
+      BasicDBObject keys = new BasicDBObject();
+      keys.put(JOB_KEY_NAME, 1);
+      keys.put(JOB_KEY_GROUP, 1);
+	  jobCollection.ensureIndex(keys, null, true);
+	
+	  keys = new BasicDBObject();
+	  keys.put(KEY_NAME, 1);
+	  keys.put(KEY_GROUP, 1);
+	  triggerCollection.ensureIndex(keys, null, true);
+	
+	  keys = new BasicDBObject();
+	  keys.put(LOCK_KEY_NAME, 1);
+	  keys.put(LOCK_KEY_GROUP, 1);
+	  locksCollection.ensureIndex(keys, null, true);
+	  // remove all locks for this instance on startup
+	  locksCollection.remove(new BasicDBObject(LOCK_INSTANCE_ID, instanceId));
+	
+	  keys = new BasicDBObject();
+	  keys.put(CALENDAR_NAME, 1);
+	  calendarCollection.ensureIndex(keys, null, true);
+	} catch(final MongoException e){
+	  throw new SchedulerConfigException("Error while initializing the indexes", e);
+	}
   }
 
   protected void storeTrigger(OperableTrigger newTrigger, ObjectId jobId, boolean replaceExisting) throws ObjectAlreadyExistsException {
