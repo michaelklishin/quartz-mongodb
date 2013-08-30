@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/src/main/Main.iml" filepath="$PROJECT_DIR$/src/main/Main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/quartz-mongodb.iml" filepath="$PROJECT_DIR$/quartz-mongodb.iml" />
     </modules>
   </component>
 </project>
