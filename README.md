@@ -67,7 +67,9 @@ to use Quartz MongoDB store with a MongoDB cluster.
 CI is hosted by [Travis CI](http://travis-ci.org/)
 
 
-## License
+## Copyright & License
+
+(c) Michael S. Klishin, Alex Petrov, 2011-2013.
 
 [Apache Public License 2.0](http://www.apache.org/licenses/LICENSE-2.0.html)
 
