@@ -104,7 +104,7 @@ public class MongoDBJobStore implements JobStore, Constants {
   }
 
   public boolean isClustered() {
-    return true;
+    return false;
   }
 
   /**
@@ -533,7 +533,7 @@ public class MongoDBJobStore implements JobStore, Constants {
         if (lockCursor.hasNext()) {
           existingLock = lockCursor.next();
         } else {
-          log.warn("Error retrieving expired lock from the database. Maybe it was deleted");
+			log.debug("Error retrieving expired lock from the database. Maybe it was deleted");
           return acquireNextTriggers(noLaterThan, maxCount, timeWindow);
         }
 
@@ -675,7 +675,7 @@ public class MongoDBJobStore implements JobStore, Constants {
   public void setMongoUri(final String mongoUri) {
 	  this.mongoUri = mongoUri;
   }
-  
+
   public void setUsername(String username) {
     this.username = username;
   }
@@ -721,7 +721,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     return db;
   }
 
-  private Mongo connectToMongoDB() throws SchedulerConfigException { 
+  private Mongo connectToMongoDB() throws SchedulerConfigException {
 	if(mongoUri != null){
 		return connectToMongoDB(mongoUri);
 	}
@@ -741,7 +741,7 @@ public class MongoDBJobStore implements JobStore, Constants {
       throw new SchedulerConfigException("Could not connect to MongoDB", e);
     }
   }
-  
+
   private Mongo connectToMongoDB(final String mongoUriAsString) throws SchedulerConfigException {
 	  try {
 		  return new MongoClient(new MongoClientURI(mongoUriAsString));
@@ -864,7 +864,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
   /**
    * Initializes the indexes for the scheduler collections.
-   * 
+   *
    * @throws SchedulerConfigException if an error occurred communicating with the MongoDB server.
    */
   private void ensureIndexes() throws SchedulerConfigException {
@@ -873,19 +873,19 @@ public class MongoDBJobStore implements JobStore, Constants {
       keys.put(JOB_KEY_NAME, 1);
       keys.put(JOB_KEY_GROUP, 1);
 	  jobCollection.ensureIndex(keys, null, true);
-	
+
 	  keys = new BasicDBObject();
 	  keys.put(KEY_NAME, 1);
 	  keys.put(KEY_GROUP, 1);
 	  triggerCollection.ensureIndex(keys, null, true);
-	
+
 	  keys = new BasicDBObject();
 	  keys.put(LOCK_KEY_NAME, 1);
 	  keys.put(LOCK_KEY_GROUP, 1);
 	  locksCollection.ensureIndex(keys, null, true);
 	  // remove all locks for this instance on startup
 	  locksCollection.remove(new BasicDBObject(LOCK_INSTANCE_ID, instanceId));
-	
+
 	  keys = new BasicDBObject();
 	  keys.put(CALENDAR_NAME, 1);
 	  calendarCollection.ensureIndex(keys, null, true);
@@ -940,7 +940,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     job.put(JOB_DURABILITY, newJob.isDurable());
 
     job.putAll(newJob.getJobDataMap());
-    
+
     boolean existing = jobCollection.findOne(keyDbo) != null;
     try {
       if (existing && replaceExisting) {
