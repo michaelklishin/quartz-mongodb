@@ -50,6 +50,16 @@ Set your Quartz properties to something like this:
     org.quartz.threadPool.threadCount=1
 
 
+## Limitations
+
+This Quartz store strives to be feature complete but currently has limitations:
+
+ * Clustering is not supported
+
+Note that despite Quartz clustering not being supported it is perfectly possible
+to use Quartz MongoDB store with a MongoDB cluster.
+
+
 ## Continuous Integration
 
 [![Build Status](https://secure.travis-ci.org/michaelklishin/quartz-mongodb.png?branch=master)](http://travis-ci.org/michaelklishin/quartz-mongodb)
