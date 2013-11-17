@@ -1,5 +1,12 @@
 ## Changes between quartz-mongodb 1.3.0 and 1.4.0
 
+### Switch to SLF4J Logging
+
+Update the slf4j logging to use parametrized messages such that the
+use of isDebugEnabled is not required.
+
+Contributed by lordbuddha.
+
 ### Trigger Cleanup
 
 If there is no next fire time, remove the trigger.  It is no longer
