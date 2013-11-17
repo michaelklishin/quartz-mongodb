@@ -1,5 +1,13 @@
 ## Changes between quartz-mongodb 1.3.0 and 1.4.0
 
+### Job Rescheduling Fix
+
+When rescheduling a job, which uses replaceTrigger, do not use the
+removeTrigger method as it will remove the job also if the job is not
+durable.
+
+Contributed by lordbuddha.
+
 ### Misfire Handling Fix
 
 Fix misfire handling such that triggers whose next fire time after
