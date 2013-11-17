@@ -1,5 +1,12 @@
 ## Changes between quartz-mongodb 1.3.0 and 1.4.0
 
+### Trigger Cleanup
+
+If there is no next fire time, remove the trigger.  It is no longer
+required.
+
+Contributed by lordbuddha.
+
 ### Job Rescheduling Fix
 
 When rescheduling a job, which uses replaceTrigger, do not use the
