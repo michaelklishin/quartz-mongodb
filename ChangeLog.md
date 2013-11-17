@@ -1,3 +1,26 @@
+## Changes between quartz-mongodb 1.3.0 and 1.4.0
+
+### Misfire Handling Fix
+
+Fix misfire handling such that triggers whose next fire time after
+misfire handling is outside of the current acquisition time are no
+longer returned.
+
+Contributed by lordbuddha.
+
+### Batch Loading Support
+
+Objects now can be loaded in batches, if Quartz is configured to do so.
+
+Contributed by lordbuddha.
+
+### Cluster Support Indicator
+
+`MongoDBJobStore#isClustered` now correctly returns `false`.
+
+Contributed by Dennis Zhuang.
+
+
 ## Changes between quartz-mongodb 1.2.0 and 1.3.0
 
 ### Connection Failures Throw Scheduler Exceptions
