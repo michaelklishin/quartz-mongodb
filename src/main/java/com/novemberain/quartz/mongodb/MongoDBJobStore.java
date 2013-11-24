@@ -834,12 +834,12 @@ public class MongoDBJobStore implements JobStore, Constants {
     trigger.setPriority((Integer) dbObject.get(TRIGGER_PRIORITY));
     
     try {
-   	    trigger.setStartTime((Date) dbObject.get(TRIGGER_START_TIME));
-    	trigger.setEndTime((Date) dbObject.get(TRIGGER_END_TIME));
+        trigger.setStartTime((Date) dbObject.get(TRIGGER_START_TIME));
+        trigger.setEndTime((Date) dbObject.get(TRIGGER_END_TIME));
 	} catch(IllegalArgumentException e) {
-		//Ignore illegal arg exceptions thrown by triggers doing JIT validation of start and endtime
-		log.warn("Trigger had illegal start / end time combination: {}", trigger.getKey(), e)
-	}
+        //Ignore illegal arg exceptions thrown by triggers doing JIT validation of start and endtime
+        log.warn("Trigger had illegal start / end time combination: {}", trigger.getKey(), e)
+    }
 
 
     trigger = tpd.setExtraPropertiesAfterInstantiation(trigger, dbObject);
