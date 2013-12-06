@@ -967,10 +967,17 @@ public class MongoDBJobStore implements JobStore, Constants {
       keys.put(CALENDAR_NAME, 1);
       calendarCollection.ensureIndex(keys, null, true);
 
-      // Drop the old indexes that were declared as name then group rather than group then name
-      jobCollection.dropIndex("keyName_1_keyGroup_1");
-      triggerCollection.dropIndex("keyName_1_keyGroup_1");
-      locksCollection.dropIndex("keyName_1_keyGroup_1");
+      try
+      {
+        // Drop the old indexes that were declared as name then group rather than group then name
+        jobCollection.dropIndex("keyName_1_keyGroup_1");
+        triggerCollection.dropIndex("keyName_1_keyGroup_1");
+        locksCollection.dropIndex("keyName_1_keyGroup_1");
+      }
+      catch (CommandFailureException cfe)
+      {
+        // Ignore, the old indexes have already been removed
+      }
     } catch(final MongoException e){
       throw new SchedulerConfigException("Error while initializing the indexes", e);
     }
