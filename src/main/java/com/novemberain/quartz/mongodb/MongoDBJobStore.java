@@ -838,7 +838,7 @@ public class MongoDBJobStore implements JobStore, Constants {
         trigger.setEndTime((Date) dbObject.get(TRIGGER_END_TIME));
     } catch(IllegalArgumentException e) {
         //Ignore illegal arg exceptions thrown by triggers doing JIT validation of start and endtime
-        log.warn("Trigger had illegal start / end time combination: {}", trigger.getKey(), e)
+        log.warn("Trigger had illegal start / end time combination: {}", trigger.getKey(), e);
     }
 
 
