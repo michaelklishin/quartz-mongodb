@@ -162,13 +162,13 @@ public class MongoDBJobStore implements JobStore, Constants {
       Class<Job> jobClass = (Class<Job>) getJobClassLoader().loadClass((String) dbObject.get(JOB_CLASS));
 
       JobBuilder builder = JobBuilder.newJob(jobClass)
-          .withIdentity((String) dbObject.get(JOB_KEY_NAME), (String) dbObject.get(JOB_KEY_GROUP))
+          .withIdentity((String) dbObject.get(KEY_NAME), (String) dbObject.get(KEY_GROUP))
           .withDescription((String) dbObject.get(JOB_DESCRIPTION));
 
       JobDataMap jobData = new JobDataMap();
       for (String key : dbObject.keySet()) {
-        if (!key.equals(JOB_KEY_NAME)
-            && !key.equals(JOB_KEY_GROUP)
+        if (!key.equals(KEY_NAME)
+            && !key.equals(KEY_GROUP)
             && !key.equals(JOB_CLASS)
             && !key.equals(JOB_DESCRIPTION)
             && !key.equals("_id")) {
@@ -564,8 +564,8 @@ public class MongoDBJobStore implements JobStore, Constants {
         log.debug("Inserting lock for trigger {}", trigger.getKey());
         
         BasicDBObject lock = new BasicDBObject();
-        lock.put(LOCK_KEY_NAME, dbObj.get(KEY_NAME));
-        lock.put(LOCK_KEY_GROUP, dbObj.get(KEY_GROUP));
+        lock.put(KEY_NAME, dbObj.get(KEY_NAME));
+        lock.put(KEY_GROUP, dbObj.get(KEY_GROUP));
         lock.put(LOCK_INSTANCE_ID, instanceId);
         lock.put(LOCK_TIME, new Date());
         locksCollection.insert(lock);
@@ -579,8 +579,8 @@ public class MongoDBJobStore implements JobStore, Constants {
         log.debug("Failed to acquire trigger {} due to a lock", trigger.getKey());
 
         BasicDBObject lock = new BasicDBObject();
-        lock.put(LOCK_KEY_NAME, dbObj.get(KEY_NAME));
-        lock.put(LOCK_KEY_GROUP, dbObj.get(KEY_GROUP));
+        lock.put(KEY_NAME, dbObj.get(KEY_NAME));
+        lock.put(KEY_GROUP, dbObj.get(KEY_GROUP));
 
         DBObject existingLock;
         DBCursor lockCursor = locksCollection.find(lock);
@@ -842,11 +842,19 @@ public class MongoDBJobStore implements JobStore, Constants {
     }
 
 
+    try {
+        trigger.setStartTime((Date) dbObject.get(TRIGGER_START_TIME));
+        trigger.setEndTime((Date) dbObject.get(TRIGGER_END_TIME));
+    } catch(IllegalArgumentException e) {
+        //Ignore illegal arg exceptions thrown by triggers doing JIT validation of start and endtime
+        log.warn("Trigger had illegal start / end time combination: {}", trigger.getKey(), e);
+    }
+
     trigger = tpd.setExtraPropertiesAfterInstantiation(trigger, dbObject);
 
     DBObject job = jobCollection.findOne(new BasicDBObject("_id", dbObject.get(TRIGGER_JOB_ID)));
     if (job != null) {
-      trigger.setJobKey(new JobKey((String) job.get(JOB_KEY_NAME), (String) job.get(JOB_KEY_GROUP)));
+      trigger.setJobKey(new JobKey((String) job.get(KEY_NAME), (String) job.get(KEY_GROUP)));
       return trigger;
     } else {
       // job was deleted
@@ -929,29 +937,43 @@ public class MongoDBJobStore implements JobStore, Constants {
    */
   private void ensureIndexes() throws SchedulerConfigException {
     try {
+      /*
+       * Indexes are to be declared as group then name.  This is important as the quartz API allows
+       * for the searching of jobs and triggers using a group matcher.  To be able to use the compound
+       * index using group alone (as the API allows), group must be the first key in that index.
+       * 
+       * To be consistent, all such indexes are ensured in the order group then name.  The previous
+       * indexes are removed after we have "ensured" the new ones.
+       */
+
       BasicDBObject keys = new BasicDBObject();
-      keys.put(JOB_KEY_NAME, 1);
-      keys.put(JOB_KEY_GROUP, 1);
-	  jobCollection.ensureIndex(keys, null, true);
+      keys.put(KEY_GROUP, 1);
+      keys.put(KEY_NAME, 1);
+      jobCollection.ensureIndex(keys, null, true);
 
-	  keys = new BasicDBObject();
-	  keys.put(KEY_NAME, 1);
-	  keys.put(KEY_GROUP, 1);
-	  triggerCollection.ensureIndex(keys, null, true);
+      keys = new BasicDBObject();
+      keys.put(KEY_GROUP, 1);
+      keys.put(KEY_NAME, 1);
+      triggerCollection.ensureIndex(keys, null, true);
 
-	  keys = new BasicDBObject();
-	  keys.put(LOCK_KEY_NAME, 1);
-	  keys.put(LOCK_KEY_GROUP, 1);
-	  locksCollection.ensureIndex(keys, null, true);
-	  // remove all locks for this instance on startup
-	  locksCollection.remove(new BasicDBObject(LOCK_INSTANCE_ID, instanceId));
+      keys = new BasicDBObject();
+      keys.put(KEY_GROUP, 1);
+      keys.put(KEY_NAME, 1);
+      locksCollection.ensureIndex(keys, null, true);
+      // remove all locks for this instance on startup
+      locksCollection.remove(new BasicDBObject(LOCK_INSTANCE_ID, instanceId));
 
-	  keys = new BasicDBObject();
-	  keys.put(CALENDAR_NAME, 1);
-	  calendarCollection.ensureIndex(keys, null, true);
-	} catch(final MongoException e){
-	  throw new SchedulerConfigException("Error while initializing the indexes", e);
-	}
+      keys = new BasicDBObject();
+      keys.put(CALENDAR_NAME, 1);
+      calendarCollection.ensureIndex(keys, null, true);
+
+      // Drop the old indexes that were declared as name then group rather than group then name
+      jobCollection.dropIndex("keyName_1_keyGroup_1");
+      triggerCollection.dropIndex("keyName_1_keyGroup_1");
+      locksCollection.dropIndex("keyName_1_keyGroup_1");
+    } catch(final MongoException e){
+      throw new SchedulerConfigException("Error while initializing the indexes", e);
+    }
   }
 
   protected void storeTrigger(OperableTrigger newTrigger, ObjectId jobId, boolean replaceExisting) throws ObjectAlreadyExistsException {
@@ -993,8 +1015,8 @@ public class MongoDBJobStore implements JobStore, Constants {
     BasicDBObject keyDbo = keyToDBObject(key);
     BasicDBObject job = keyToDBObject(key);
 
-    job.put(JOB_KEY_NAME, key.getName());
-    job.put(JOB_KEY_GROUP, key.getGroup());
+    job.put(KEY_NAME, key.getName());
+    job.put(KEY_GROUP, key.getGroup());
     job.put(JOB_DESCRIPTION, newJob.getDescription());
     job.put(JOB_CLASS, newJob.getJobClass().getName());
     job.put(JOB_DURABILITY, newJob.isDurable());
@@ -1018,8 +1040,8 @@ public class MongoDBJobStore implements JobStore, Constants {
   protected void removeTriggerLock(OperableTrigger trigger) {
     log.debug("Removing trigger lock {}.{}", trigger.getKey(), instanceId);
     BasicDBObject lock = new BasicDBObject();
-    lock.put(LOCK_KEY_NAME, trigger.getKey().getName());
-    lock.put(LOCK_KEY_GROUP, trigger.getKey().getGroup());
+    lock.put(KEY_NAME, trigger.getKey().getName());
+    lock.put(KEY_GROUP, trigger.getKey().getGroup());
 
     // Coment this out, as expired trigger locks should be deleted by any another instance
     // lock.put(LOCK_INSTANCE_ID, instanceId);

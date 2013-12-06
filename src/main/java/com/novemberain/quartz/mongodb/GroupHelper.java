@@ -1,6 +1,5 @@
 package com.novemberain.quartz.mongodb;
 
-import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import com.mongodb.QueryBuilder;
@@ -17,19 +16,16 @@ public class GroupHelper {
   protected DBCollection collection;
   protected QueryHelper queryHelper;
 
-  private static final DBObject FIELDS = new BasicDBObject(KEY_GROUP, 1);
-
   public GroupHelper(DBCollection collection, QueryHelper queryHelper) {
     this.collection = collection;
     this.queryHelper = queryHelper;
   }
 
-
-  public Set<String> groupsThatMatch(GroupMatcher matcher) {
+  public Set<String> groupsThatMatch(GroupMatcher<?> matcher) {
     return new HashSet<String>(this.collection.distinct(KEY_GROUP, queryHelper.matchingKeysConditionFor(matcher)));
   }
 
-  public List<DBObject> inGroupsThatMatch(GroupMatcher matcher) {
+  public List<DBObject> inGroupsThatMatch(GroupMatcher<?> matcher) {
     return collection.find(QueryBuilder.start(KEY_GROUP).
         in(groupsThatMatch(matcher)).get()).
         toArray();
