@@ -10,21 +10,21 @@ import java.util.Collection;
 import static com.novemberain.quartz.mongodb.Keys.KEY_GROUP;
 
 public class QueryHelper {
-  public DBObject matchingKeysConditionFor(GroupMatcher matcher) {
+  public DBObject matchingKeysConditionFor(GroupMatcher<?> matcher) {
     BasicDBObjectBuilder builder = BasicDBObjectBuilder.start();
 
     final String compareToValue = matcher.getCompareToValue();
     switch (matcher.getCompareWithOperator()) {
       case EQUALS:
-        builder.append("keyGroup", compareToValue);
+        builder.append(KEY_GROUP, compareToValue);
         break;
       case STARTS_WITH:
-        builder.append("keyGroup", startsWithRegexDBObject(compareToValue));
+        builder.append(KEY_GROUP, startsWithRegexDBObject(compareToValue));
         break;
       case ENDS_WITH:
-        builder.append("keyGroup", endsWithRegexDBObject(compareToValue));
+        builder.append(KEY_GROUP, endsWithRegexDBObject(compareToValue));
       case CONTAINS:
-        builder.append("keyGroup", containsWithRegexDBObject(compareToValue));
+        builder.append(KEY_GROUP, containsWithRegexDBObject(compareToValue));
         break;
     }
 
