@@ -7,10 +7,10 @@
             [clojurewerkz.quartzite.schedule.cron   :as sc]
             [clojurewerkz.quartzite.schedule.daily-interval    :as sd]
             [clojurewerkz.quartzite.schedule.calendar-interval :as calin]
-            [monger.collection :as mgc])
-  (:use clojure.test
-        [clj-time.core :only [secs months from-now]]
-        [clj-time.coerce :only [to-long]])
+            [monger.collection :as mgc]
+            [clojure.test :refer :all]
+            [clj-time.core :refer [secs months from-now]]
+            [clj-time.coerce :refer [to-long]])
   (:import org.quartz.simpl.SimpleClassLoadHelper
            org.quartz.impl.triggers.SimpleTriggerImpl
            org.quartz.impl.JobDetailImpl
