@@ -456,21 +456,21 @@
       (.storeJobAndTrigger j2 tr2))
     (is (= 2 (mgc/count triggers-collection) (mgc/count jobs-collection) (.getNumberOfTriggers store) (.getNumberOfJobs store)))
     (.pauseJobs store (m/group-starts-with "main"))
-    (let [m (mgc/find-one-as-map triggers-collection {"keyName" "test-pause-jobs1"
-                                                      "keyGroup" "main-tests"})]
+    (let [m (mgc/find-one-as-map triggers-collection (array-map "keyName" "test-pause-jobs1"
+                                                                "keyGroup" "main-tests"))]
       (is m)
       (is (= "paused" (:state m)))
       (is (= "PAUSED" (str (.getTriggerState store tk1)))))
-    (let [m (mgc/find-one-as-map triggers-collection {"keyName" "test-pause-jobs2"
-                                                      "keyGroup" "alt-tests"})]
+    (let [m (mgc/find-one-as-map triggers-collection (array-map "keyName" "test-pause-jobs2"
+                                                                "keyGroup" "alt-tests"))]
       (is m)
       (is (= "waiting" (:state m)))
       (is (= "NORMAL" (str (.getTriggerState store tk2)))))
     (is (empty? (.getPausedTriggerGroups store)))
     (is (= #{"main-tests"} (.getPausedJobGroups store)))
     (.resumeJobs store (m/group-ends-with "tests"))
-    (let [m (mgc/find-one-as-map triggers-collection {"keyName" "test-pause-jobs1"
-                                                      "keyGroup" "main-tests"})]
+    (let [m (mgc/find-one-as-map triggers-collection (array-map "keyName" "test-pause-jobs1"
+                                                                "keyGroup" "main-tests"))]
       (is (= "waiting" (:state m)))
       (is (= "NORMAL" (str (.getTriggerState store tk1)))))
     (is (empty? (.getPausedTriggerGroups store)))))
