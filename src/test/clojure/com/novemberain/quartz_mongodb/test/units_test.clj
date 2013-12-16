@@ -301,7 +301,7 @@
       (is (= "waiting" (:state m)))
       (is (= "NORMAL" (str (.getTriggerState store tk2)))))
     (is (= #{"main-tests"} (.getPausedTriggerGroups store)))
-    (.resumeTriggers store (m/group-ends-with "tests"))
+    (.resumeTriggers store (m/group-starts-with "main"))
     (let [m (mgc/find-one-as-map triggers-collection {"keyName" "test-pause-triggers1"
                                                       "keyGroup" "main-tests"})]
       (is (= "waiting" (:state m)))
@@ -468,7 +468,7 @@
       (is (= "NORMAL" (str (.getTriggerState store tk2)))))
     (is (empty? (.getPausedTriggerGroups store)))
     (is (= #{"main-tests"} (.getPausedJobGroups store)))
-    (.resumeJobs store (m/group-ends-with "tests"))
+    (.resumeJobs store (m/group-starts-with "main"))
     (let [m (mgc/find-one-as-map triggers-collection (array-map "keyName" "test-pause-jobs1"
                                                                 "keyGroup" "main-tests"))]
       (is (= "waiting" (:state m)))
