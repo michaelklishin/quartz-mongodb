@@ -1,5 +1,5 @@
 /*
- * $Id$
+ * $Id: MongoDBJobStore.java 251831 2013-12-17 03:30:49Z waded $
  * --------------------------------------------------------------------------------------
  * Copyright (c) MuleSoft, Inc.  All rights reserved.  http://www.mulesoft.com
  *
@@ -56,6 +56,8 @@ public class MongoDBJobStore implements JobStore, Constants {
   private SchedulerSignaler signaler;
   protected long misfireThreshold = 5000l;
   private long triggerTimeoutMillis = 10 * 60 * 1000L;
+  // TODO.  This really ought to be configured.
+  private long jobTimeoutMillis = 10 * 60 * 1000L;
 
   private List<TriggerPersistenceHelper> persistenceHelpers;
   private QueryHelper queryHelper;
@@ -200,17 +202,17 @@ public class MongoDBJobStore implements JobStore, Constants {
   // then the job should be removed also.
   public boolean removeTrigger(TriggerKey triggerKey) throws JobPersistenceException {
     BasicDBObject dbObject = Keys.keyToDBObject(triggerKey);
-    DBCursor triggers = triggerCollection.find(dbObject);
-    if (triggers.count() > 0) {
-      DBObject trigger = triggers.next();
+    List<DBObject> triggers = triggerCollection.find(dbObject).limit(2).toArray();
+    if (triggers.size() > 0) {
+      DBObject trigger = triggers.get(0);
       if (trigger.containsField(TRIGGER_JOB_ID)) {
         // There is only 1 job per trigger so no need to look further.
         DBObject job = jobCollection.findOne(new BasicDBObject("_id", trigger.get(TRIGGER_JOB_ID)));
         // Remove the orphaned job if it's durable and has no other triggers associated with it,
         // remove it
-        if (!job.containsField(JOB_DURABILITY) || job.get(JOB_DURABILITY).toString().equals("false")) {
-          DBCursor referencedTriggers = triggerCollection.find(new BasicDBObject(TRIGGER_JOB_ID, job.get("_id")));
-          if (referencedTriggers != null && referencedTriggers.count() <= 1) {
+        if (job != null && (!job.containsField(JOB_DURABILITY) || job.get(JOB_DURABILITY).toString().equals("false"))) {
+          List<DBObject> referencedTriggers = triggerCollection.find(new BasicDBObject(TRIGGER_JOB_ID, job.get("_id"))).limit(2).toArray();
+          if (referencedTriggers.size() == 1) {
             jobCollection.remove(job);
           }
         }
@@ -568,7 +570,8 @@ public class MongoDBJobStore implements JobStore, Constants {
         lock.put(KEY_GROUP, dbObj.get(KEY_GROUP));
         lock.put(LOCK_INSTANCE_ID, instanceId);
         lock.put(LOCK_TIME, new Date());
-        locksCollection.insert(lock);
+        // A lock needs to be written with FSYNCED to be 100% effective across multiple servers
+        locksCollection.insert(lock, WriteConcern.FSYNCED);
         
         log.debug("Aquired trigger {}", trigger.getKey());
         triggers.put(trigger.getKey(), trigger);
@@ -631,13 +634,48 @@ public class MongoDBJobStore implements JobStore, Constants {
       JobDetail job = bndle.getJobDetail();
       
       if (job != null) {
-        if (job.isConcurrentExectionDisallowed()) {
-          throw new UnsupportedOperationException("ConcurrentExecutionDisallowed is not supported currently.");
-        }
-        results.add(new TriggerFiredResult(bndle));
+        
+        try {
+        
+          if (job.isConcurrentExectionDisallowed()) {
 
-        trigger.triggered(cal);
-        storeTrigger(trigger, true);
+            log.debug("Inserting lock for job {}", job.getKey());
+            BasicDBObject lock = new BasicDBObject();
+            lock.put(KEY_NAME, "jobconcurrentlock:" + job.getKey().getName());
+            lock.put(KEY_GROUP, job.getKey().getGroup());
+            lock.put(LOCK_INSTANCE_ID, instanceId);
+            lock.put(LOCK_TIME, new Date());
+            // A lock needs to be written with FSYNCED to be 100% effective across multiple servers
+            locksCollection.insert(lock, WriteConcern.FSYNCED);
+          }
+          
+          results.add(new TriggerFiredResult(bndle));
+          trigger.triggered(cal);
+          storeTrigger(trigger, true);
+        }
+        catch (DuplicateKey dk) {
+          
+          log.debug("Job disallows concurrent execution and is already running {}", job.getKey());
+          
+          // Remove the trigger lock
+          removeTriggerLock(trigger);
+          
+          // Find the existing lock and if still present, and expired, then remove it.
+          BasicDBObject lock = new BasicDBObject();
+          lock.put(KEY_NAME, "jobconcurrentlock:" + job.getKey().getName());
+          lock.put(KEY_GROUP, job.getKey().getGroup());
+          
+          DBObject existingLock;
+          DBCursor lockCursor = locksCollection.find(lock);
+          if (lockCursor.hasNext()) {
+            existingLock = lockCursor.next();
+            
+            if (isJobLockExpired(existingLock)) {
+              log.debug("Removing expired lock for job {}", job.getKey());
+              locksCollection.remove(existingLock);
+            }
+          }
+        }
       }
 
     }
@@ -648,7 +686,17 @@ public class MongoDBJobStore implements JobStore, Constants {
                                    JobDetail jobDetail,
                                    CompletedExecutionInstruction triggerInstCode)
       throws JobPersistenceException {
+    
     log.debug("Trigger completed {}", trigger.getKey());
+    
+    if (jobDetail.isConcurrentExectionDisallowed()) {
+      log.debug("Removing lock for job {}", jobDetail.getKey());
+      BasicDBObject lock = new BasicDBObject();
+      lock.put(KEY_NAME, "jobconcurrentlock:" + jobDetail.getKey().getName());
+      lock.put(KEY_GROUP, jobDetail.getKey().getGroup());
+      locksCollection.remove(lock);
+    }
+    
     // check for trigger deleted during execution...
     OperableTrigger trigger2 = retrieveTrigger(trigger.getKey());
     if (trigger2 != null) {
@@ -726,7 +774,7 @@ public class MongoDBJobStore implements JobStore, Constants {
   }
 
   public void setMongoUri(final String mongoUri) {
-	  this.mongoUri = mongoUri;
+    this.mongoUri = mongoUri;
   }
 
   public void setUsername(String username) {
@@ -767,7 +815,8 @@ public class MongoDBJobStore implements JobStore, Constants {
   private DB selectDatabase(Mongo mongo) {
     DB db = mongo.getDB(dbName);
     // MongoDB defaults are insane, set a reasonable write concern explicitly. MK.
-    db.setWriteConcern(WriteConcern.JOURNAL_SAFE);
+    // But we would be insane not to override this when writing lock records. LB.
+    db.setWriteConcern(WriteConcern.JOURNALED);
     if (username != null) {
       db.authenticate(username, password.toCharArray());
     }
@@ -775,9 +824,9 @@ public class MongoDBJobStore implements JobStore, Constants {
   }
 
   private Mongo connectToMongoDB() throws SchedulerConfigException {
-	if(mongoUri != null){
-		return connectToMongoDB(mongoUri);
-	}
+  if(mongoUri != null){
+    return connectToMongoDB(mongoUri);
+  }
     MongoOptions options = new MongoOptions();
     options.safe = true;
 
@@ -796,11 +845,11 @@ public class MongoDBJobStore implements JobStore, Constants {
   }
 
   private Mongo connectToMongoDB(final String mongoUriAsString) throws SchedulerConfigException {
-	  try {
-		  return new MongoClient(new MongoClientURI(mongoUriAsString));
-	 } catch (final UnknownHostException e) {
-		 throw new SchedulerConfigException("Could not connect to MongoDB", e);
-	 } catch (final MongoException e) {
+    try {
+      return new MongoClient(new MongoClientURI(mongoUriAsString));
+   } catch (final UnknownHostException e) {
+     throw new SchedulerConfigException("Could not connect to MongoDB", e);
+   } catch (final MongoException e) {
           throw new SchedulerConfigException("MongoDB driver thrown an exception", e);
       }
   }
@@ -886,6 +935,12 @@ public class MongoDBJobStore implements JobStore, Constants {
     return (elaspedTime > triggerTimeoutMillis);
   }
 
+  protected boolean isJobLockExpired(DBObject lock) {
+    Date lockTime = (Date) lock.get(LOCK_TIME);
+    long elaspedTime = System.currentTimeMillis() - lockTime.getTime();
+    return (elaspedTime > jobTimeoutMillis);
+  }
+
   protected boolean applyMisfire(OperableTrigger trigger) throws JobPersistenceException {
     long misfireTime = System.currentTimeMillis();
     if (getMisfireThreshold() > 0) {
@@ -960,6 +1015,10 @@ public class MongoDBJobStore implements JobStore, Constants {
       keys.put(KEY_GROUP, 1);
       keys.put(KEY_NAME, 1);
       locksCollection.ensureIndex(keys, null, true);
+
+      // Need this to stop table scan when removing all locks
+      locksCollection.ensureIndex(LOCK_INSTANCE_ID);
+      
       // remove all locks for this instance on startup
       locksCollection.remove(new BasicDBObject(LOCK_INSTANCE_ID, instanceId));
 
@@ -1030,18 +1089,26 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     job.putAll(newJob.getJobDataMap());
 
-    boolean existing = jobCollection.findOne(keyDbo) != null;
-    try {
-      if (existing && replaceExisting) {
-        jobCollection.update(keyDbo, job);
-      } else {
+    DBObject object = jobCollection.findOne(keyDbo);
+    
+    ObjectId objectId = null;
+    
+    if (object != null && replaceExisting) {
+      jobCollection.update(keyDbo, job);
+    } else if (object == null) {
+      try {
         jobCollection.insert(job);
+        objectId = (ObjectId) job.get("_id");
+      } catch (DuplicateKey e) {
+        // Fine, find it and get its id.
+        object = jobCollection.findOne(keyDbo);
+        objectId = (ObjectId) object.get("_id");
       }
-
-      return (ObjectId) job.get("_id");
-    } catch (DuplicateKey e) {
-      throw new ObjectAlreadyExistsException(e.getMessage());
+    } else {
+      objectId = (ObjectId) object.get("_id");
     }
+
+    return objectId;
   }
 
   protected void removeTriggerLock(OperableTrigger trigger) {
@@ -1050,7 +1117,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     lock.put(KEY_NAME, trigger.getKey().getName());
     lock.put(KEY_GROUP, trigger.getKey().getGroup());
 
-    // Coment this out, as expired trigger locks should be deleted by any another instance
+    // Comment this out, as expired trigger locks should be deleted by any another instance
     // lock.put(LOCK_INSTANCE_ID, instanceId);
 
     locksCollection.remove(lock);
