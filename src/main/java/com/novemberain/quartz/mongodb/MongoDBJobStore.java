@@ -688,7 +688,14 @@ public class MongoDBJobStore implements JobStore, Constants {
       throws JobPersistenceException {
     
     log.debug("Trigger completed {}", trigger.getKey());
-    
+
+    if (jobDetail.isPersistJobDataAfterExecution()) {
+      if (jobDetail.getJobDataMap().isDirty()) {
+        log.debug("Job data map dirty, will update job {}", jobDetail.getKey());
+        storeJobInMongo(jobDetail, true);
+      }
+    } 
+   
     if (jobDetail.isConcurrentExectionDisallowed()) {
       log.debug("Removing lock for job {}", jobDetail.getKey());
       BasicDBObject lock = new BasicDBObject();
