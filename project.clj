@@ -1,4 +1,4 @@
-(defproject com.novemberain/quartz-mongodb "1.4.0-beta3-SNAPSHOT"
+(defproject com.novemberain/quartz-mongodb "1.4.0"
   :description "A MongoDB-backed store for Quartz Scheduler and Quartzite"
   :min-lein-version "2.0.0"
   :license {:name "Apache License 2.0"}
