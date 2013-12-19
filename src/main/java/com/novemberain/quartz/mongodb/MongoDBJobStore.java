@@ -1,5 +1,5 @@
 /*
- * $Id: MongoDBJobStore.java 251831 2013-12-17 03:30:49Z waded $
+ * $Id: MongoDBJobStore.java 252162 2013-12-18 20:08:49Z waded $
  * --------------------------------------------------------------------------------------
  * Copyright (c) MuleSoft, Inc.  All rights reserved.  http://www.mulesoft.com
  *
@@ -11,6 +11,7 @@ package com.novemberain.quartz.mongodb;
 
 import com.mongodb.*;
 import com.mongodb.MongoException.DuplicateKey;
+import com.mongodb.util.Base64Codec;
 
 import org.bson.types.ObjectId;
 import org.quartz.Calendar;
@@ -22,8 +23,11 @@ import org.quartz.spi.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.NotSerializableException;
+import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.UnknownHostException;
 import java.util.*;
@@ -168,18 +172,30 @@ public class MongoDBJobStore implements JobStore, Constants {
           .withDescription((String) dbObject.get(JOB_DESCRIPTION));
 
       JobDataMap jobData = new JobDataMap();
-      for (String key : dbObject.keySet()) {
-        if (!key.equals(KEY_NAME)
-            && !key.equals(KEY_GROUP)
-            && !key.equals(JOB_CLASS)
-            && !key.equals(JOB_DESCRIPTION)
-            && !key.equals("_id")) {
-          jobData.put(key, dbObject.get(key));
+      
+      String jobDataString = (String) dbObject.get(JOB_DATA);
+      
+      if (jobDataString != null) {
+        jobDataMapFromString(jobData, jobDataString);
+      } else {
+        for (String key : dbObject.keySet()) {
+          if (!key.equals(KEY_NAME)
+              && !key.equals(KEY_GROUP)
+              && !key.equals(JOB_CLASS)
+              && !key.equals(JOB_DESCRIPTION)
+              && !key.equals("_id")) {
+            jobData.put(key, dbObject.get(key));
+          }
         }
       }
 
+      jobData.clearDirtyFlag();
+      
       return builder.usingJobData(jobData).build();
     } catch (ClassNotFoundException e) {
+      throw new JobPersistenceException("Could not load job class " + dbObject.get(JOB_CLASS), e);
+    }
+    catch (IOException e) {
       throw new JobPersistenceException("Could not load job class " + dbObject.get(JOB_CLASS), e);
     }
   }
@@ -250,6 +266,9 @@ public class MongoDBJobStore implements JobStore, Constants {
     if (triggers.count() > 0) {
       triggerCollection.remove(dbObject);
     }
+    
+    // Copy across the job data map from the old trigger to the new one.
+    newTrigger.getJobDataMap().putAll(trigger.getJobDataMap());
     
     try {
       storeTrigger(newTrigger, false);
@@ -688,14 +707,14 @@ public class MongoDBJobStore implements JobStore, Constants {
       throws JobPersistenceException {
     
     log.debug("Trigger completed {}", trigger.getKey());
-
+    
     if (jobDetail.isPersistJobDataAfterExecution()) {
       if (jobDetail.getJobDataMap().isDirty()) {
-        log.debug("Job data map dirty, will update job {}", jobDetail.getKey());
+        log.debug("Job data map dirty, will store {}", jobDetail.getKey());
         storeJobInMongo(jobDetail, true);
       }
-    } 
-   
+    }
+    
     if (jobDetail.isConcurrentExectionDisallowed()) {
       log.debug("Removing lock for job {}", jobDetail.getKey());
       BasicDBObject lock = new BasicDBObject();
@@ -889,6 +908,16 @@ public class MongoDBJobStore implements JobStore, Constants {
     trigger.setPreviousFireTime((Date) dbObject.get(TRIGGER_PREVIOUS_FIRE_TIME));
     trigger.setPriority((Integer) dbObject.get(TRIGGER_PRIORITY));
     
+    String jobDataString = (String) dbObject.get(JOB_DATA);
+    
+    if (jobDataString != null) {
+      try {
+        jobDataMapFromString(trigger.getJobDataMap(), jobDataString);
+      } catch (IOException e) {
+        throw new JobPersistenceException("Could not deserialize job data for trigger " + dbObject.get(TRIGGER_CLASS));
+      }
+    }
+    
     try {
         trigger.setStartTime((Date) dbObject.get(TRIGGER_START_TIME));
         trigger.setEndTime((Date) dbObject.get(TRIGGER_END_TIME));
@@ -1049,7 +1078,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     }
   }
 
-  protected void storeTrigger(OperableTrigger newTrigger, ObjectId jobId, boolean replaceExisting) throws ObjectAlreadyExistsException {
+  protected void storeTrigger(OperableTrigger newTrigger, ObjectId jobId, boolean replaceExisting) throws JobPersistenceException {
     BasicDBObject trigger = new BasicDBObject();
     trigger.put(TRIGGER_STATE, STATE_WAITING);
     trigger.put(TRIGGER_CALENDAR_NAME, newTrigger.getCalendarName());
@@ -1066,7 +1095,16 @@ public class MongoDBJobStore implements JobStore, Constants {
     trigger.put(TRIGGER_PREVIOUS_FIRE_TIME, newTrigger.getPreviousFireTime());
     trigger.put(TRIGGER_PRIORITY, newTrigger.getPriority());
     trigger.put(TRIGGER_START_TIME, newTrigger.getStartTime());
-
+    
+    if (newTrigger.getJobDataMap().size() > 0) {
+      try {
+        String jobDataString = jobDataToString(newTrigger.getJobDataMap());
+        trigger.put(JOB_DATA, jobDataString);
+      } catch (IOException ioe) {
+        throw new JobPersistenceException("Could not serialise job data map on the trigger for " + newTrigger.getKey(), ioe);
+      }
+    }
+    
     TriggerPersistenceHelper tpd = triggerPersistenceDelegateFor(newTrigger);
     trigger = (BasicDBObject) tpd.injectExtraPropertiesForInsert(newTrigger, trigger);
 
@@ -1242,5 +1280,85 @@ public class MongoDBJobStore implements JobStore, Constants {
   private Collection<DBObject> findJobDocumentsThatMatch(GroupMatcher<JobKey> matcher) {
     final GroupHelper groupHelper = new GroupHelper(jobCollection, queryHelper);
     return groupHelper.inGroupsThatMatch(matcher);
+  }
+  
+  protected void jobDataMapFromString(JobDataMap jobDataMap, String clob)
+    throws IOException {
+      
+    try {
+      byte[] bytes = new Base64Codec().decode(clob);
+        
+      Map<String, ?> map = (Map<String, ?>) stringMapFromBytes(bytes);
+        
+      jobDataMap.putAll(map);
+      jobDataMap.clearDirtyFlag();
+        
+    } catch (NotSerializableException e) {
+      throw new NotSerializableException(
+        "Unable to serialize JobDataMap for insertion into " + 
+        "database because the value of property '" + 
+        getKeyOfNonSerializableStringMapEntry(jobDataMap.getWrappedMap()) + 
+        "' is not serializable: " + e.getMessage());
+    }
+    catch (ClassNotFoundException e)
+    {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
+  }
+  
+  private Map<String, ?> stringMapFromBytes(byte[] bytes) throws IOException, ClassNotFoundException
+  {
+    ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
+    ObjectInputStream ois = new ObjectInputStream(bais);
+    @SuppressWarnings("unchecked")
+    Map<String, ?> map = (Map<String, ?>) ois.readObject();
+    ois.close();
+    
+    return map;
+  }
+
+  protected String jobDataToString(JobDataMap jobDataMap)
+      throws IOException {
+      
+    try {
+      byte[] bytes = stringMapToBytes(jobDataMap.getWrappedMap());
+      return new Base64Codec().encode(bytes);
+    } catch (NotSerializableException e) {
+      throw new NotSerializableException(
+        "Unable to serialize JobDataMap for insertion into " + 
+        "database because the value of property '" + 
+        getKeyOfNonSerializableStringMapEntry(jobDataMap.getWrappedMap()).toString() + 
+        "' is not serializable: " + e.getMessage());
+    }
+  }
+  
+  private byte[] stringMapToBytes(Object object) throws IOException
+  {
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    ObjectOutputStream out = new ObjectOutputStream(baos);
+    out.writeObject(object);
+    out.flush();
+    
+    return baos.toByteArray();
+  }
+
+  private String getKeyOfNonSerializableStringMapEntry(Map<String, ?> data) {
+    
+    for (Map.Entry<String, ?> entry : data.entrySet()) {
+
+      ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+      try {
+        ObjectOutputStream out = new ObjectOutputStream(baos);
+        out.writeObject(entry.getValue());
+        out.flush();
+      } 
+      catch (IOException e) {
+        return entry.getKey();
+      }
+    }
+      
+    return null;   
   }
 }
