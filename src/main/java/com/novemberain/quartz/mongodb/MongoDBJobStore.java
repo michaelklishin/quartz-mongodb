@@ -1,4 +1,4 @@
-/*
+﻿/*
  * $Id: MongoDBJobStore.java 253170 2014-01-06 02:28:03Z waded $
  * --------------------------------------------------------------------------------------
  * Copyright (c) MuleSoft, Inc.  All rights reserved.  http://www.mulesoft.com
@@ -856,7 +856,7 @@ public class MongoDBJobStore implements JobStore, Constants {
         if(authDbName != null) {
             // authentificating to db which gives access to all other dbs (role - readWriteAnyDatabase)
             // by default in mongo it should be "admin"
-            DB authDb = mongo.getDB(authDbName)
+            DB authDb = mongo.getDB(authDbName);
             authDb.authenticate(username, password.toCharArray());
         } else {
             db.authenticate(username, password.toCharArray());
