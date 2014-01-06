@@ -1,5 +1,5 @@
 /*
- * $Id: MongoDBJobStore.java 252162 2013-12-18 20:08:49Z waded $
+ * $Id: MongoDBJobStore.java 253170 2014-01-06 02:28:03Z waded $
  * --------------------------------------------------------------------------------------
  * Copyright (c) MuleSoft, Inc.  All rights reserved.  http://www.mulesoft.com
  *
@@ -62,6 +62,14 @@ public class MongoDBJobStore implements JobStore, Constants {
   private long triggerTimeoutMillis = 10 * 60 * 1000L;
   // TODO.  This really ought to be configured.
   private long jobTimeoutMillis = 10 * 60 * 1000L;
+  
+  // Options for the Mongo client.
+  private Boolean mongoOptionAutoConnectRetry;
+  private Boolean mongoOptionSocketKeepAlive;
+  private Integer mongoOptionMaxConnectionsPerHost;
+  private Integer mongoOptionConnectTimeoutMillis; 
+  private Integer mongoOptionSocketTimeoutMillis; // read timeout
+  private Integer mongoOptionThreadsAllowedToBlockForConnectionMultiplier;
 
   private List<TriggerPersistenceHelper> persistenceHelpers;
   private QueryHelper queryHelper;
@@ -850,18 +858,30 @@ public class MongoDBJobStore implements JobStore, Constants {
   }
 
   private Mongo connectToMongoDB() throws SchedulerConfigException {
-  if(mongoUri != null){
-    return connectToMongoDB(mongoUri);
-  }
-    MongoOptions options = new MongoOptions();
-    options.safe = true;
+
+    if(mongoUri != null) {
+      return connectToMongoDB(mongoUri);
+    }
+    
+    MongoClientOptions.Builder optionsBuilder = MongoClientOptions.builder();
+    optionsBuilder.writeConcern(WriteConcern.SAFE);
+    
+    if (mongoOptionAutoConnectRetry != null) optionsBuilder.autoConnectRetry(mongoOptionAutoConnectRetry);
+    if (mongoOptionMaxConnectionsPerHost != null) optionsBuilder.connectionsPerHost(mongoOptionMaxConnectionsPerHost);
+    if (mongoOptionConnectTimeoutMillis != null) optionsBuilder.connectTimeout(mongoOptionConnectTimeoutMillis);
+    if (mongoOptionSocketTimeoutMillis != null) optionsBuilder.socketTimeout(mongoOptionSocketTimeoutMillis);
+    if (mongoOptionSocketKeepAlive != null) optionsBuilder.socketKeepAlive(mongoOptionSocketKeepAlive);
+    if (mongoOptionThreadsAllowedToBlockForConnectionMultiplier != null) 
+      optionsBuilder.threadsAllowedToBlockForConnectionMultiplier(mongoOptionThreadsAllowedToBlockForConnectionMultiplier);
+
+    MongoClientOptions options = optionsBuilder.build();
 
     try {
       ArrayList<ServerAddress> serverAddresses = new ArrayList<ServerAddress>();
       for (String a : addresses) {
         serverAddresses.add(new ServerAddress(a));
       }
-      return new Mongo(serverAddresses, options);
+      return new MongoClient(serverAddresses, options);
 
     } catch (UnknownHostException e) {
       throw new SchedulerConfigException("Could not connect to MongoDB", e);
@@ -1361,4 +1381,29 @@ public class MongoDBJobStore implements JobStore, Constants {
       
     return null;   
   }
+  
+  public void setMongoOptionMaxConnectionsPerHost(int maxConnectionsPerHost) {
+    this.mongoOptionMaxConnectionsPerHost = maxConnectionsPerHost;
+  }
+
+  public void setMongoOptionAutoConnectRetry(boolean autoConnectRetry) {
+    this.mongoOptionAutoConnectRetry = autoConnectRetry;
+  }
+
+  public void setMongoOptionConnectTimeoutMillis(int maxConnectWaitTime) {
+    this.mongoOptionConnectTimeoutMillis = maxConnectWaitTime;
+  }
+
+  public void setMongoOptionSocketTimeoutMillis(int socketTimeoutMillis) {
+    this.mongoOptionSocketTimeoutMillis = socketTimeoutMillis;
+  }
+
+  public void setMongoOptionThreadsAllowedToBlockForConnectionMultiplier(int threadsAllowedToBlockForConnectionMultiplier) {
+    this.mongoOptionThreadsAllowedToBlockForConnectionMultiplier = threadsAllowedToBlockForConnectionMultiplier;
+  }
+
+  public void setMongoOptionSocketKeepAlive(boolean mongoOptionSocketKeepAlive) {
+    this.mongoOptionSocketKeepAlive = mongoOptionSocketKeepAlive;
+  }
+  
 }
