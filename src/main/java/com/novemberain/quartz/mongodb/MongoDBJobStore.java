@@ -1,4 +1,4 @@
-﻿/*
+/*
  * $Id: MongoDBJobStore.java 253170 2014-01-06 02:28:03Z waded $
  * --------------------------------------------------------------------------------------
  * Copyright (c) MuleSoft, Inc.  All rights reserved.  http://www.mulesoft.com
