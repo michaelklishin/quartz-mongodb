@@ -45,6 +45,7 @@ public class MongoDBJobStore implements JobStore, Constants {
   private Mongo mongo;
   private String collectionPrefix = "quartz_";
   private String dbName;
+  private String authDbName;
   private DBCollection jobCollection;
   private DBCollection triggerCollection;
   private DBCollection calendarCollection;
@@ -852,7 +853,15 @@ public class MongoDBJobStore implements JobStore, Constants {
     // But we would be insane not to override this when writing lock records. LB.
     db.setWriteConcern(WriteConcern.JOURNALED);
     if (username != null) {
-      db.authenticate(username, password.toCharArray());
+        if(authDbName != null) {
+            // authentificating to db which gives access to all other dbs (role - readWriteAnyDatabase)
+            // by default in mongo it should be "admin"
+            DB authDb = mongo.getDB(authDbName);
+            authDb.authenticate(username, password.toCharArray());
+        } else {
+            db.authenticate(username, password.toCharArray());
+        }
+
     }
     return db;
   }
@@ -1405,5 +1414,12 @@ public class MongoDBJobStore implements JobStore, Constants {
   public void setMongoOptionSocketKeepAlive(boolean mongoOptionSocketKeepAlive) {
     this.mongoOptionSocketKeepAlive = mongoOptionSocketKeepAlive;
   }
-  
+
+  public String getAuthDbName() {
+      return authDbName;
+  }
+
+  public void setAuthDbName(String authDbName) {
+      this.authDbName = authDbName;
+  }
 }
