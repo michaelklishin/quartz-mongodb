@@ -89,3 +89,7 @@ and implementation code refactored, I decided to completely separate
 this fork form GitHub forks network because the project is now too
 different from the original one. All changes were made with respect to
 the Apache Public License 2.0.
+
+
+[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/michaelklishin/quartz-mongodb/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+
