@@ -8,6 +8,10 @@ against.
 
 Contributed by Maxim Markov.
 
+### MongoDB Java Driver Upgrade
+
+MongoDB Java driver was upgraded to `2.11.3`.
+
 ## MongoDB Client Deprecated APIs
 
 (At least some) MongoDB Client Deprecated APIs are no longer used.
