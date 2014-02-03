@@ -13,7 +13,7 @@
   :javac-options     ["-target" "1.6" "-source" "1.6"]
   :profiles {:dev {:resource-paths ["src/test/resources"]
                    :dependencies [[org.clojure/clojure       "1.5.1"]
-                                  [clojurewerkz/quartzite    "1.0.1"]
+                                  [clojurewerkz/quartzite    "1.2.0"]
                                   [com.novemberain/monger    "1.6.0"]
                                   [org.clojure/tools.logging "0.2.3" :exclusions [org.clojure/clojure]]
                                   [org.slf4j/slf4j-simple    "1.6.2"]
