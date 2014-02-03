@@ -1,3 +1,20 @@
+## Changes between quartz-mongodb 1.4.0 and 1.5.0
+
+## authDbName
+
+`authDbName` is a new configurable property that makes
+it possible to specify the database to authenticate
+against.
+
+Contributed by Maxim Markov.
+
+## MongoDB Client Deprecated APIs
+
+(At least some) MongoDB Client Deprecated APIs are no longer used.
+
+Contributed by lordbuddha.
+
+
 ## Changes between quartz-mongodb 1.3.0 and 1.4.0
 
 ### Switch to SLF4J Logging
