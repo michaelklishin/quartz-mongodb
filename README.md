@@ -49,6 +49,9 @@ Set your Quartz properties to something like this:
     # thread count setting is ignored by the MongoDB store but Quartz requries it
     org.quartz.threadPool.threadCount=1
 
+If you want your job to be dinamycally created use:
+
+    org.quartz.jobStore.class=com.novemberain.quartz.mongodb.DynamicMongoDBJobStore
 
 ## Limitations
 
