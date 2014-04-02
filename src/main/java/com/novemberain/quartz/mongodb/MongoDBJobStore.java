@@ -400,10 +400,13 @@ public class MongoDBJobStore implements JobStore, Constants {
   }
 
   public List<OperableTrigger> getTriggersForJob(JobKey jobKey) throws JobPersistenceException {
-    DBObject dbObject = findJobDocumentByKey(jobKey);
-
-    List<OperableTrigger> triggers = new ArrayList<OperableTrigger>();
-    DBCursor cursor = triggerCollection.find(new BasicDBObject(TRIGGER_JOB_ID, dbObject.get("_id")));
+    final List<OperableTrigger> triggers = new ArrayList<OperableTrigger>();
+	final DBObject dbObject = findJobDocumentByKey(jobKey);
+	if(dbObject  == null) {
+	  return triggers;
+	}
+    
+    final DBCursor cursor = triggerCollection.find(new BasicDBObject(TRIGGER_JOB_ID, dbObject.get("_id")));
     while (cursor.hasNext()) {
       triggers.add(toTrigger(cursor.next()));
     }
