@@ -7,6 +7,10 @@ document does not exist (no longer throws as NPE).
 
 Contributed by Illyr.
 
+### MongoDB Java Driver Upgrade
+
+MongoDB Java driver was upgraded to `2.12.1`.
+
 
 ## Changes between quartz-mongodb 1.4.0 and 1.5.0
 
