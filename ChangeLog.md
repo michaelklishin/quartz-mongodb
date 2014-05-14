@@ -1,6 +1,16 @@
+## Changes between quartz-mongodb 1.5.0 and 1.6.0
+
+### More Robust MongoDBJobStore.getTriggersForJob
+
+MongoDBJobStore.getTriggersForJob returns an empty list in case job
+document does not exist (no longer throws as NPE).
+
+Contributed by Illyr.
+
+
 ## Changes between quartz-mongodb 1.4.0 and 1.5.0
 
-## authDbName
+### authDbName
 
 `authDbName` is a new configurable property that makes
 it possible to specify the database to authenticate
@@ -12,7 +22,7 @@ Contributed by Maxim Markov.
 
 MongoDB Java driver was upgraded to `2.11.3`.
 
-## MongoDB Client Deprecated APIs
+### MongoDB Client Deprecated APIs
 
 (At least some) MongoDB Client Deprecated APIs are no longer used.
 
