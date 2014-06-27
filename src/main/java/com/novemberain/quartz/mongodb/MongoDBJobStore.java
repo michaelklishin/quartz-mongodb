@@ -61,7 +61,6 @@ public class MongoDBJobStore implements JobStore, Constants {
   private SchedulerSignaler signaler;
   protected long misfireThreshold = 5000l;
   private long triggerTimeoutMillis = 10 * 60 * 1000L;
-  // TODO.  This really ought to be configured.
   private long jobTimeoutMillis = 10 * 60 * 1000L;
   
   // Options for the Mongo client.
@@ -835,6 +834,9 @@ public class MongoDBJobStore implements JobStore, Constants {
     this.triggerTimeoutMillis = triggerTimeoutMillis;
   }
 
+  public void setJobTimeoutMillis(long jobTimeoutMillis) {
+	  this.jobTimeoutMillis = jobTimeoutMillis;
+  }
 
   //
   // Implementation
