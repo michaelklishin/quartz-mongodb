@@ -1,3 +1,16 @@
+## Changes between quartz-mongodb 1.6.0 and 1.7.0
+
+### Configurable Job Timeout
+
+Job timeout now can be configured via a property:
+
+```
+org.quartz.jobStore.jobTimeoutMillis=1800000
+```
+
+Contributed by David Regnier.
+
+
 ## Changes between quartz-mongodb 1.5.0 and 1.6.0
 
 ### More Robust MongoDBJobStore.getTriggersForJob
