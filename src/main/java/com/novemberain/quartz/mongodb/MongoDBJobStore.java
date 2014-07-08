@@ -655,6 +655,7 @@ public class MongoDBJobStore implements JobStore, Constants {
       }
 
       Date prevFireTime = trigger.getPreviousFireTime();
+      trigger.triggered(cal);
 
       TriggerFiredBundle bndle = new TriggerFiredBundle(retrieveJob(
           trigger), trigger, cal,
