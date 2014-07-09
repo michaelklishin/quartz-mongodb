@@ -681,7 +681,6 @@ public class MongoDBJobStore implements JobStore, Constants {
           }
           
           results.add(new TriggerFiredResult(bndle));
-          trigger.triggered(cal);
           storeTrigger(trigger, true);
         }
         catch (DuplicateKey dk) {
