@@ -535,7 +535,7 @@ public class MongoDBJobStore implements JobStore, Constants {
       throws JobPersistenceException {
     BasicDBObject query = new BasicDBObject();
     query.put(TRIGGER_NEXT_FIRE_TIME, new BasicDBObject("$lte", noLaterThanDate));
-
+    query.put(TRIGGER_STATE, STATE_WAITING);
     DBCursor cursor = triggerCollection.find(query);
 
     BasicDBObject sort = new BasicDBObject();
