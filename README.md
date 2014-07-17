@@ -20,7 +20,7 @@ definition to your `pom.xml`:
 
 With Leiningen:
 
-    [com.novemberain/quartz-mongodb "1.7.0"]
+    [com.novemberain/quartz-mongodb "1.8.0"]
 
 
 With Maven:
@@ -28,7 +28,7 @@ With Maven:
     <dependency>
       <groupId>com.novemberain</groupId>
       <artifactId>quartz-mongodb</artifactId>
-      <version>1.7.0</version>
+      <version>1.8.0</version>
     </dependency>
 
 
