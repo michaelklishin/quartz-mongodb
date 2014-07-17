@@ -1,3 +1,12 @@
+## Changes between quartz-mongodb 1.7.0 and 1.8.0
+
+### Trigger Pause State is Respected
+
+The store will now load only non-paused triggers.
+
+Contributed by huang1900z.
+
+
 ## Changes between quartz-mongodb 1.6.0 and 1.7.0
 
 ### Configurable Job Timeout
