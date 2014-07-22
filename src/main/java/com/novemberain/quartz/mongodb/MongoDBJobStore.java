@@ -177,7 +177,8 @@ public class MongoDBJobStore implements JobStore, Constants {
 
       JobBuilder builder = JobBuilder.newJob(jobClass)
           .withIdentity((String) dbObject.get(KEY_NAME), (String) dbObject.get(KEY_GROUP))
-          .withDescription((String) dbObject.get(JOB_DESCRIPTION));
+          .withDescription((String) dbObject.get(JOB_DESCRIPTION))
+          .storeDurably((Boolean)dbObject.get(JOB_DURABILITY));
 
       JobDataMap jobData = new JobDataMap();
       
@@ -191,6 +192,7 @@ public class MongoDBJobStore implements JobStore, Constants {
               && !key.equals(KEY_GROUP)
               && !key.equals(JOB_CLASS)
               && !key.equals(JOB_DESCRIPTION)
+              && !key.equals(JOB_DURABILITY)
               && !key.equals("_id")) {
             jobData.put(key, dbObject.get(key));
           }
