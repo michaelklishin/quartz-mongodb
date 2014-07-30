@@ -401,10 +401,10 @@ public class MongoDBJobStore implements JobStore, Constants {
 
   public List<OperableTrigger> getTriggersForJob(JobKey jobKey) throws JobPersistenceException {
     final List<OperableTrigger> triggers = new ArrayList<OperableTrigger>();
-	final DBObject dbObject = findJobDocumentByKey(jobKey);
-	if(dbObject  == null) {
-	  return triggers;
-	}
+    final DBObject dbObject = findJobDocumentByKey(jobKey);
+    if(dbObject  == null) {
+      return triggers;
+    }
     
     final DBCursor cursor = triggerCollection.find(new BasicDBObject(TRIGGER_JOB_ID, dbObject.get("_id")));
     while (cursor.hasNext()) {
@@ -836,7 +836,7 @@ public class MongoDBJobStore implements JobStore, Constants {
   }
 
   public void setJobTimeoutMillis(long jobTimeoutMillis) {
-	  this.jobTimeoutMillis = jobTimeoutMillis;
+    this.jobTimeoutMillis = jobTimeoutMillis;
   }
 
   //
@@ -844,7 +844,7 @@ public class MongoDBJobStore implements JobStore, Constants {
   //
 
   private void initializeMongo() throws SchedulerConfigException {
-	if (overriddenMongo != null) {
+    if (overriddenMongo != null) {
       this.mongo = overriddenMongo;
     } else {
       this.mongo = connectToMongoDB();
@@ -884,9 +884,9 @@ public class MongoDBJobStore implements JobStore, Constants {
   }
 
   private Mongo connectToMongoDB() throws SchedulerConfigException {
-	if (mongoUri == null && (addresses == null || addresses.length == 0)) {
-	  throw new SchedulerConfigException("At least one MongoDB address or a MongoDB URI must be specified .");
-	}
+    if (mongoUri == null && (addresses == null || addresses.length == 0)) {
+      throw new SchedulerConfigException("At least one MongoDB address or a MongoDB URI must be specified .");
+    }
     
     if(mongoUri != null) {
       return connectToMongoDB(mongoUri);
