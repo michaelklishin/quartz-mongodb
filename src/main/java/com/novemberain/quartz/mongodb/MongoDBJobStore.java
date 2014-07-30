@@ -41,6 +41,12 @@ public class MongoDBJobStore implements JobStore, Constants {
       append(KEY_GROUP, 1).
       append(KEY_NAME, 1).
       get();
+  
+  private static Mongo overriddenMongo;
+
+  public static void overrideMongo(Mongo mongo) {
+    overriddenMongo = mongo;
+  }
 
   private Mongo mongo;
   private String collectionPrefix = "quartz_";
@@ -78,14 +84,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     this.loadHelper = loadHelper;
     this.signaler = signaler;
 
-    if (mongoUri == null && (addresses == null || addresses.length == 0)) {
-      throw new SchedulerConfigException("At least one MongoDB address or a MongoDB URI must be specified .");
-    }
-
-    this.mongo = connectToMongoDB();
-    if (this.mongo == null) {
-      throw new SchedulerConfigException("Could not connect to MongoDB! Please check that quartz-mongodb configuration is correct.");
-    }
+    initializeMongo();
 
     DB db = selectDatabase(this.mongo);
     initializeCollections(db);
@@ -844,6 +843,17 @@ public class MongoDBJobStore implements JobStore, Constants {
   // Implementation
   //
 
+  private void initializeMongo() throws SchedulerConfigException {
+	if (overriddenMongo != null) {
+      this.mongo = overriddenMongo;
+    } else {
+      this.mongo = connectToMongoDB();
+    }
+    if (this.mongo == null) {
+      throw new SchedulerConfigException("Could not connect to MongoDB! Please check that quartz-mongodb configuration is correct.");
+    }
+  }
+
   private void initializeCollections(DB db) {
     jobCollection = db.getCollection(collectionPrefix + "jobs");
     triggerCollection = db.getCollection(collectionPrefix + "triggers");
@@ -874,7 +884,10 @@ public class MongoDBJobStore implements JobStore, Constants {
   }
 
   private Mongo connectToMongoDB() throws SchedulerConfigException {
-
+	if (mongoUri == null && (addresses == null || addresses.length == 0)) {
+	  throw new SchedulerConfigException("At least one MongoDB address or a MongoDB URI must be specified .");
+	}
+    
     if(mongoUri != null) {
       return connectToMongoDB(mongoUri);
     }
