@@ -1,5 +1,9 @@
 ## Changes between quartz-mongodb 1.9.0 and 1.10.0
 
+### MongoDB Java Driver Upgrade
+
+MongoDB Java driver was upgraded to `2.12.3`.
+
 ### Joda Time Upgrade
 
 Joda Time was upgraded to `2.4`.
