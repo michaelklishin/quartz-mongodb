@@ -1,3 +1,14 @@
+## Changes between quartz-mongodb 1.8.0 and 1.9.0
+
+### MongoDB Mocking
+
+`MongoDBJobStore#overrideMongo` is a new method that allows a mock
+implementation of MongoDB connection to be used, e.g. for integration
+testing.
+
+Contributed by Ben Romberg.
+
+
 ## Changes between quartz-mongodb 1.7.0 and 1.8.0
 
 ### Trigger Pause State is Respected
