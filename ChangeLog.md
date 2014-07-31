@@ -1,3 +1,11 @@
+## Changes between quartz-mongodb 1.9.0 and 1.10.0
+
+### Joda Time Upgrade
+
+Joda Time was upgraded to `2.4`.
+
+
+
 ## Changes between quartz-mongodb 1.8.0 and 1.9.0
 
 ### MongoDB Mocking
