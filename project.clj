@@ -12,7 +12,7 @@
                    :default (constantly true)}
   :javac-options     ["-target" "1.6" "-source" "1.6"]
   :profiles {:dev {:resource-paths ["src/test/resources"]
-                   :dependencies [[org.clojure/clojure       "1.5.1"]
+                   :dependencies [[org.clojure/clojure       "1.6.0"]
                                   [clojurewerkz/quartzite    "1.2.0"]
                                   [com.novemberain/monger    "1.7.0"]
                                   [org.clojure/tools.logging "0.2.3" :exclusions [org.clojure/clojure]]
