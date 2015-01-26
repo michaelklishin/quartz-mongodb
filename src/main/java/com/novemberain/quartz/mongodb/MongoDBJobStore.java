@@ -200,8 +200,19 @@ public class MongoDBJobStore implements JobStore, Constants {
 
       JobBuilder builder = JobBuilder.newJob(jobClass)
           .withIdentity((String) dbObject.get(KEY_NAME), (String) dbObject.get(KEY_GROUP))
-          .withDescription((String) dbObject.get(JOB_DESCRIPTION))
-          .storeDurably((Boolean)dbObject.get(JOB_DURABILITY));
+          .withDescription((String) dbObject.get(JOB_DESCRIPTION));
+
+      Object jobDurability = dbObject.get(JOB_DURABILITY);
+      if (jobDurability != null) {
+        if (jobDurability instanceof Boolean){
+          builder.storeDurably((Boolean) jobDurability);
+        } else if (jobDurability instanceof String){
+          builder.storeDurably(Boolean.valueOf((String) jobDurability));
+        } else {
+          throw new JobPersistenceException("Illegal value for " + JOB_DURABILITY + ", class "
+              + jobDurability.getClass() + " not supported");
+        }
+      }
 
       JobDataMap jobData = new JobDataMap();
       
