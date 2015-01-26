@@ -42,8 +42,13 @@ public class MongoDBJobStore implements JobStore, Constants {
       append(KEY_NAME, 1).
       get();
   
+  @Deprecated
   private static Mongo overriddenMongo;
 
+  /**
+   * @deprecated use {@link #MongoDBJobStore(Mongo)}
+   */
+  @Deprecated
   public static void overrideMongo(Mongo mongo) {
     overriddenMongo = mongo;
   }
@@ -80,11 +85,30 @@ public class MongoDBJobStore implements JobStore, Constants {
   private List<TriggerPersistenceHelper> persistenceHelpers;
   private QueryHelper queryHelper;
 
+  public MongoDBJobStore(){
+
+  }
+
+  public MongoDBJobStore(final Mongo mongo){
+    this.mongo = mongo;
+  }
+
+  public MongoDBJobStore(final String mongoUri, final String username, final String password) {
+    this.mongoUri = mongoUri;
+    this.username = username;
+    this.password = password;
+  }
+
   public void initialize(ClassLoadHelper loadHelper, SchedulerSignaler signaler) throws SchedulerConfigException {
     this.loadHelper = loadHelper;
     this.signaler = signaler;
-
-    initializeMongo();
+    if (this.mongo == null) {
+      initializeMongo();
+    } else {
+      if (mongoUri != null  || username != null || password != null || addresses != null){
+        throw new SchedulerConfigException("Configure either a Mongo instance or MongoDB connection parameters.");
+      }
+    }
 
     DB db = selectDatabase(this.mongo);
     initializeCollections(db);
