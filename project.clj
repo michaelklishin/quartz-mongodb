@@ -3,7 +3,7 @@
   :min-lein-version "2.4.2"
   :license {:name "Apache License 2.0"}
   :dependencies [[org.quartz-scheduler/quartz   "2.1.7"]
-                 [org.mongodb/mongo-java-driver "2.12.3"]
+                 [org.mongodb/mongo-java-driver "2.12.5"]
                  [joda-time/joda-time           "2.7"]]
   :java-source-paths ["src/main/java"]
   :test-paths        ["src/test/clojure"]
