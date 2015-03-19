@@ -3,8 +3,9 @@
   :min-lein-version "2.4.2"
   :license {:name "Apache License 2.0"}
   :dependencies [[org.quartz-scheduler/quartz   "2.1.7"]
-                 [org.mongodb/mongo-java-driver "2.12.3"]
-                 [joda-time/joda-time           "2.4"]]
+                 [org.mongodb/mongo-java-driver "2.13.0"]
+                 [joda-time/joda-time           "2.7"]
+                 [commons-codec/commons-codec   "1.10"]]
   :java-source-paths ["src/main/java"]
   :test-paths        ["src/test/clojure"]
   :test-selectors {:all     (constantly true)
@@ -15,9 +16,9 @@
                    :dependencies [[org.clojure/clojure       "1.6.0"]
                                   [clojurewerkz/quartzite    "1.3.0"]
                                   [com.novemberain/monger    "1.7.0"]
-                                  [org.clojure/tools.logging "0.2.3" :exclusions [org.clojure/clojure]]
-                                  [org.slf4j/slf4j-simple    "1.6.2"]
-                                  [org.slf4j/slf4j-api       "1.6.2"]]}}
+                                  [org.clojure/tools.logging "0.3.1" :exclusions [org.clojure/clojure]]
+                                  [org.slf4j/slf4j-simple    "1.7.10"]
+                                  [org.slf4j/slf4j-api       "1.7.10"]]}}
   :repositories {"sonatype" {:url "http://oss.sonatype.org/content/repositories/releases"
                              :snapshots false
                              :releases {:checksum :fail :update :always}}

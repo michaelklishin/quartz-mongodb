@@ -10,9 +10,8 @@
 package com.novemberain.quartz.mongodb;
 
 import com.mongodb.*;
-import com.mongodb.MongoException.DuplicateKey;
-import com.mongodb.util.Base64Codec;
 
+import org.apache.commons.codec.binary.Base64;
 import org.bson.types.ObjectId;
 import org.quartz.Calendar;
 import org.quartz.*;
@@ -642,7 +641,7 @@ public class MongoDBJobStore implements JobStore, Constants {
         log.debug("Aquired trigger {}", trigger.getKey());
         triggers.put(trigger.getKey(), trigger);
         
-      } catch (DuplicateKey e) {
+      } catch (DuplicateKeyException e) {
 
         // someone else acquired this lock. Move on.
         log.debug("Failed to acquire trigger {} due to a lock", trigger.getKey());
@@ -719,7 +718,7 @@ public class MongoDBJobStore implements JobStore, Constants {
           results.add(new TriggerFiredResult(bndle));
           storeTrigger(trigger, true);
         }
-        catch (DuplicateKey dk) {
+        catch (DuplicateKeyException dk) {
           
           log.debug("Job disallows concurrent execution and is already running {}", job.getKey());
           
@@ -1124,27 +1123,27 @@ public class MongoDBJobStore implements JobStore, Constants {
       BasicDBObject keys = new BasicDBObject();
       keys.put(KEY_GROUP, 1);
       keys.put(KEY_NAME, 1);
-      jobCollection.ensureIndex(keys, null, true);
+      jobCollection.createIndex(keys, new BasicDBObject("unique",  Boolean.TRUE));
 
       keys = new BasicDBObject();
       keys.put(KEY_GROUP, 1);
       keys.put(KEY_NAME, 1);
-      triggerCollection.ensureIndex(keys, null, true);
+      triggerCollection.createIndex(keys, new BasicDBObject("unique",  Boolean.TRUE));
 
       keys = new BasicDBObject();
       keys.put(KEY_GROUP, 1);
       keys.put(KEY_NAME, 1);
-      locksCollection.ensureIndex(keys, null, true);
+      locksCollection.createIndex(keys, new BasicDBObject("unique",  Boolean.TRUE));
 
       // Need this to stop table scan when removing all locks
-      locksCollection.ensureIndex(LOCK_INSTANCE_ID);
+      locksCollection.createIndex(new BasicDBObject(LOCK_INSTANCE_ID, 1));
       
       // remove all locks for this instance on startup
       locksCollection.remove(new BasicDBObject(LOCK_INSTANCE_ID, instanceId));
 
       keys = new BasicDBObject();
       keys.put(CALENDAR_NAME, 1);
-      calendarCollection.ensureIndex(keys, null, true);
+      calendarCollection.createIndex(keys, new BasicDBObject("unique",  Boolean.TRUE));
 
       try
       {
@@ -1153,7 +1152,7 @@ public class MongoDBJobStore implements JobStore, Constants {
         triggerCollection.dropIndex("keyName_1_keyGroup_1");
         locksCollection.dropIndex("keyName_1_keyGroup_1");
       }
-      catch (CommandFailureException cfe)
+      catch (MongoCommandException cfe)
       {
         // Ignore, the old indexes have already been removed
       }
@@ -1194,7 +1193,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     try {
       triggerCollection.insert(trigger);
-    } catch (DuplicateKey key) {
+    } catch (DuplicateKeyException key) {
       if (replaceExisting) {
         trigger.remove("_id");
         triggerCollection.update(keyToDBObject(newTrigger.getKey()), trigger);
@@ -1228,7 +1227,7 @@ public class MongoDBJobStore implements JobStore, Constants {
       try {
         jobCollection.insert(job);
         objectId = (ObjectId) job.get("_id");
-      } catch (DuplicateKey e) {
+      } catch (DuplicateKeyException e) {
         // Fine, find it and get its id.
         object = jobCollection.findOne(keyDbo);
         objectId = (ObjectId) object.get("_id");
@@ -1370,7 +1369,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     throws IOException {
       
     try {
-      byte[] bytes = new Base64Codec().decode(clob);
+      byte[] bytes = Base64.decodeBase64(clob);
         
       Map<String, ?> map = (Map<String, ?>) stringMapFromBytes(bytes);
         
@@ -1407,7 +1406,7 @@ public class MongoDBJobStore implements JobStore, Constants {
       
     try {
       byte[] bytes = stringMapToBytes(jobDataMap.getWrappedMap());
-      return new Base64Codec().encode(bytes);
+      return Base64.encodeBase64String(bytes);
     } catch (NotSerializableException e) {
       throw new NotSerializableException(
         "Unable to serialize JobDataMap for insertion into " + 
