@@ -1191,13 +1191,13 @@ public class MongoDBJobStore implements JobStore, Constants {
     TriggerPersistenceHelper tpd = triggerPersistenceDelegateFor(newTrigger);
     trigger = (BasicDBObject) tpd.injectExtraPropertiesForInsert(newTrigger, trigger);
 
-    try {
-      triggerCollection.insert(trigger);
-    } catch (DuplicateKeyException key) {
-      if (replaceExisting) {
-        trigger.remove("_id");
-        triggerCollection.update(keyToDBObject(newTrigger.getKey()), trigger);
-      } else {
+    if (replaceExisting) {
+      trigger.remove("_id");
+      triggerCollection.update(keyToDBObject(newTrigger.getKey()), trigger);
+    } else {
+      try {
+        triggerCollection.insert(trigger);
+      } catch (DuplicateKeyException key) {
         throw new ObjectAlreadyExistsException(newTrigger);
       }
     }
