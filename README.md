@@ -17,7 +17,15 @@ definition to your `pom.xml`:
 </repository>
 ```
 
-If you are using Gradle, see "[Getting started with Gradle](http://dev.clojure.org/display/doc/Getting+Started+with+Gradle)".
+If you are using Gradle, add the following to your `build.gradle`:
+
+``` groovy
+repositories {
+    maven {
+        url "http://clojars.org/repo"
+    }
+}
+```
 
 
 ### The Most Recent Release
