@@ -4,6 +4,7 @@
   :license {:name "Apache License 2.0"}
   :dependencies [[org.quartz-scheduler/quartz   "2.1.7"]
                  [org.mongodb/mongo-java-driver "2.13.0"]
+                 [org.clojure/clojure           "1.6.0"]
                  [joda-time/joda-time           "2.7"]
                  [commons-codec/commons-codec   "1.10"]]
   :java-source-paths ["src/main/java"]
