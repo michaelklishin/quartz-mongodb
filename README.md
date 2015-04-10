@@ -5,6 +5,7 @@ This is a MongoDB-backed job store for the [Quartz scheduler](http://quartz-sche
 ## Maven Artifacts
 
 Artifacts are released to [clojars.org](http://clojars.org).
+[![Clojars Project](http://clojars.org/com.novemberain/quartz-mongodb/latest-version.svg)](http://clojars.org/com.novemberain/quartz-mongodb)
 
 If you are using Maven, add the following repository
 definition to your `pom.xml`:
@@ -16,11 +17,14 @@ definition to your `pom.xml`:
 </repository>
 ```
 
+If you are using Gradle, see "[Getting started with Gradle](http://dev.clojure.org/display/doc/Getting+Started+with+Gradle)".
+
+
 ### The Most Recent Release
 
 With Leiningen:
 
-    [com.novemberain/quartz-mongodb "1.8.0"]
+    [com.novemberain/quartz-mongodb "1.9.0"]
 
 
 With Maven:
@@ -28,8 +32,13 @@ With Maven:
     <dependency>
       <groupId>com.novemberain</groupId>
       <artifactId>quartz-mongodb</artifactId>
-      <version>1.8.0</version>
+      <version>1.9.0</version>
     </dependency>
+
+
+With Gradle:
+
+    compile "com.novemberain:quartz-mongodb:1.9.0"
 
 
 ## Usage
