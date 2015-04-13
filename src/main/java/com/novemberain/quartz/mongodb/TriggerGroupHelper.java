@@ -8,7 +8,7 @@ import org.bson.types.ObjectId;
 import java.util.Collection;
 import java.util.List;
 
-import static com.novemberain.quartz.mongodb.Keys.KEY_GROUP;
+import com.novemberain.quartz.mongodb.Keys;
 
 @SuppressWarnings("unchecked")
 public class TriggerGroupHelper extends GroupHelper {
@@ -19,10 +19,10 @@ public class TriggerGroupHelper extends GroupHelper {
   }
 
   public List<String> groupsForJobId(ObjectId jobId) {
-    return (List<String>) this.collection.distinct(KEY_GROUP, new BasicDBObject(JOB_ID, jobId));
+    return (List<String>) this.collection.distinct(Keys.KEY_GROUP, new BasicDBObject(JOB_ID, jobId));
   }
 
   public List<String> groupsForJobIds(Collection<ObjectId> ids) {
-    return (List<String>) this.collection.distinct(KEY_GROUP, QueryBuilder.start(JOB_ID).in(ids).get());
+    return (List<String>) this.collection.distinct(Keys.KEY_GROUP, QueryBuilder.start(JOB_ID).in(ids).get());
   }
 }
