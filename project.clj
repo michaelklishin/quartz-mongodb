@@ -11,6 +11,7 @@
   :test-selectors {:all     (constantly true)
                    :focus   :focus
                    :default (constantly true)}
+  :plugins [[lein2-eclipse "2.0.0"]]
   :javac-options     ["-target" "1.6" "-source" "1.6"]
   :profiles {:dev {:resource-paths ["src/test/resources"]
                    :dependencies [[org.clojure/clojure       "1.6.0"]
@@ -25,3 +26,4 @@
                  "sonatype-snapshots" {:url "http://oss.sonatype.org/content/repositories/snapshots"
                                        :snapshots true
                                        :releases {:checksum :fail :update :always}}})
+

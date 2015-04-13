@@ -7,8 +7,6 @@ import org.quartz.impl.matchers.GroupMatcher;
 
 import java.util.Collection;
 
-import static com.novemberain.quartz.mongodb.Keys.KEY_GROUP;
-
 public class QueryHelper {
   public DBObject matchingKeysConditionFor(GroupMatcher<?> matcher) {
     BasicDBObjectBuilder builder = BasicDBObjectBuilder.start();
@@ -16,15 +14,15 @@ public class QueryHelper {
     final String compareToValue = matcher.getCompareToValue();
     switch (matcher.getCompareWithOperator()) {
       case EQUALS:
-        builder.append(KEY_GROUP, compareToValue);
+        builder.append(Keys.KEY_GROUP, compareToValue);
         break;
       case STARTS_WITH:
-        builder.append(KEY_GROUP, startsWithRegexDBObject(compareToValue));
+        builder.append(Keys.KEY_GROUP, startsWithRegexDBObject(compareToValue));
         break;
       case ENDS_WITH:
-        builder.append(KEY_GROUP, endsWithRegexDBObject(compareToValue));
+        builder.append(Keys.KEY_GROUP, endsWithRegexDBObject(compareToValue));
       case CONTAINS:
-        builder.append(KEY_GROUP, containsWithRegexDBObject(compareToValue));
+        builder.append(Keys.KEY_GROUP, containsWithRegexDBObject(compareToValue));
         break;
     }
 
@@ -44,6 +42,6 @@ public class QueryHelper {
   }
 
   public DBObject inGroups(Collection<String> groups) {
-    return QueryBuilder.start(KEY_GROUP).in(groups).get();
+    return QueryBuilder.start(Keys.KEY_GROUP).in(groups).get();
   }
 }

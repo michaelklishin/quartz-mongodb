@@ -12,3 +12,5 @@ checkouts/*
 pom.xml
 .idea/workspace.xml
 .lein-*
+.checkstyle
+

@@ -6,11 +6,13 @@ import org.quartz.JobKey;
 import org.quartz.TriggerKey;
 import org.quartz.utils.Key;
 
-public class Keys {
+public final class Keys {
 
   public static final String KEY_NAME = "keyName";
   public static final String KEY_GROUP = "keyGroup";
 
+  private Keys() {}
+  
   // backwards compatibility...  Remove these in next 2.0 release.
   @Deprecated
   public static final String JOB_KEY_NAME = KEY_NAME;
