@@ -8,8 +8,6 @@ import org.bson.types.ObjectId;
 import java.util.Collection;
 import java.util.List;
 
-import com.novemberain.quartz.mongodb.Keys;
-
 @SuppressWarnings("unchecked")
 public class TriggerGroupHelper extends GroupHelper {
   public static final String JOB_ID = "jobId";

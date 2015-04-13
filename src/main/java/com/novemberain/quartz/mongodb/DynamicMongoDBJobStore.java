@@ -3,7 +3,6 @@ package com.novemberain.quartz.mongodb;
 import clojure.lang.DynamicClassLoader;
 
 import com.mongodb.Mongo;
-import com.novemberain.quartz.mongodb.MongoDBJobStore;
 
 public class DynamicMongoDBJobStore extends MongoDBJobStore implements org.quartz.spi.JobStore {
 

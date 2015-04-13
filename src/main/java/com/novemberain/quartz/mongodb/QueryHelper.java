@@ -7,8 +7,6 @@ import org.quartz.impl.matchers.GroupMatcher;
 
 import java.util.Collection;
 
-import com.novemberain.quartz.mongodb.Keys;
-
 public class QueryHelper {
   public DBObject matchingKeysConditionFor(GroupMatcher<?> matcher) {
     BasicDBObjectBuilder builder = BasicDBObjectBuilder.start();
