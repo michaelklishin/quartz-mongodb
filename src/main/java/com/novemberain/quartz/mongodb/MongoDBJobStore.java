@@ -11,6 +11,12 @@ package com.novemberain.quartz.mongodb;
 
 import com.mongodb.*;
 
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoCursor;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.IndexOptions;
+import com.mongodb.client.model.UpdateOptions;
 import org.apache.commons.codec.binary.Base64;
 import org.bson.types.ObjectId;
 import org.quartz.Calendar;
@@ -35,33 +41,32 @@ import static com.novemberain.quartz.mongodb.Keys.*;
 public class MongoDBJobStore implements JobStore, Constants {
   protected final Logger log = LoggerFactory.getLogger(getClass());
 
-  public static final DBObject KEY_AND_GROUP_FIELDS = BasicDBObjectBuilder.start().
-      append(KEY_GROUP, 1).
-      append(KEY_NAME, 1).
-      get();
-  
+  public static final BasicDBObject KEY_AND_GROUP_FIELDS = new BasicDBObject()
+      .append(KEY_GROUP, 1)
+      .append(KEY_NAME, 1);
+
   @Deprecated
-  private static Mongo overriddenMongo;
+  private static MongoClient overriddenMongo;
 
   /**
-   * @deprecated use {@link #MongoDBJobStore(Mongo)}
+   * @deprecated use {@link #MongoDBJobStore(MongoClient)}
    */
   @Deprecated
-  public static void overrideMongo(Mongo mongo) {
+  public static void overrideMongo(MongoClient mongo) {
     overriddenMongo = mongo;
   }
 
-  private Mongo mongo;
+  private MongoClient mongo;
   private String collectionPrefix = "quartz_";
   private String dbName;
   private String authDbName;
-  private DBCollection jobCollection;
-  private DBCollection triggerCollection;
-  private DBCollection calendarCollection;
+  private MongoCollection<BasicDBObject> jobCollection;
+  private MongoCollection<BasicDBObject> triggerCollection;
+  private MongoCollection<BasicDBObject> calendarCollection;
+  private MongoCollection<BasicDBObject> locksCollection;
+  private MongoCollection<BasicDBObject> pausedTriggerGroupsCollection;
+  private MongoCollection<BasicDBObject> pausedJobGroupsCollection;
   private ClassLoadHelper loadHelper;
-  private DBCollection locksCollection;
-  private DBCollection pausedTriggerGroupsCollection;
-  private DBCollection pausedJobGroupsCollection;
   private String instanceId;
   private String[] addresses;
   private String mongoUri;
@@ -73,7 +78,6 @@ public class MongoDBJobStore implements JobStore, Constants {
   private long jobTimeoutMillis = 10 * 60 * 1000L;
   
   // Options for the Mongo client.
-  private Boolean mongoOptionAutoConnectRetry;
   private Boolean mongoOptionSocketKeepAlive;
   private Integer mongoOptionMaxConnectionsPerHost;
   private Integer mongoOptionConnectTimeoutMillis; 
@@ -87,7 +91,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
   }
 
-  public MongoDBJobStore(final Mongo mongo){
+  public MongoDBJobStore(final MongoClient mongo){
     this.mongo = mongo;
   }
 
@@ -108,7 +112,7 @@ public class MongoDBJobStore implements JobStore, Constants {
       }
     }
 
-    DB db = selectDatabase(this.mongo);
+    MongoDatabase db = selectDatabase(this.mongo);
     initializeCollections(db);
     ensureIndexes();
 
@@ -166,15 +170,11 @@ public class MongoDBJobStore implements JobStore, Constants {
 
   public boolean removeJob(JobKey jobKey) throws JobPersistenceException {
     BasicDBObject keyObject = Keys.keyToDBObject(jobKey);
-    DBCursor find = jobCollection.find(keyObject);
-    if (find.hasNext()) {
-      DBObject jobObj = find.next();
-      jobCollection.remove(keyObject);
-      triggerCollection.remove(new BasicDBObject(TRIGGER_JOB_ID, jobObj.get("_id")));
-
+    for (DBObject item : jobCollection.find(keyObject)) {
+      jobCollection.deleteOne(keyObject);
+      triggerCollection.deleteOne(new BasicDBObject(TRIGGER_JOB_ID, item.get("_id")));
       return true;
     }
-
     return false;
   }
 
@@ -248,7 +248,7 @@ public class MongoDBJobStore implements JobStore, Constants {
       throw new JobPersistenceException("Trigger must be associated with a job. Please specify a JobKey.");
     }
 
-    DBObject dbObject = jobCollection.findOne(Keys.keyToDBObject(newTrigger.getJobKey()));
+    DBObject dbObject = jobCollection.find(Keys.keyToDBObject(newTrigger.getJobKey())).first();
     if (dbObject != null) {
       storeTrigger(newTrigger, (ObjectId) dbObject.get("_id"), replaceExisting);
     } else {
@@ -260,24 +260,28 @@ public class MongoDBJobStore implements JobStore, Constants {
   // then the job should be removed also.
   public boolean removeTrigger(TriggerKey triggerKey) throws JobPersistenceException {
     BasicDBObject dbObject = Keys.keyToDBObject(triggerKey);
-    List<DBObject> triggers = triggerCollection.find(dbObject).limit(2).toArray();
+    List<DBObject> triggers = triggerCollection.find(dbObject).limit(2).into(new ArrayList<DBObject>(2));
     if (triggers.size() > 0) {
       DBObject trigger = triggers.get(0);
       if (trigger.containsField(TRIGGER_JOB_ID)) {
         // There is only 1 job per trigger so no need to look further.
-        DBObject job = jobCollection.findOne(new BasicDBObject("_id", trigger.get(TRIGGER_JOB_ID)));
+        BasicDBObject job = jobCollection.find(new BasicDBObject("_id", trigger.get(TRIGGER_JOB_ID))).first();
         // Remove the orphaned job if it's durable and has no other triggers associated with it,
         // remove it
         if (job != null && (!job.containsField(JOB_DURABILITY) || job.get(JOB_DURABILITY).toString().equals("false"))) {
-          List<DBObject> referencedTriggers = triggerCollection.find(new BasicDBObject(TRIGGER_JOB_ID, job.get("_id"))).limit(2).toArray();
+          List<DBObject> referencedTriggers = triggerCollection
+                  .find(new BasicDBObject(TRIGGER_JOB_ID, job.get("_id")))
+                  .limit(2)
+                  .into(new ArrayList<DBObject>(2));
           if (referencedTriggers.size() == 1) {
-            jobCollection.remove(job);
+            jobCollection.deleteOne(job);
           }
         }
       } else {
         log.debug("The trigger had no associated jobs");
       }
-      triggerCollection.remove(dbObject);
+      //TODO: check if can .deleteOne(dbObject) here
+      triggerCollection.deleteMany(dbObject);
 
       return true;
     }
@@ -304,9 +308,8 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     // Can't call remove trigger as if the job is not durable, it will remove the job too
     BasicDBObject dbObject = Keys.keyToDBObject(triggerKey);
-    DBCursor triggers = triggerCollection.find(dbObject);
-    if (triggers.count() > 0) {
-      triggerCollection.remove(dbObject);
+    if ((triggerCollection.count(dbObject)) > 0) {
+      triggerCollection.deleteMany(dbObject);
     }
     
     // Copy across the job data map from the old trigger to the new one.
@@ -322,7 +325,7 @@ public class MongoDBJobStore implements JobStore, Constants {
   }
 
   public OperableTrigger retrieveTrigger(TriggerKey triggerKey) throws JobPersistenceException {
-    DBObject dbObject = triggerCollection.findOne(Keys.keyToDBObject(triggerKey));
+    DBObject dbObject = triggerCollection.find(Keys.keyToDBObject(triggerKey)).first();
     if (dbObject == null) {
       return null;
     }
@@ -338,11 +341,12 @@ public class MongoDBJobStore implements JobStore, Constants {
   }
 
   public void clearAllSchedulingData() throws JobPersistenceException {
-    jobCollection.remove(new BasicDBObject());
-    triggerCollection.remove(new BasicDBObject());
-    calendarCollection.remove(new BasicDBObject());
-    pausedJobGroupsCollection.remove(new BasicDBObject());
-    pausedTriggerGroupsCollection.remove(new BasicDBObject());
+    //TODO: consider using coll.drop() here
+    jobCollection.deleteMany(new BasicDBObject());
+    triggerCollection.deleteMany(new BasicDBObject());
+    calendarCollection.deleteMany(new BasicDBObject());
+    pausedJobGroupsCollection.deleteMany(new BasicDBObject());
+    pausedTriggerGroupsCollection.deleteMany(new BasicDBObject());
   }
 
   public void storeCalendar(String name,
@@ -350,7 +354,7 @@ public class MongoDBJobStore implements JobStore, Constants {
                             boolean replaceExisting,
                             boolean updateTriggers)
       throws JobPersistenceException {
-    // TODO
+    // TODO implement updating triggers
     if (updateTriggers) {
       throw new UnsupportedOperationException("Updating triggers is not supported.");
     }
@@ -359,13 +363,13 @@ public class MongoDBJobStore implements JobStore, Constants {
     dbObject.put(CALENDAR_NAME, name);
     dbObject.put(CALENDAR_SERIALIZED_OBJECT, serialize(calendar));
 
-    calendarCollection.insert(dbObject);
+    calendarCollection.insertOne(dbObject);
   }
 
   public boolean removeCalendar(String calName) throws JobPersistenceException {
     BasicDBObject searchObj = new BasicDBObject(CALENDAR_NAME, calName);
     if (calendarCollection.count(searchObj) > 0) {
-      calendarCollection.remove(searchObj);
+      calendarCollection.deleteMany(searchObj);
       return true;
     }
     return false;
@@ -393,7 +397,8 @@ public class MongoDBJobStore implements JobStore, Constants {
   }
 
   public Set<JobKey> getJobKeys(GroupMatcher<JobKey> matcher) throws JobPersistenceException {
-    DBCursor cursor = jobCollection.find(queryHelper.matchingKeysConditionFor(matcher), KEY_AND_GROUP_FIELDS);
+    BasicDBObject query = queryHelper.matchingKeysConditionFor(matcher);
+    MongoCursor<BasicDBObject> cursor = jobCollection.find(query).projection(KEY_AND_GROUP_FIELDS).iterator();
 
     Set<JobKey> result = new HashSet<JobKey>();
     while (cursor.hasNext()) {
@@ -406,7 +411,8 @@ public class MongoDBJobStore implements JobStore, Constants {
   }
 
   public Set<TriggerKey> getTriggerKeys(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
-    DBCursor cursor = triggerCollection.find(queryHelper.matchingKeysConditionFor(matcher), KEY_AND_GROUP_FIELDS);
+    BasicDBObject query = queryHelper.matchingKeysConditionFor(matcher);
+    MongoCursor<BasicDBObject> cursor = triggerCollection.find(query).projection(KEY_AND_GROUP_FIELDS).iterator();
 
     Set<TriggerKey> result = new HashSet<TriggerKey>();
     while (cursor.hasNext()) {
@@ -418,14 +424,12 @@ public class MongoDBJobStore implements JobStore, Constants {
     return result;
   }
 
-  @SuppressWarnings("unchecked")
   public List<String> getJobGroupNames() throws JobPersistenceException {
-    return new ArrayList<String>(jobCollection.distinct(KEY_GROUP));
+    return jobCollection.distinct(KEY_GROUP, String.class).into(new ArrayList<String>());
   }
 
-  @SuppressWarnings("unchecked")
   public List<String> getTriggerGroupNames() throws JobPersistenceException {
-    return new ArrayList<String>(triggerCollection.distinct(KEY_GROUP));
+    return triggerCollection.distinct(KEY_GROUP, String.class).into(new ArrayList<String>());
   }
 
   public List<String> getCalendarNames() throws JobPersistenceException {
@@ -439,9 +443,8 @@ public class MongoDBJobStore implements JobStore, Constants {
       return triggers;
     }
     
-    final DBCursor cursor = triggerCollection.find(new BasicDBObject(TRIGGER_JOB_ID, dbObject.get("_id")));
-    while (cursor.hasNext()) {
-      triggers.add(toTrigger(cursor.next()));
+    for (BasicDBObject item: triggerCollection.find(new BasicDBObject(TRIGGER_JOB_ID, dbObject.get("_id")))) {
+      triggers.add(toTrigger(item));
     }
 
     return triggers;
@@ -454,12 +457,15 @@ public class MongoDBJobStore implements JobStore, Constants {
   }
 
   public void pauseTrigger(TriggerKey triggerKey) throws JobPersistenceException {
-    triggerCollection.update(Keys.keyToDBObject(triggerKey), updateThatSetsTriggerStateTo(STATE_PAUSED));
+    triggerCollection.updateOne(Keys.keyToDBObject(triggerKey), updateThatSetsTriggerStateTo(STATE_PAUSED));
   }
 
   public Collection<String> pauseTriggers(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
     final GroupHelper groupHelper = new GroupHelper(triggerCollection, queryHelper);
-    triggerCollection.update(queryHelper.matchingKeysConditionFor(matcher), updateThatSetsTriggerStateTo(STATE_PAUSED), false, true);
+    triggerCollection.updateMany(
+            queryHelper.matchingKeysConditionFor(matcher),
+            updateThatSetsTriggerStateTo(STATE_PAUSED),
+            new UpdateOptions().upsert(false));
 
     final Set<String> set = groupHelper.groupsThatMatch(matcher);
     markTriggerGroupsAsPaused(set);
@@ -469,37 +475,38 @@ public class MongoDBJobStore implements JobStore, Constants {
 
   public void resumeTrigger(TriggerKey triggerKey) throws JobPersistenceException {
     // TODO: port blocking behavior and misfired triggers handling from StdJDBCDelegate in Quartz
-    triggerCollection.update(Keys.keyToDBObject(triggerKey), updateThatSetsTriggerStateTo(STATE_WAITING));
+    triggerCollection.updateOne(Keys.keyToDBObject(triggerKey), updateThatSetsTriggerStateTo(STATE_WAITING));
   }
 
   public Collection<String> resumeTriggers(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
     final GroupHelper groupHelper = new GroupHelper(triggerCollection, queryHelper);
-    triggerCollection.update(queryHelper.matchingKeysConditionFor(matcher), updateThatSetsTriggerStateTo(STATE_WAITING), false, true);
+    triggerCollection.updateMany(
+            queryHelper.matchingKeysConditionFor(matcher),
+            updateThatSetsTriggerStateTo(STATE_WAITING),
+            new UpdateOptions().upsert(false));
 
     final Set<String> set = groupHelper.groupsThatMatch(matcher);
     this.unmarkTriggerGroupsAsPaused(set);
     return set;
   }
 
-  @SuppressWarnings("unchecked")
   public Set<String> getPausedTriggerGroups() throws JobPersistenceException {
-    return new HashSet<String>(pausedTriggerGroupsCollection.distinct(KEY_GROUP));
+    return pausedTriggerGroupsCollection.distinct(KEY_GROUP, String.class).into(new HashSet<String>());
   }
 
-  @SuppressWarnings("unchecked")
   public Set<String> getPausedJobGroups() throws JobPersistenceException {
-    return new HashSet<String>(pausedJobGroupsCollection.distinct(KEY_GROUP));
+    return pausedJobGroupsCollection.distinct(KEY_GROUP, String.class).into(new HashSet<String>());
   }
 
   public void pauseAll() throws JobPersistenceException {
     final GroupHelper groupHelper = new GroupHelper(triggerCollection, queryHelper);
-    triggerCollection.update(new BasicDBObject(), updateThatSetsTriggerStateTo(STATE_PAUSED));
+    triggerCollection.updateMany(new BasicDBObject(), updateThatSetsTriggerStateTo(STATE_PAUSED));
     this.markTriggerGroupsAsPaused(groupHelper.allGroups());
   }
 
   public void resumeAll() throws JobPersistenceException {
     final GroupHelper groupHelper = new GroupHelper(triggerCollection, queryHelper);
-    triggerCollection.update(new BasicDBObject(), updateThatSetsTriggerStateTo(STATE_WAITING));
+    triggerCollection.updateMany(new BasicDBObject(), updateThatSetsTriggerStateTo(STATE_WAITING));
     this.unmarkTriggerGroupsAsPaused(groupHelper.allGroups());
   }
 
@@ -508,14 +515,14 @@ public class MongoDBJobStore implements JobStore, Constants {
     final ObjectId jobId = (ObjectId) findJobDocumentByKey(jobKey).get("_id");
     final TriggerGroupHelper groupHelper = new TriggerGroupHelper(triggerCollection, queryHelper);
     List<String> groups = groupHelper.groupsForJobId(jobId);
-    triggerCollection.update(new BasicDBObject(TRIGGER_JOB_ID, jobId), updateThatSetsTriggerStateTo(STATE_PAUSED));
+    triggerCollection.updateMany(new BasicDBObject(TRIGGER_JOB_ID, jobId), updateThatSetsTriggerStateTo(STATE_PAUSED));
     this.markTriggerGroupsAsPaused(groups);
   }
 
   public Collection<String> pauseJobs(GroupMatcher<JobKey> groupMatcher) throws JobPersistenceException {
     final TriggerGroupHelper groupHelper = new TriggerGroupHelper(triggerCollection, queryHelper);
     List<String> groups = groupHelper.groupsForJobIds(idsFrom(findJobDocumentsThatMatch(groupMatcher)));
-    triggerCollection.update(queryHelper.inGroups(groups), updateThatSetsTriggerStateTo(STATE_PAUSED));
+    triggerCollection.updateMany(queryHelper.inGroups(groups), updateThatSetsTriggerStateTo(STATE_PAUSED));
     this.markJobGroupsAsPaused(groups);
 
     return groups;
@@ -524,13 +531,13 @@ public class MongoDBJobStore implements JobStore, Constants {
   public void resumeJob(JobKey jobKey) throws JobPersistenceException {
     final ObjectId jobId = (ObjectId) findJobDocumentByKey(jobKey).get("_id");
     // TODO: port blocking behavior and misfired triggers handling from StdJDBCDelegate in Quartz
-    triggerCollection.update(new BasicDBObject(TRIGGER_JOB_ID, jobId), updateThatSetsTriggerStateTo(STATE_WAITING));
+    triggerCollection.updateMany(new BasicDBObject(TRIGGER_JOB_ID, jobId), updateThatSetsTriggerStateTo(STATE_WAITING));
   }
 
   public Collection<String> resumeJobs(GroupMatcher<JobKey> groupMatcher) throws JobPersistenceException {
     final TriggerGroupHelper groupHelper = new TriggerGroupHelper(triggerCollection, queryHelper);
     List<String> groups = groupHelper.groupsForJobIds(idsFrom(findJobDocumentsThatMatch(groupMatcher)));
-    triggerCollection.update(queryHelper.inGroups(groups), updateThatSetsTriggerStateTo(STATE_WAITING));
+    triggerCollection.updateMany(queryHelper.inGroups(groups), updateThatSetsTriggerStateTo(STATE_WAITING));
     this.unmarkJobGroupsAsPaused(groups);
 
     return groups;
@@ -568,13 +575,17 @@ public class MongoDBJobStore implements JobStore, Constants {
   private void doAcquireNextTriggers(Map<TriggerKey, OperableTrigger> triggers, Date noLaterThanDate, int maxCount)
       throws JobPersistenceException {
     BasicDBObject query = createNextTriggerQuery(noLaterThanDate);
-    DBCursor cursor = triggerCollection.find(query);
+    BasicDBObject sort = new BasicDBObject(TRIGGER_NEXT_FIRE_TIME, 1);
 
-    BasicDBObject sort = new BasicDBObject();
-    sort.put(TRIGGER_NEXT_FIRE_TIME, 1);
-    cursor.sort(sort);
+    for (BasicDBObject obj : triggerCollection.find(query).sort(sort)) {
+      log.info("Found Trigger: {}", obj);
+    }
 
-    log.debug("Found {} triggers which are eligible to be run.", cursor.count());
+    MongoCursor<BasicDBObject> cursor = triggerCollection.find(query).sort(sort).iterator();
+
+    //if (log.isDebugEnabled()) {
+    log.info("Found {} triggers which are eligible to be run.", triggerCollection.count(query));
+    //}
 
     while (cursor.hasNext() && maxCount > triggers.size()) {
       DBObject dbObj = cursor.next();
@@ -620,31 +631,32 @@ public class MongoDBJobStore implements JobStore, Constants {
           // so, check again that the trigger is due to fire
           if (nextFireTime.after(noLaterThanDate))
           {
-            log.debug("Skipping trigger {} as it misfired and was scheduled for {}.", trigger.getKey(), trigger.getNextFireTime());
+            log.debug("Skipping trigger {} as it misfired and was scheduled for {}.",
+                    trigger.getKey(), trigger.getNextFireTime());
             continue;
           }
         }
         
-        log.debug("Inserting lock for trigger {}", trigger.getKey());
+        log.info("Inserting lock for trigger {}", trigger.getKey());
 
         BasicDBObject lock = createTriggerDbLock(dbObj);
-        // A lock needs to be written with FSYNCED to be 100% effective across multiple servers
-        locksCollection.insert(lock, WriteConcern.FSYNCED);
+        log.info("Locks Collection write concern: {}", locksCollection.getWriteConcern());
+        locksCollection.insertOne(lock);
         
-        log.debug("Aquired trigger {}", trigger.getKey());
+        log.info("Aquired trigger {}", trigger.getKey());
         triggers.put(trigger.getKey(), trigger);
         
       } catch (DuplicateKeyException e) {
 
         // someone else acquired this lock. Move on.
-        log.debug("Failed to acquire trigger {} due to a lock", trigger.getKey());
+        log.info("Failed to acquire trigger {} due to a lock", trigger.getKey());
 
         BasicDBObject lock = new BasicDBObject();
         lock.put(KEY_NAME, dbObj.get(KEY_NAME));
         lock.put(KEY_GROUP, dbObj.get(KEY_GROUP));
 
         DBObject existingLock;
-        DBCursor lockCursor = locksCollection.find(lock);
+        MongoCursor<BasicDBObject> lockCursor = locksCollection.find(lock).iterator();
         if (lockCursor.hasNext()) {
           existingLock = lockCursor.next();
           // support for trigger lock expirations
@@ -720,8 +732,7 @@ public class MongoDBJobStore implements JobStore, Constants {
             lock.put(KEY_GROUP, job.getKey().getGroup());
             lock.put(LOCK_INSTANCE_ID, instanceId);
             lock.put(LOCK_TIME, new Date());
-            // A lock needs to be written with FSYNCED to be 100% effective across multiple servers
-            locksCollection.insert(lock, WriteConcern.FSYNCED);
+            locksCollection.insertOne(lock);
           }
           
           results.add(new TriggerFiredResult(bundle));
@@ -739,14 +750,14 @@ public class MongoDBJobStore implements JobStore, Constants {
           lock.put(KEY_NAME, "jobconcurrentlock:" + job.getKey().getName());
           lock.put(KEY_GROUP, job.getKey().getGroup());
           
-          DBObject existingLock;
-          DBCursor lockCursor = locksCollection.find(lock);
+          BasicDBObject existingLock;
+          MongoCursor<BasicDBObject> lockCursor = locksCollection.find(lock).iterator();
           if (lockCursor.hasNext()) {
             existingLock = lockCursor.next();
             
             if (isJobLockExpired(existingLock)) {
               log.debug("Removing expired lock for job {}", job.getKey());
-              locksCollection.remove(existingLock);
+              locksCollection.deleteOne(existingLock);
             }
           }
         }
@@ -775,7 +786,7 @@ public class MongoDBJobStore implements JobStore, Constants {
       BasicDBObject lock = new BasicDBObject();
       lock.put(KEY_NAME, "jobconcurrentlock:" + jobDetail.getKey().getName());
       lock.put(KEY_GROUP, jobDetail.getKey().getGroup());
-      locksCollection.remove(lock);
+      locksCollection.deleteOne(lock);
     }
     
     // check for trigger deleted during execution...
@@ -826,19 +837,19 @@ public class MongoDBJobStore implements JobStore, Constants {
     this.addresses = addresses.split(",");
   }
 
-  public DBCollection getJobCollection() {
+  public MongoCollection<BasicDBObject> getJobCollection() {
     return jobCollection;
   }
 
-  public DBCollection getTriggerCollection() {
+  public MongoCollection<BasicDBObject> getTriggerCollection() {
     return triggerCollection;
   }
 
-  public DBCollection getCalendarCollection() {
+  public MongoCollection<BasicDBObject> getCalendarCollection() {
     return calendarCollection;
   }
 
-  public DBCollection getLocksCollection() {
+  public MongoCollection<BasicDBObject> getLocksCollection() {
     return locksCollection;
   }
 
@@ -897,40 +908,30 @@ public class MongoDBJobStore implements JobStore, Constants {
     }
   }
 
-  private void initializeCollections(DB db) {
-    jobCollection = db.getCollection(collectionPrefix + "jobs");
-    triggerCollection = db.getCollection(collectionPrefix + "triggers");
-    calendarCollection = db.getCollection(collectionPrefix + "calendars");
-    locksCollection = db.getCollection(collectionPrefix + "locks");
+  private void initializeCollections(MongoDatabase db) {
+    jobCollection = db.getCollection(collectionPrefix + "jobs", BasicDBObject.class);
+    triggerCollection = db.getCollection(collectionPrefix + "triggers", BasicDBObject.class);
+    calendarCollection = db.getCollection(collectionPrefix + "calendars", BasicDBObject.class);
+    // A lock needs to be written with FSYNCED to be 100% effective across multiple servers
+    locksCollection = db.getCollection(collectionPrefix + "locks", BasicDBObject.class)
+            .withWriteConcern(WriteConcern.FSYNCED);
 
-    pausedTriggerGroupsCollection = db.getCollection(collectionPrefix + "paused_trigger_groups");
-    pausedJobGroupsCollection = db.getCollection(collectionPrefix + "paused_job_groups");
+    pausedTriggerGroupsCollection = db.getCollection(collectionPrefix + "paused_trigger_groups", BasicDBObject.class);
+    pausedJobGroupsCollection = db.getCollection(collectionPrefix + "paused_job_groups", BasicDBObject.class);
   }
 
-  private DB selectDatabase(Mongo mongo) {
-    DB db = mongo.getDB(dbName);
+  private MongoDatabase selectDatabase(MongoClient mongo) {
     // MongoDB defaults are insane, set a reasonable write concern explicitly. MK.
     // But we would be insane not to override this when writing lock records. LB.
-    db.setWriteConcern(WriteConcern.JOURNALED);
-    if (username != null) {
-        if(authDbName != null) {
-            // authentificating to db which gives access to all other dbs (role - readWriteAnyDatabase)
-            // by default in mongo it should be "admin"
-            DB authDb = mongo.getDB(authDbName);
-            authDb.authenticate(username, password.toCharArray());
-        } else {
-            db.authenticate(username, password.toCharArray());
-        }
-
-    }
-    return db;
+    mongo.setWriteConcern(WriteConcern.JOURNALED);
+    return mongo.getDatabase(dbName);
   }
 
-  private Mongo connectToMongoDB() throws SchedulerConfigException {
+  private MongoClient connectToMongoDB() throws SchedulerConfigException {
     if (mongoUri == null && (addresses == null || addresses.length == 0)) {
       throw new SchedulerConfigException("At least one MongoDB address or a MongoDB URI must be specified .");
     }
-    
+
     if(mongoUri != null) {
       return connectToMongoDB(mongoUri);
     }
@@ -938,13 +939,15 @@ public class MongoDBJobStore implements JobStore, Constants {
     MongoClientOptions.Builder optionsBuilder = MongoClientOptions.builder();
     optionsBuilder.writeConcern(WriteConcern.SAFE);
     
-    if (mongoOptionAutoConnectRetry != null) optionsBuilder.autoConnectRetry(mongoOptionAutoConnectRetry);
     if (mongoOptionMaxConnectionsPerHost != null) optionsBuilder.connectionsPerHost(mongoOptionMaxConnectionsPerHost);
     if (mongoOptionConnectTimeoutMillis != null) optionsBuilder.connectTimeout(mongoOptionConnectTimeoutMillis);
     if (mongoOptionSocketTimeoutMillis != null) optionsBuilder.socketTimeout(mongoOptionSocketTimeoutMillis);
     if (mongoOptionSocketKeepAlive != null) optionsBuilder.socketKeepAlive(mongoOptionSocketKeepAlive);
-    if (mongoOptionThreadsAllowedToBlockForConnectionMultiplier != null) 
+    if (mongoOptionThreadsAllowedToBlockForConnectionMultiplier != null) {
       optionsBuilder.threadsAllowedToBlockForConnectionMultiplier(mongoOptionThreadsAllowedToBlockForConnectionMultiplier);
+    }
+
+    List<MongoCredential> credentials = createCredentials();
 
     MongoClientOptions options = optionsBuilder.build();
 
@@ -953,13 +956,27 @@ public class MongoDBJobStore implements JobStore, Constants {
       for (String a : addresses) {
         serverAddresses.add(new ServerAddress(a));
       }
-      return new MongoClient(serverAddresses, options);
+      return new MongoClient(serverAddresses, credentials, options);
     } catch (MongoException e) {
       throw new SchedulerConfigException("Could not connect to MongoDB", e);
     }
   }
 
-  private Mongo connectToMongoDB(final String mongoUriAsString) throws SchedulerConfigException {
+  private List<MongoCredential> createCredentials() {
+    List<MongoCredential> credentials = new ArrayList<MongoCredential>(1);
+    if (username != null) {
+      if(authDbName != null) {
+        // authenticating to db which gives access to all other dbs (role - readWriteAnyDatabase)
+        // by default in mongo it should be "admin"
+        credentials.add(MongoCredential.createCredential(username, authDbName, password.toCharArray()));
+      } else {
+        credentials.add(MongoCredential.createCredential(username, dbName, password.toCharArray()));
+      }
+    }
+    return credentials;
+  }
+
+  private MongoClient connectToMongoDB(final String mongoUriAsString) throws SchedulerConfigException {
     try {
       return new MongoClient(new MongoClientURI(mongoUriAsString));
    } catch (final MongoException e) {
@@ -972,11 +989,12 @@ public class MongoDBJobStore implements JobStore, Constants {
     return toTrigger(key, dbObj);
   }
 
-  @SuppressWarnings("unchecked")
   protected OperableTrigger toTrigger(TriggerKey triggerKey, DBObject dbObject) throws JobPersistenceException {
     OperableTrigger trigger;
     try {
-      Class<OperableTrigger> triggerClass = (Class<OperableTrigger>) getTriggerClassLoader().loadClass((String) dbObject.get(TRIGGER_CLASS));
+      @SuppressWarnings("unchecked")
+      Class<OperableTrigger> triggerClass = (Class<OperableTrigger>) getTriggerClassLoader()
+              .loadClass((String) dbObject.get(TRIGGER_CLASS));
       trigger = triggerClass.newInstance();
     } catch (ClassNotFoundException e) {
       throw new JobPersistenceException("Could not find trigger class " + dbObject.get(TRIGGER_CLASS));
@@ -1024,7 +1042,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     trigger = tpd.setExtraPropertiesAfterInstantiation(trigger, dbObject);
 
-    DBObject job = jobCollection.findOne(new BasicDBObject("_id", dbObject.get(TRIGGER_JOB_ID)));
+    DBObject job = jobCollection.find(new BasicDBObject("_id", dbObject.get(TRIGGER_JOB_ID))).first();
     if (job != null) {
       trigger.setJobKey(new JobKey((String) job.get(KEY_NAME), (String) job.get(KEY_GROUP)));
       return trigger;
@@ -1127,27 +1145,27 @@ public class MongoDBJobStore implements JobStore, Constants {
       BasicDBObject keys = new BasicDBObject();
       keys.put(KEY_GROUP, 1);
       keys.put(KEY_NAME, 1);
-      jobCollection.createIndex(keys, new BasicDBObject("unique",  Boolean.TRUE));
+      jobCollection.createIndex(keys, new IndexOptions().unique(true));
 
       keys = new BasicDBObject();
       keys.put(KEY_GROUP, 1);
       keys.put(KEY_NAME, 1);
-      triggerCollection.createIndex(keys, new BasicDBObject("unique",  Boolean.TRUE));
+      triggerCollection.createIndex(keys, new IndexOptions().unique(true));
 
       keys = new BasicDBObject();
       keys.put(KEY_GROUP, 1);
       keys.put(KEY_NAME, 1);
-      locksCollection.createIndex(keys, new BasicDBObject("unique",  Boolean.TRUE));
+      locksCollection.createIndex(keys, new IndexOptions().unique(true));
 
       // Need this to stop table scan when removing all locks
       locksCollection.createIndex(new BasicDBObject(LOCK_INSTANCE_ID, 1));
       
       // remove all locks for this instance on startup
-      locksCollection.remove(new BasicDBObject(LOCK_INSTANCE_ID, instanceId));
+      locksCollection.deleteMany(new BasicDBObject(LOCK_INSTANCE_ID, instanceId));
 
       keys = new BasicDBObject();
       keys.put(CALENDAR_NAME, 1);
-      calendarCollection.createIndex(keys, new BasicDBObject("unique",  Boolean.TRUE));
+      calendarCollection.createIndex(keys, new IndexOptions().unique(true));
 
       try
       {
@@ -1197,10 +1215,10 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     if (replaceExisting) {
       trigger.remove("_id");
-      triggerCollection.update(keyToDBObject(newTrigger.getKey()), trigger);
+      triggerCollection.updateMany(keyToDBObject(newTrigger.getKey()), trigger);
     } else {
       try {
-        triggerCollection.insert(trigger);
+        triggerCollection.insertOne(trigger);
       } catch (DuplicateKeyException key) {
         throw new ObjectAlreadyExistsException(newTrigger);
       }
@@ -1221,19 +1239,19 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     job.putAll(newJob.getJobDataMap());
 
-    DBObject object = jobCollection.findOne(keyDbo);
+    DBObject object = jobCollection.find(keyDbo).first();
     
     ObjectId objectId = null;
     
     if (object != null && replaceExisting) {
-      jobCollection.update(keyDbo, job);
+      jobCollection.updateOne(keyDbo, job);
     } else if (object == null) {
       try {
-        jobCollection.insert(job);
+        jobCollection.insertOne(job);
         objectId = (ObjectId) job.get("_id");
       } catch (DuplicateKeyException e) {
         // Fine, find it and get its id.
-        object = jobCollection.findOne(keyDbo);
+        object = jobCollection.find(keyDbo).first();
         objectId = (ObjectId) object.get("_id");
       }
     } else {
@@ -1244,7 +1262,7 @@ public class MongoDBJobStore implements JobStore, Constants {
   }
 
   protected void removeTriggerLock(OperableTrigger trigger) {
-    log.debug("Removing trigger lock {}.{}", trigger.getKey(), instanceId);
+    log.info("Removing trigger lock {}.{}", trigger.getKey(), instanceId);
     BasicDBObject lock = new BasicDBObject();
     lock.put(KEY_NAME, trigger.getKey().getName());
     lock.put(KEY_GROUP, trigger.getKey().getGroup());
@@ -1252,8 +1270,8 @@ public class MongoDBJobStore implements JobStore, Constants {
     // Comment this out, as expired trigger locks should be deleted by any another instance
     // lock.put(LOCK_INSTANCE_ID, instanceId);
 
-    locksCollection.remove(lock);
-    log.debug("Trigger lock {}.{} removed.", trigger.getKey(), instanceId);
+    locksCollection.deleteMany(lock);
+    log.info("Trigger lock {}.{} removed.", trigger.getKey(), instanceId);
   }
 
   protected ClassLoader getJobClassLoader() {
@@ -1270,11 +1288,11 @@ public class MongoDBJobStore implements JobStore, Constants {
   }
 
   protected DBObject findJobDocumentByKey(JobKey key) {
-    return jobCollection.findOne(keyToDBObject(key));
+    return jobCollection.find(keyToDBObject(key)).first();
   }
 
   protected DBObject findTriggerDocumentByKey(TriggerKey key) {
-    return triggerCollection.findOne(keyToDBObject(key));
+    return triggerCollection.find(keyToDBObject(key)).first();
   }
 
   private void initializeHelpers() {
@@ -1321,37 +1339,38 @@ public class MongoDBJobStore implements JobStore, Constants {
     return TriggerState.NORMAL;
   }
 
-  private DBObject updateThatSetsTriggerStateTo(String state) {
-    return BasicDBObjectBuilder.
+  private BasicDBObject updateThatSetsTriggerStateTo(String state) {
+    //TODO implement using Filters
+    return (BasicDBObject) BasicDBObjectBuilder.
         start("$set", new BasicDBObject(TRIGGER_STATE, state)).
         get();
   }
 
   private void markTriggerGroupsAsPaused(Collection<String> groups) {
-    List<DBObject> list = new ArrayList<DBObject>();
+    List<BasicDBObject> list = new ArrayList<BasicDBObject>();
     for (String s : groups) {
       list.add(new BasicDBObject(KEY_GROUP, s));
     }
-    pausedTriggerGroupsCollection.insert(list);
+    pausedTriggerGroupsCollection.insertMany(list);
   }
 
   private void unmarkTriggerGroupsAsPaused(Collection<String> groups) {
-    pausedTriggerGroupsCollection.remove(QueryBuilder.start(KEY_GROUP).in(groups).get());
+    pausedTriggerGroupsCollection.deleteMany(Filters.in(KEY_GROUP, groups));
   }
 
   private void markJobGroupsAsPaused(List<String> groups) {
     if (groups == null) {
       throw new IllegalArgumentException("groups cannot be null!");
     }
-    List<DBObject> list = new ArrayList<DBObject>();
+    List<BasicDBObject> list = new ArrayList<BasicDBObject>();
     for (String s : groups) {
       list.add(new BasicDBObject(KEY_GROUP, s));
     }
-    pausedJobGroupsCollection.insert(list);
+    pausedJobGroupsCollection.insertMany(list);
   }
 
   private void unmarkJobGroupsAsPaused(Collection<String> groups) {
-    pausedJobGroupsCollection.remove(QueryBuilder.start(KEY_GROUP).in(groups).get());
+    pausedJobGroupsCollection.deleteMany(Filters.in(KEY_GROUP, groups));
   }
 
 
@@ -1451,10 +1470,6 @@ public class MongoDBJobStore implements JobStore, Constants {
   
   public void setMongoOptionMaxConnectionsPerHost(int maxConnectionsPerHost) {
     this.mongoOptionMaxConnectionsPerHost = maxConnectionsPerHost;
-  }
-
-  public void setMongoOptionAutoConnectRetry(boolean autoConnectRetry) {
-    this.mongoOptionAutoConnectRetry = autoConnectRetry;
   }
 
   public void setMongoOptionConnectTimeoutMillis(int maxConnectWaitTime) {
