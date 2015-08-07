@@ -568,9 +568,7 @@ public class MongoDBJobStore implements JobStore, Constants {
   
   private void doAcquireNextTriggers(Map<TriggerKey, OperableTrigger> triggers, Date noLaterThanDate, int maxCount)
       throws JobPersistenceException {
-    BasicDBObject query = new BasicDBObject();
-    query.put(TRIGGER_NEXT_FIRE_TIME, new BasicDBObject("$lte", noLaterThanDate));
-    query.put(TRIGGER_STATE, STATE_WAITING);
+    BasicDBObject query = createNextTriggerQuery(noLaterThanDate);
     DBCursor cursor = triggerCollection.find(query);
 
     BasicDBObject sort = new BasicDBObject();
@@ -629,12 +627,8 @@ public class MongoDBJobStore implements JobStore, Constants {
         }
         
         log.debug("Inserting lock for trigger {}", trigger.getKey());
-        
-        BasicDBObject lock = new BasicDBObject();
-        lock.put(KEY_NAME, dbObj.get(KEY_NAME));
-        lock.put(KEY_GROUP, dbObj.get(KEY_GROUP));
-        lock.put(LOCK_INSTANCE_ID, instanceId);
-        lock.put(LOCK_TIME, new Date());
+
+        BasicDBObject lock = createTriggerDbLock(dbObj);
         // A lock needs to be written with FSYNCED to be 100% effective across multiple servers
         locksCollection.insert(lock, WriteConcern.FSYNCED);
         
@@ -666,6 +660,22 @@ public class MongoDBJobStore implements JobStore, Constants {
         }
       }
     }
+  }
+
+  private BasicDBObject createNextTriggerQuery(Date noLaterThanDate) {
+    BasicDBObject query = new BasicDBObject();
+    query.put(TRIGGER_NEXT_FIRE_TIME, new BasicDBObject("$lte", noLaterThanDate));
+    query.put(TRIGGER_STATE, STATE_WAITING);
+    return query;
+  }
+
+  private BasicDBObject createTriggerDbLock(DBObject dbObj) {
+    BasicDBObject lock = new BasicDBObject();
+    lock.put(KEY_NAME, dbObj.get(KEY_NAME));
+    lock.put(KEY_GROUP, dbObj.get(KEY_GROUP));
+    lock.put(LOCK_INSTANCE_ID, instanceId);
+    lock.put(LOCK_TIME, new Date());
+    return lock;
   }
 
   public void releaseAcquiredTrigger(OperableTrigger trigger) throws JobPersistenceException {
