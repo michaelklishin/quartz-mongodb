@@ -11,7 +11,7 @@
   :test-selectors {:all     (constantly true)
                    :focus   :focus
                    :default (constantly true)}
-  :javac-options     ["-target" "1.6" "-source" "1.6"]
+  :javac-options     ["-target" "1.6" "-source" "1.6" "-Xlint:deprecation"]
   :profiles {:dev {:resource-paths ["src/test/resources"]
                    :dependencies [[org.clojure/clojure       "1.6.0"]
                                   [clojurewerkz/quartzite    "1.3.0"]
