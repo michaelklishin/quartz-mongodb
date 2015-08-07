@@ -28,7 +28,6 @@ import java.io.IOException;
 import java.io.NotSerializableException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.net.UnknownHostException;
 import java.util.*;
 
 import static com.novemberain.quartz.mongodb.Keys.*;
@@ -955,9 +954,6 @@ public class MongoDBJobStore implements JobStore, Constants {
         serverAddresses.add(new ServerAddress(a));
       }
       return new MongoClient(serverAddresses, options);
-
-    } catch (UnknownHostException e) {
-      throw new SchedulerConfigException("Could not connect to MongoDB", e);
     } catch (MongoException e) {
       throw new SchedulerConfigException("Could not connect to MongoDB", e);
     }
@@ -966,11 +962,9 @@ public class MongoDBJobStore implements JobStore, Constants {
   private Mongo connectToMongoDB(final String mongoUriAsString) throws SchedulerConfigException {
     try {
       return new MongoClient(new MongoClientURI(mongoUriAsString));
-   } catch (final UnknownHostException e) {
-     throw new SchedulerConfigException("Could not connect to MongoDB", e);
    } catch (final MongoException e) {
-          throw new SchedulerConfigException("MongoDB driver thrown an exception", e);
-      }
+      throw new SchedulerConfigException("MongoDB driver thrown an exception", e);
+    }
   }
 
   protected OperableTrigger toTrigger(DBObject dbObj) throws JobPersistenceException {
