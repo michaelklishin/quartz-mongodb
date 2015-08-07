@@ -574,7 +574,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     DBCursor cursor = triggerCollection.find(query);
 
     BasicDBObject sort = new BasicDBObject();
-    sort.put(TRIGGER_NEXT_FIRE_TIME, Integer.valueOf(1));
+    sort.put(TRIGGER_NEXT_FIRE_TIME, 1);
     cursor.sort(sort);
 
     log.debug("Found {} triggers which are eligible to be run.", cursor.count());
@@ -692,12 +692,12 @@ public class MongoDBJobStore implements JobStore, Constants {
       Date prevFireTime = trigger.getPreviousFireTime();
       trigger.triggered(cal);
 
-      TriggerFiredBundle bndle = new TriggerFiredBundle(retrieveJob(
+      TriggerFiredBundle bundle = new TriggerFiredBundle(retrieveJob(
           trigger), trigger, cal,
           false, new Date(), trigger.getPreviousFireTime(), prevFireTime,
           trigger.getNextFireTime());
 
-      JobDetail job = bndle.getJobDetail();
+      JobDetail job = bundle.getJobDetail();
       
       if (job != null) {
         
@@ -715,7 +715,7 @@ public class MongoDBJobStore implements JobStore, Constants {
             locksCollection.insert(lock, WriteConcern.FSYNCED);
           }
           
-          results.add(new TriggerFiredResult(bndle));
+          results.add(new TriggerFiredResult(bundle));
           storeTrigger(trigger, true);
         }
         catch (DuplicateKeyException dk) {
@@ -1371,7 +1371,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     try {
       byte[] bytes = Base64.decodeBase64(clob);
         
-      Map<String, ?> map = (Map<String, ?>) stringMapFromBytes(bytes);
+      Map<String, ?> map = stringMapFromBytes(bytes);
         
       jobDataMap.putAll(map);
       jobDataMap.clearDirtyFlag();
@@ -1410,8 +1410,8 @@ public class MongoDBJobStore implements JobStore, Constants {
     } catch (NotSerializableException e) {
       throw new NotSerializableException(
         "Unable to serialize JobDataMap for insertion into " + 
-        "database because the value of property '" + 
-        getKeyOfNonSerializableStringMapEntry(jobDataMap.getWrappedMap()).toString() + 
+        "database because the value of property '" +
+        getKeyOfNonSerializableStringMapEntry(jobDataMap.getWrappedMap()) +
         "' is not serializable: " + e.getMessage());
     }
   }
