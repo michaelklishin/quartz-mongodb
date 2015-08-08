@@ -170,7 +170,8 @@ public class MongoDBJobStore implements JobStore, Constants {
 
   public boolean removeJob(JobKey jobKey) throws JobPersistenceException {
     BasicDBObject keyObject = Keys.keyToDBObject(jobKey);
-    for (DBObject item : jobCollection.find(keyObject)) {
+    BasicDBObject item = jobCollection.find(keyObject).first();
+    if (item != null) {
       jobCollection.deleteOne(keyObject);
       triggerCollection.deleteOne(new BasicDBObject(TRIGGER_JOB_ID, item.get("_id")));
       return true;
