@@ -641,8 +641,8 @@ public class MongoDBJobStore implements JobStore, Constants {
         log.info("Inserting lock for trigger {}", trigger.getKey());
 
         BasicDBObject lock = createTriggerDbLock(dbObj);
-        log.info("Locks Collection write concern: {}", locksCollection.getWriteConcern());
-        locksCollection.insertOne(lock);
+        // A lock needs to be written with FSYNCED to be 100% effective across multiple servers
+        locksCollection.withWriteConcern(WriteConcern.FSYNCED).insertOne(lock);
         
         log.info("Aquired trigger {}", trigger.getKey());
         triggers.put(trigger.getKey(), trigger);
@@ -724,23 +724,21 @@ public class MongoDBJobStore implements JobStore, Constants {
       if (job != null) {
         
         try {
-        
           if (job.isConcurrentExectionDisallowed()) {
-
             log.debug("Inserting lock for job {}", job.getKey());
             BasicDBObject lock = new BasicDBObject();
             lock.put(KEY_NAME, "jobconcurrentlock:" + job.getKey().getName());
             lock.put(KEY_GROUP, job.getKey().getGroup());
             lock.put(LOCK_INSTANCE_ID, instanceId);
             lock.put(LOCK_TIME, new Date());
-            locksCollection.insertOne(lock);
+            // A lock needs to be written with FSYNCED to be 100% effective across multiple servers
+            locksCollection.withWriteConcern(WriteConcern.FSYNCED).insertOne(lock);
           }
           
           results.add(new TriggerFiredResult(bundle));
           storeTrigger(trigger, true);
         }
         catch (DuplicateKeyException dk) {
-          
           log.debug("Job disallows concurrent execution and is already running {}", job.getKey());
           
           // Remove the trigger lock
@@ -913,9 +911,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     jobCollection = db.getCollection(collectionPrefix + "jobs", BasicDBObject.class);
     triggerCollection = db.getCollection(collectionPrefix + "triggers", BasicDBObject.class);
     calendarCollection = db.getCollection(collectionPrefix + "calendars", BasicDBObject.class);
-    // A lock needs to be written with FSYNCED to be 100% effective across multiple servers
-    locksCollection = db.getCollection(collectionPrefix + "locks", BasicDBObject.class)
-            .withWriteConcern(WriteConcern.FSYNCED);
+    locksCollection = db.getCollection(collectionPrefix + "locks", BasicDBObject.class);
 
     pausedTriggerGroupsCollection = db.getCollection(collectionPrefix + "paused_trigger_groups", BasicDBObject.class);
     pausedJobGroupsCollection = db.getCollection(collectionPrefix + "paused_job_groups", BasicDBObject.class);
