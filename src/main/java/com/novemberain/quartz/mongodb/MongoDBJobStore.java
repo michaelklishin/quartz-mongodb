@@ -578,10 +578,6 @@ public class MongoDBJobStore implements JobStore, Constants {
     BasicDBObject query = createNextTriggerQuery(noLaterThanDate);
     BasicDBObject sort = new BasicDBObject(TRIGGER_NEXT_FIRE_TIME, 1);
 
-    for (BasicDBObject obj : triggerCollection.find(query).sort(sort)) {
-      log.info("Found Trigger: {}", obj);
-    }
-
     MongoCursor<BasicDBObject> cursor = triggerCollection.find(query).sort(sort).iterator();
 
     //if (log.isDebugEnabled()) {
@@ -647,10 +643,10 @@ public class MongoDBJobStore implements JobStore, Constants {
         log.info("Aquired trigger {}", trigger.getKey());
         triggers.put(trigger.getKey(), trigger);
         
-      } catch (DuplicateKeyException e) {
-
+      } catch (MongoWriteException e) {
         // someone else acquired this lock. Move on.
-        log.info("Failed to acquire trigger {} due to a lock", trigger.getKey());
+        log.info("Failed to acquire trigger {} due to a lock, reason: {}",
+                trigger.getKey(), e.getError());
 
         BasicDBObject lock = new BasicDBObject();
         lock.put(KEY_NAME, dbObj.get(KEY_NAME));
