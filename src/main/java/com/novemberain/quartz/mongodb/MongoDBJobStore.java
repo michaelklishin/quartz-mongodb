@@ -101,6 +101,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     this.password = password;
   }
 
+  @Override
   public void initialize(ClassLoadHelper loadHelper, SchedulerSignaler signaler) throws SchedulerConfigException {
     this.loadHelper = loadHelper;
     this.signaler = signaler;
@@ -119,30 +120,37 @@ public class MongoDBJobStore implements JobStore, Constants {
     initializeHelpers();
   }
 
+  @Override
   public void schedulerStarted() throws SchedulerException {
     // No-op
   }
 
+  @Override
   public void schedulerPaused() {
     // No-op
   }
 
+  @Override
   public void schedulerResumed() {
   }
 
+  @Override
   public void shutdown() {
     mongo.close();
   }
 
+  @Override
   public boolean supportsPersistence() {
     return true;
   }
 
+  @Override
   public long getEstimatedTimeToReleaseAndAcquireTrigger() {
     // this will vary...
     return 200;
   }
 
+  @Override
   public boolean isClustered() {
     return false;
   }
@@ -150,6 +158,7 @@ public class MongoDBJobStore implements JobStore, Constants {
   /**
    * Job and Trigger storage Methods
    */
+  @Override
   public void storeJobAndTrigger(JobDetail newJob, OperableTrigger newTrigger) throws
       JobPersistenceException {
     ObjectId jobId = storeJobInMongo(newJob, false);
@@ -158,16 +167,19 @@ public class MongoDBJobStore implements JobStore, Constants {
     storeTrigger(newTrigger, jobId, false);
   }
 
+  @Override
   public void storeJob(JobDetail newJob, boolean replaceExisting) throws
       JobPersistenceException {
     storeJobInMongo(newJob, replaceExisting);
   }
 
+  @Override
   public void storeJobsAndTriggers(Map<JobDetail, List<Trigger>> triggersAndJobs, boolean replace)
       throws JobPersistenceException {
     throw new UnsupportedOperationException();
   }
 
+  @Override
   public boolean removeJob(JobKey jobKey) throws JobPersistenceException {
     BasicDBObject keyObject = Keys.keyToDBObject(jobKey);
     BasicDBObject item = jobCollection.find(keyObject).first();
@@ -179,6 +191,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     return false;
   }
 
+  @Override
   public boolean removeJobs(List<JobKey> jobKeys) throws JobPersistenceException {
     for (JobKey key : jobKeys) {
       removeJob(key);
@@ -186,7 +199,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     return false;
   }
 
-  @SuppressWarnings("unchecked")
+  @Override
   public JobDetail retrieveJob(JobKey jobKey) throws JobPersistenceException {
     DBObject dbObject = findJobDocumentByKey(jobKey);
     if (dbObject == null) {
@@ -195,6 +208,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     }
 
     try {
+      @SuppressWarnings("unchecked")
       Class<Job> jobClass = (Class<Job>) getJobClassLoader().loadClass((String) dbObject.get(JOB_CLASS));
 
       JobBuilder builder = JobBuilder.newJob(jobClass)
@@ -243,6 +257,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     }
   }
 
+  @Override
   public void storeTrigger(OperableTrigger newTrigger, boolean replaceExisting) throws
       JobPersistenceException {
     if (newTrigger.getJobKey() == null) {
@@ -259,6 +274,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
   // If the removal of the Trigger results in an 'orphaned' Job that is not 'durable',
   // then the job should be removed also.
+  @Override
   public boolean removeTrigger(TriggerKey triggerKey) throws JobPersistenceException {
     BasicDBObject dbObject = Keys.keyToDBObject(triggerKey);
     List<DBObject> triggers = triggerCollection.find(dbObject).limit(2).into(new ArrayList<DBObject>(2));
@@ -290,6 +306,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     return false;
   }
 
+  @Override
   public boolean removeTriggers(List<TriggerKey> triggerKeys) throws JobPersistenceException {
     for (TriggerKey key : triggerKeys) {
       removeTrigger(key);
@@ -297,6 +314,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     return false;
   }
 
+  @Override
   public boolean replaceTrigger(TriggerKey triggerKey, OperableTrigger newTrigger) throws JobPersistenceException {
     OperableTrigger trigger = retrieveTrigger(triggerKey);
     if(trigger == null) {
@@ -325,6 +343,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     return true;
   }
 
+  @Override
   public OperableTrigger retrieveTrigger(TriggerKey triggerKey) throws JobPersistenceException {
     DBObject dbObject = triggerCollection.find(Keys.keyToDBObject(triggerKey)).first();
     if (dbObject == null) {
@@ -333,14 +352,17 @@ public class MongoDBJobStore implements JobStore, Constants {
     return toTrigger(triggerKey, dbObject);
   }
 
+  @Override
   public boolean checkExists(JobKey jobKey) throws JobPersistenceException {
     return jobCollection.count(Keys.keyToDBObject(jobKey)) > 0;
   }
 
+  @Override
   public boolean checkExists(TriggerKey triggerKey) throws JobPersistenceException {
     return triggerCollection.count(Keys.keyToDBObject(triggerKey)) > 0;
   }
 
+  @Override
   public void clearAllSchedulingData() throws JobPersistenceException {
     //TODO: consider using coll.drop() here
     jobCollection.deleteMany(new BasicDBObject());
@@ -350,6 +372,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     pausedTriggerGroupsCollection.deleteMany(new BasicDBObject());
   }
 
+  @Override
   public void storeCalendar(String name,
                             Calendar calendar,
                             boolean replaceExisting,
@@ -367,6 +390,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     calendarCollection.insertOne(dbObject);
   }
 
+  @Override
   public boolean removeCalendar(String calName) throws JobPersistenceException {
     BasicDBObject searchObj = new BasicDBObject(CALENDAR_NAME, calName);
     if (calendarCollection.count(searchObj) > 0) {
@@ -376,19 +400,23 @@ public class MongoDBJobStore implements JobStore, Constants {
     return false;
   }
 
+  @Override
   public Calendar retrieveCalendar(String calName) throws JobPersistenceException {
     // TODO
     throw new UnsupportedOperationException();
   }
 
+  @Override
   public int getNumberOfJobs() throws JobPersistenceException {
     return (int) jobCollection.count();
   }
 
+  @Override
   public int getNumberOfTriggers() throws JobPersistenceException {
     return (int) triggerCollection.count();
   }
 
+  @Override
   public int getNumberOfCalendars() throws JobPersistenceException {
     return (int) calendarCollection.count();
   }
@@ -397,6 +425,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     return (int) locksCollection.count();
   }
 
+  @Override
   public Set<JobKey> getJobKeys(GroupMatcher<JobKey> matcher) throws JobPersistenceException {
     BasicDBObject query = queryHelper.matchingKeysConditionFor(matcher);
     MongoCursor<BasicDBObject> cursor = jobCollection.find(query).projection(KEY_AND_GROUP_FIELDS).iterator();
@@ -411,6 +440,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     return result;
   }
 
+  @Override
   public Set<TriggerKey> getTriggerKeys(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
     BasicDBObject query = queryHelper.matchingKeysConditionFor(matcher);
     MongoCursor<BasicDBObject> cursor = triggerCollection.find(query).projection(KEY_AND_GROUP_FIELDS).iterator();
@@ -425,18 +455,22 @@ public class MongoDBJobStore implements JobStore, Constants {
     return result;
   }
 
+  @Override
   public List<String> getJobGroupNames() throws JobPersistenceException {
     return jobCollection.distinct(KEY_GROUP, String.class).into(new ArrayList<String>());
   }
 
+  @Override
   public List<String> getTriggerGroupNames() throws JobPersistenceException {
     return triggerCollection.distinct(KEY_GROUP, String.class).into(new ArrayList<String>());
   }
 
+  @Override
   public List<String> getCalendarNames() throws JobPersistenceException {
     throw new UnsupportedOperationException();
   }
 
+  @Override
   public List<OperableTrigger> getTriggersForJob(JobKey jobKey) throws JobPersistenceException {
     final List<OperableTrigger> triggers = new ArrayList<OperableTrigger>();
     final DBObject dbObject = findJobDocumentByKey(jobKey);
@@ -451,16 +485,19 @@ public class MongoDBJobStore implements JobStore, Constants {
     return triggers;
   }
 
+  @Override
   public TriggerState getTriggerState(TriggerKey triggerKey) throws JobPersistenceException {
     DBObject doc = findTriggerDocumentByKey(triggerKey);
 
     return triggerStateForValue((String) doc.get(TRIGGER_STATE));
   }
 
+  @Override
   public void pauseTrigger(TriggerKey triggerKey) throws JobPersistenceException {
     triggerCollection.updateOne(Keys.keyToDBObject(triggerKey), updateThatSetsTriggerStateTo(STATE_PAUSED));
   }
 
+  @Override
   public Collection<String> pauseTriggers(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
     final GroupHelper groupHelper = new GroupHelper(triggerCollection, queryHelper);
     triggerCollection.updateMany(
@@ -474,11 +511,13 @@ public class MongoDBJobStore implements JobStore, Constants {
     return set;
   }
 
+  @Override
   public void resumeTrigger(TriggerKey triggerKey) throws JobPersistenceException {
     // TODO: port blocking behavior and misfired triggers handling from StdJDBCDelegate in Quartz
     triggerCollection.updateOne(Keys.keyToDBObject(triggerKey), updateThatSetsTriggerStateTo(STATE_WAITING));
   }
 
+  @Override
   public Collection<String> resumeTriggers(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
     final GroupHelper groupHelper = new GroupHelper(triggerCollection, queryHelper);
     triggerCollection.updateMany(
@@ -491,6 +530,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     return set;
   }
 
+  @Override
   public Set<String> getPausedTriggerGroups() throws JobPersistenceException {
     return pausedTriggerGroupsCollection.distinct(KEY_GROUP, String.class).into(new HashSet<String>());
   }
@@ -499,19 +539,21 @@ public class MongoDBJobStore implements JobStore, Constants {
     return pausedJobGroupsCollection.distinct(KEY_GROUP, String.class).into(new HashSet<String>());
   }
 
+  @Override
   public void pauseAll() throws JobPersistenceException {
     final GroupHelper groupHelper = new GroupHelper(triggerCollection, queryHelper);
     triggerCollection.updateOne(new BasicDBObject(), updateThatSetsTriggerStateTo(STATE_PAUSED));
     this.markTriggerGroupsAsPaused(groupHelper.allGroups());
   }
 
+  @Override
   public void resumeAll() throws JobPersistenceException {
     final GroupHelper groupHelper = new GroupHelper(triggerCollection, queryHelper);
     triggerCollection.updateOne(new BasicDBObject(), updateThatSetsTriggerStateTo(STATE_WAITING));
     this.unmarkTriggerGroupsAsPaused(groupHelper.allGroups());
   }
 
-
+  @Override
   public void pauseJob(JobKey jobKey) throws JobPersistenceException {
     final ObjectId jobId = (ObjectId) findJobDocumentByKey(jobKey).get("_id");
     final TriggerGroupHelper groupHelper = new TriggerGroupHelper(triggerCollection, queryHelper);
@@ -520,6 +562,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     this.markTriggerGroupsAsPaused(groups);
   }
 
+  @Override
   public Collection<String> pauseJobs(GroupMatcher<JobKey> groupMatcher) throws JobPersistenceException {
     final TriggerGroupHelper groupHelper = new TriggerGroupHelper(triggerCollection, queryHelper);
     List<String> groups = groupHelper.groupsForJobIds(idsFrom(findJobDocumentsThatMatch(groupMatcher)));
@@ -529,12 +572,14 @@ public class MongoDBJobStore implements JobStore, Constants {
     return groups;
   }
 
+  @Override
   public void resumeJob(JobKey jobKey) throws JobPersistenceException {
     final ObjectId jobId = (ObjectId) findJobDocumentByKey(jobKey).get("_id");
     // TODO: port blocking behavior and misfired triggers handling from StdJDBCDelegate in Quartz
     triggerCollection.updateOne(new BasicDBObject(TRIGGER_JOB_ID, jobId), updateThatSetsTriggerStateTo(STATE_WAITING));
   }
 
+  @Override
   public Collection<String> resumeJobs(GroupMatcher<JobKey> groupMatcher) throws JobPersistenceException {
     final TriggerGroupHelper groupHelper = new TriggerGroupHelper(triggerCollection, queryHelper);
     List<String> groups = groupHelper.groupsForJobIds(idsFrom(findJobDocumentsThatMatch(groupMatcher)));
@@ -544,7 +589,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     return groups;
   }
 
-
+  @Override
   public List<OperableTrigger> acquireNextTriggers(long noLaterThan, int maxCount, long timeWindow)
       throws JobPersistenceException {
     
@@ -686,6 +731,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     return lock;
   }
 
+  @Override
   public void releaseAcquiredTrigger(OperableTrigger trigger) throws JobPersistenceException {
     try {
       removeTriggerLock(trigger);
@@ -694,6 +740,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     }
   }
 
+  @Override
   public List<TriggerFiredResult> triggersFired(List<OperableTrigger> triggers) throws JobPersistenceException {
 
     List<TriggerFiredResult> results = new ArrayList<TriggerFiredResult>();
@@ -762,6 +809,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     return results;
   }
 
+  @Override
   public void triggeredJobComplete(OperableTrigger trigger,
                                    JobDetail jobDetail,
                                    CompletedExecutionInstruction triggerInstCode)
@@ -816,14 +864,17 @@ public class MongoDBJobStore implements JobStore, Constants {
     removeTriggerLock(trigger);
   }
 
+  @Override
   public void setInstanceId(String instanceId) {
     this.instanceId = instanceId;
   }
 
+  @Override
   public void setInstanceName(String schedName) {
     // No-op
   }
 
+  @Override
   public void setThreadPoolSize(int poolSize) {
     // No-op
   }
