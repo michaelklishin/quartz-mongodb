@@ -92,7 +92,7 @@ CI is hosted by [Travis CI](http://travis-ci.org/)
 
 ## Copyright & License
 
-(c) Michael S. Klishin, Alex Petrov, 2011-2014.
+(c) Michael S. Klishin, Alex Petrov, 2011-2015.
 
 [Apache Public License 2.0](http://www.apache.org/licenses/LICENSE-2.0.html)
 
@@ -112,7 +112,3 @@ and implementation code refactored, I decided to completely separate
 this fork form GitHub forks network because the project is now too
 different from the original one. All changes were made with respect to
 the Apache Public License 2.0.
-
-
-[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/michaelklishin/quartz-mongodb/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
-
