@@ -1227,23 +1227,7 @@ public class MongoDBJobStore implements JobStore, Constants {
   }
 
   protected void storeTrigger(OperableTrigger newTrigger, ObjectId jobId, boolean replaceExisting) throws JobPersistenceException {
-    BasicDBObject trigger = new BasicDBObject();
-    trigger.put(TRIGGER_STATE, STATE_WAITING);
-    trigger.put(TRIGGER_CALENDAR_NAME, newTrigger.getCalendarName());
-    trigger.put(TRIGGER_CLASS, newTrigger.getClass().getName());
-    trigger.put(TRIGGER_DESCRIPTION, newTrigger.getDescription());
-    trigger.put(TRIGGER_END_TIME, newTrigger.getEndTime());
-    trigger.put(TRIGGER_FINAL_FIRE_TIME, newTrigger.getFinalFireTime());
-    trigger.put(TRIGGER_FIRE_INSTANCE_ID, newTrigger.getFireInstanceId());
-    trigger.put(TRIGGER_JOB_ID, jobId);
-    trigger.put(KEY_NAME, newTrigger.getKey().getName());
-    trigger.put(KEY_GROUP, newTrigger.getKey().getGroup());
-    trigger.put(TRIGGER_MISFIRE_INSTRUCTION, newTrigger.getMisfireInstruction());
-    trigger.put(TRIGGER_NEXT_FIRE_TIME, newTrigger.getNextFireTime());
-    trigger.put(TRIGGER_PREVIOUS_FIRE_TIME, newTrigger.getPreviousFireTime());
-    trigger.put(TRIGGER_PRIORITY, newTrigger.getPriority());
-    trigger.put(TRIGGER_START_TIME, newTrigger.getStartTime());
-    
+    BasicDBObject trigger = convertToBson(newTrigger, jobId);
     if (newTrigger.getJobDataMap().size() > 0) {
       try {
         String jobDataString = jobDataToString(newTrigger.getJobDataMap());
@@ -1272,20 +1256,11 @@ public class MongoDBJobStore implements JobStore, Constants {
     JobKey key = newJob.getKey();
 
     BasicDBObject keyDbo = keyToDBObject(key);
-    BasicDBObject job = keyToDBObject(key);
-
-    job.put(KEY_NAME, key.getName());
-    job.put(KEY_GROUP, key.getGroup());
-    job.put(JOB_DESCRIPTION, newJob.getDescription());
-    job.put(JOB_CLASS, newJob.getJobClass().getName());
-    job.put(JOB_DURABILITY, newJob.isDurable());
-
-    job.putAll(newJob.getJobDataMap());
+    BasicDBObject job = Keys.convertToBson(newJob, key);
 
     DBObject object = jobCollection.find(keyDbo).first();
-    
+
     ObjectId objectId = null;
-    
     if (object != null && replaceExisting) {
       jobCollection.replaceOne(keyDbo, job);
     } else if (object == null) {

@@ -2,8 +2,11 @@ package com.novemberain.quartz.mongodb;
 
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
+import org.bson.types.ObjectId;
+import org.quartz.JobDetail;
 import org.quartz.JobKey;
 import org.quartz.TriggerKey;
+import org.quartz.spi.OperableTrigger;
 import org.quartz.utils.Key;
 
 public class Keys {
@@ -24,5 +27,38 @@ public class Keys {
 
   public static TriggerKey dbObjectToTriggerKey(DBObject dbo) {
     return new TriggerKey((String) dbo.get(KEY_NAME), (String) dbo.get(KEY_GROUP));
+  }
+
+  public static BasicDBObject convertToBson(JobDetail newJob, JobKey key) {
+    BasicDBObject job = new BasicDBObject();
+    job.put(KEY_NAME, key.getName());
+    job.put(KEY_GROUP, key.getGroup());
+    job.put(KEY_NAME, key.getName());
+    job.put(KEY_GROUP, key.getGroup());
+    job.put(Constants.JOB_DESCRIPTION, newJob.getDescription());
+    job.put(Constants.JOB_CLASS, newJob.getJobClass().getName());
+    job.put(Constants.JOB_DURABILITY, newJob.isDurable());
+    job.putAll(newJob.getJobDataMap());
+    return job;
+  }
+
+  public static BasicDBObject convertToBson(OperableTrigger newTrigger, ObjectId jobId) {
+    BasicDBObject trigger = new BasicDBObject();
+    trigger.put(Constants.TRIGGER_STATE, Constants.STATE_WAITING);
+    trigger.put(Constants.TRIGGER_CALENDAR_NAME, newTrigger.getCalendarName());
+    trigger.put(Constants.TRIGGER_CLASS, newTrigger.getClass().getName());
+    trigger.put(Constants.TRIGGER_DESCRIPTION, newTrigger.getDescription());
+    trigger.put(Constants.TRIGGER_END_TIME, newTrigger.getEndTime());
+    trigger.put(Constants.TRIGGER_FINAL_FIRE_TIME, newTrigger.getFinalFireTime());
+    trigger.put(Constants.TRIGGER_FIRE_INSTANCE_ID, newTrigger.getFireInstanceId());
+    trigger.put(Constants.TRIGGER_JOB_ID, jobId);
+    trigger.put(KEY_NAME, newTrigger.getKey().getName());
+    trigger.put(KEY_GROUP, newTrigger.getKey().getGroup());
+    trigger.put(Constants.TRIGGER_MISFIRE_INSTRUCTION, newTrigger.getMisfireInstruction());
+    trigger.put(Constants.TRIGGER_NEXT_FIRE_TIME, newTrigger.getNextFireTime());
+    trigger.put(Constants.TRIGGER_PREVIOUS_FIRE_TIME, newTrigger.getPreviousFireTime());
+    trigger.put(Constants.TRIGGER_PRIORITY, newTrigger.getPriority());
+    trigger.put(Constants.TRIGGER_START_TIME, newTrigger.getStartTime());
+    return trigger;
   }
 }
