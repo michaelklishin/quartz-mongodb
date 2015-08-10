@@ -734,7 +734,7 @@ public class MongoDBJobStore implements JobStore, Constants {
           results.add(new TriggerFiredResult(bundle));
           storeTrigger(trigger, true);
         }
-        catch (DuplicateKeyException dk) {
+        catch (MongoWriteException dk) {
           log.debug("Job disallows concurrent execution and is already running {}", job.getKey());
           
           // Remove the trigger lock
@@ -1212,7 +1212,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     } else {
       try {
         triggerCollection.insertOne(trigger);
-      } catch (DuplicateKeyException key) {
+      } catch (MongoWriteException key) {
         throw new ObjectAlreadyExistsException(newTrigger);
       }
     }
@@ -1242,7 +1242,7 @@ public class MongoDBJobStore implements JobStore, Constants {
       try {
         jobCollection.insertOne(job);
         objectId = (ObjectId) job.get("_id");
-      } catch (DuplicateKeyException e) {
+      } catch (MongoWriteException e) {
         // Fine, find it and get its id.
         object = jobCollection.find(keyDbo).first();
         objectId = (ObjectId) object.get("_id");
