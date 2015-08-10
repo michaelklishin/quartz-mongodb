@@ -376,7 +376,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
   @Override
   public Set<JobKey> getJobKeys(GroupMatcher<JobKey> matcher) throws JobPersistenceException {
-    BasicDBObject query = queryHelper.matchingKeysConditionFor(matcher);
+    Bson query = queryHelper.matchingKeysConditionFor(matcher);
     MongoCursor<BasicDBObject> cursor = jobCollection.find(query).projection(KEY_AND_GROUP_FIELDS).iterator();
 
     Set<JobKey> result = new HashSet<JobKey>();
@@ -391,7 +391,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
   @Override
   public Set<TriggerKey> getTriggerKeys(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
-    BasicDBObject query = queryHelper.matchingKeysConditionFor(matcher);
+    Bson query = queryHelper.matchingKeysConditionFor(matcher);
     MongoCursor<BasicDBObject> cursor = triggerCollection.find(query).projection(KEY_AND_GROUP_FIELDS).iterator();
 
     Set<TriggerKey> result = new HashSet<TriggerKey>();
@@ -570,7 +570,7 @@ public class MongoDBJobStore implements JobStore, Constants {
   private void doAcquireNextTriggers(Map<TriggerKey, OperableTrigger> triggers, Date noLaterThanDate, int maxCount)
       throws JobPersistenceException {
     QueryHelper queryHelper = new QueryHelper();
-    BasicDBObject query = queryHelper.createNextTriggerQuery(noLaterThanDate);
+    Bson query = queryHelper.createNextTriggerQuery(noLaterThanDate);
     BasicDBObject sort = new BasicDBObject(TRIGGER_NEXT_FIRE_TIME, 1);
 
     MongoCursor<BasicDBObject> cursor = triggerCollection.find(query).sort(sort).iterator();

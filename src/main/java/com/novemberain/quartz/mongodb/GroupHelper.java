@@ -4,6 +4,7 @@ import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
+import org.bson.conversions.Bson;
 import org.quartz.impl.matchers.GroupMatcher;
 
 import java.util.HashSet;
@@ -23,7 +24,7 @@ public class GroupHelper {
   }
 
   public Set<String> groupsThatMatch(GroupMatcher<?> matcher) {
-    BasicDBObject filter = queryHelper.matchingKeysConditionFor(matcher);
+    Bson filter = queryHelper.matchingKeysConditionFor(matcher);
     return collection.distinct(KEY_GROUP, String.class).filter(filter).into(new HashSet<String>());
   }
 
