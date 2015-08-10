@@ -1,8 +1,10 @@
-## Changes between quartz-mongodb 1.9.0 and 1.10.0
+## Changes between quartz-mongodb 1.9.0 and 2.0.0
 
 ### MongoDB Java Driver Upgrade
 
-MongoDB Java driver was upgraded to `2.12.3`.
+MongoDB Java driver was upgraded to `3.0.x`.
+
+Contributed by Przemysław Wojnowski.
 
 ### Joda Time Upgrade
 
