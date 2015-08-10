@@ -16,7 +16,7 @@ public class JobLoader {
         this.jobClassLoader = jobClassLoader;
     }
 
-    public JobDetail loadJobDetail(Document dbObject) throws JobPersistenceException {
+    public JobDetail loadJobDetail(Document doc) throws JobPersistenceException {
         try {
             // Make it possible for subclasses to use custom class loaders.
             // When Quartz jobs are implemented as Clojure records, the only way to use
@@ -24,34 +24,34 @@ public class JobLoader {
             // clojure.lang.DynamicClassLoader instance.
             @SuppressWarnings("unchecked")
             Class<Job> jobClass = (Class<Job>) jobClassLoader
-                    .loadClass((String) dbObject.get(Constants.JOB_CLASS));
+                    .loadClass((String) doc.get(Constants.JOB_CLASS));
 
-            JobBuilder builder = createJobBuilder(dbObject, jobClass);
-            withDurability(dbObject, builder);
-            JobDataMap jobData = createJobDataMap(dbObject);
+            JobBuilder builder = createJobBuilder(doc, jobClass);
+            withDurability(doc, builder);
+            JobDataMap jobData = createJobDataMap(doc);
             return builder.usingJobData(jobData).build();
         } catch (ClassNotFoundException e) {
-            throw new JobPersistenceException("Could not load job class " + dbObject.get(Constants.JOB_CLASS), e);
+            throw new JobPersistenceException("Could not load job class " + doc.get(Constants.JOB_CLASS), e);
         } catch (IOException e) {
-            throw new JobPersistenceException("Could not load job class " + dbObject.get(Constants.JOB_CLASS), e);
+            throw new JobPersistenceException("Could not load job class " + doc.get(Constants.JOB_CLASS), e);
         }
     }
 
-    private JobDataMap createJobDataMap(Document dbObject) throws IOException {
+    private JobDataMap createJobDataMap(Document doc) throws IOException {
         JobDataMap jobData = new JobDataMap();
 
-        String jobDataString = (String) dbObject.get(Constants.JOB_DATA);
+        String jobDataString = (String) doc.get(Constants.JOB_DATA);
         if (jobDataString != null) {
             SerialUtils.jobDataMapFromString(jobData, jobDataString);
         } else {
-            for (String key : dbObject.keySet()) {
+            for (String key : doc.keySet()) {
                 if (!key.equals(KEY_NAME)
                         && !key.equals(KEY_GROUP)
                         && !key.equals(Constants.JOB_CLASS)
                         && !key.equals(Constants.JOB_DESCRIPTION)
                         && !key.equals(Constants.JOB_DURABILITY)
                         && !key.equals("_id")) {
-                    jobData.put(key, dbObject.get(key));
+                    jobData.put(key, doc.get(key));
                 }
             }
         }
@@ -60,8 +60,8 @@ public class JobLoader {
         return jobData;
     }
 
-    private void withDurability(Document dbObject, JobBuilder builder) throws JobPersistenceException {
-        Object jobDurability = dbObject.get(Constants.JOB_DURABILITY);
+    private void withDurability(Document doc, JobBuilder builder) throws JobPersistenceException {
+        Object jobDurability = doc.get(Constants.JOB_DURABILITY);
         if (jobDurability != null) {
             if (jobDurability instanceof Boolean) {
                 builder.storeDurably((Boolean) jobDurability);
@@ -74,9 +74,9 @@ public class JobLoader {
         }
     }
 
-    private JobBuilder createJobBuilder(Document dbObject, Class<Job> jobClass) {
+    private JobBuilder createJobBuilder(Document doc, Class<Job> jobClass) {
         return JobBuilder.newJob(jobClass)
-                .withIdentity(dbObject.getString(KEY_NAME), dbObject.getString(KEY_GROUP))
-                .withDescription(dbObject.getString(Constants.JOB_DESCRIPTION));
+                .withIdentity(doc.getString(KEY_NAME), doc.getString(KEY_GROUP))
+                .withDescription(doc.getString(Constants.JOB_DESCRIPTION));
     }
 }

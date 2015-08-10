@@ -27,11 +27,11 @@ public class DailyTimeIntervalTriggerPersistenceHelper implements TriggerPersist
         append(TRIGGER_REPEAT_INTERVAL_UNIT, t.getRepeatIntervalUnit().name()).
         append(TRIGGER_REPEAT_INTERVAL, t.getRepeatInterval()).
         append(TRIGGER_TIMES_TRIGGERED, t.getTimesTriggered()).
-        append(TRIGGER_START_TIME_OF_DAY, toDBObject(t.getStartTimeOfDay())).
-        append(TRIGGER_END_TIME_OF_DAY, toDBObject(t.getEndTimeOfDay()));
+        append(TRIGGER_START_TIME_OF_DAY, toDocument(t.getStartTimeOfDay())).
+        append(TRIGGER_END_TIME_OF_DAY, toDocument(t.getEndTimeOfDay()));
   }
 
-  private Document toDBObject(TimeOfDay tod) {
+  private Document toDocument(TimeOfDay tod) {
     return new Document().
         append("hour", tod.getHour()).
         append("minute", tod.getMinute()).
@@ -57,17 +57,17 @@ public class DailyTimeIntervalTriggerPersistenceHelper implements TriggerPersist
 
     Document startTOD = (Document) stored.get(TRIGGER_START_TIME_OF_DAY);
     if (startTOD != null) {
-      t.setStartTimeOfDay(fromDBObject(startTOD));
+      t.setStartTimeOfDay(fromDocument(startTOD));
     }
     Document endTOD = (Document) stored.get(TRIGGER_END_TIME_OF_DAY);
     if (endTOD != null) {
-      t.setEndTimeOfDay(fromDBObject(endTOD));
+      t.setEndTimeOfDay(fromDocument(endTOD));
     }
 
     return t;
   }
 
-  private TimeOfDay fromDBObject(Document endTOD) {
+  private TimeOfDay fromDocument(Document endTOD) {
     return new TimeOfDay((Integer) endTOD.get("hour"), (Integer) endTOD.get("minute"), (Integer) endTOD.get("second"));
   }
 }
