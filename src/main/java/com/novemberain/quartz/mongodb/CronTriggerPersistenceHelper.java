@@ -1,7 +1,6 @@
 package com.novemberain.quartz.mongodb;
 
-import com.mongodb.BasicDBObjectBuilder;
-import com.mongodb.DBObject;
+import org.bson.Document;
 import org.quartz.CronExpression;
 import org.quartz.CronTrigger;
 import org.quartz.impl.triggers.CronTriggerImpl;
@@ -20,17 +19,16 @@ public class CronTriggerPersistenceHelper implements TriggerPersistenceHelper {
   }
 
   @Override
-  public DBObject injectExtraPropertiesForInsert(OperableTrigger trigger, DBObject original) {
+  public Document injectExtraPropertiesForInsert(OperableTrigger trigger, Document original) {
     CronTrigger t = (CronTrigger) trigger;
 
-    return BasicDBObjectBuilder.start(original.toMap()).
+    return new Document(original).
         append(TRIGGER_CRON_EXPRESSION, t.getCronExpression()).
-        append(TRIGGER_TIMEZONE, t.getTimeZone().getID()).
-        get();
+        append(TRIGGER_TIMEZONE, t.getTimeZone().getID());
   }
 
   @Override
-  public OperableTrigger setExtraPropertiesAfterInstantiation(OperableTrigger trigger, DBObject stored) {
+  public OperableTrigger setExtraPropertiesAfterInstantiation(OperableTrigger trigger, Document stored) {
     CronTriggerImpl t = (CronTriggerImpl) trigger;
 
     Object expression = stored.get(TRIGGER_CRON_EXPRESSION);

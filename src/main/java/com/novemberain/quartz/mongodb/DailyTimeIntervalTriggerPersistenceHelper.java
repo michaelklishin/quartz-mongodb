@@ -1,7 +1,6 @@
 package com.novemberain.quartz.mongodb;
 
-import com.mongodb.BasicDBObjectBuilder;
-import com.mongodb.DBObject;
+import org.bson.Document;
 import org.quartz.DailyTimeIntervalTrigger;
 import org.quartz.TimeOfDay;
 import org.quartz.impl.triggers.DailyTimeIntervalTriggerImpl;
@@ -21,28 +20,26 @@ public class DailyTimeIntervalTriggerPersistenceHelper implements TriggerPersist
   }
 
   @Override
-  public DBObject injectExtraPropertiesForInsert(OperableTrigger trigger, DBObject original) {
+  public Document injectExtraPropertiesForInsert(OperableTrigger trigger, Document original) {
     DailyTimeIntervalTriggerImpl t = (DailyTimeIntervalTriggerImpl) trigger;
 
-    return BasicDBObjectBuilder.start(original.toMap()).
+    return new Document(original).
         append(TRIGGER_REPEAT_INTERVAL_UNIT, t.getRepeatIntervalUnit().name()).
         append(TRIGGER_REPEAT_INTERVAL, t.getRepeatInterval()).
         append(TRIGGER_TIMES_TRIGGERED, t.getTimesTriggered()).
-        append(TRIGGER_START_TIME_OF_DAY, toDBObject(t.getStartTimeOfDay())).
-        append(TRIGGER_END_TIME_OF_DAY, toDBObject(t.getEndTimeOfDay())).
-        get();
+        append(TRIGGER_START_TIME_OF_DAY, toDocument(t.getStartTimeOfDay())).
+        append(TRIGGER_END_TIME_OF_DAY, toDocument(t.getEndTimeOfDay()));
   }
 
-  private DBObject toDBObject(TimeOfDay tod) {
-    return BasicDBObjectBuilder.start().
+  private Document toDocument(TimeOfDay tod) {
+    return new Document().
         append("hour", tod.getHour()).
         append("minute", tod.getMinute()).
-        append("second", tod.getSecond()).
-        get();
+        append("second", tod.getSecond());
   }
 
   @Override
-  public OperableTrigger setExtraPropertiesAfterInstantiation(OperableTrigger trigger, DBObject stored) {
+  public OperableTrigger setExtraPropertiesAfterInstantiation(OperableTrigger trigger, Document stored) {
     DailyTimeIntervalTriggerImpl t = (DailyTimeIntervalTriggerImpl) trigger;
 
     Object interval_unit = stored.get(TRIGGER_REPEAT_INTERVAL_UNIT);
@@ -58,19 +55,19 @@ public class DailyTimeIntervalTriggerPersistenceHelper implements TriggerPersist
       t.setTimesTriggered((Integer) timesTriggered);
     }
 
-    DBObject startTOD = (DBObject) stored.get(TRIGGER_START_TIME_OF_DAY);
+    Document startTOD = (Document) stored.get(TRIGGER_START_TIME_OF_DAY);
     if (startTOD != null) {
-      t.setStartTimeOfDay(fromDBObject(startTOD));
+      t.setStartTimeOfDay(fromDocument(startTOD));
     }
-    DBObject endTOD = (DBObject) stored.get(TRIGGER_END_TIME_OF_DAY);
+    Document endTOD = (Document) stored.get(TRIGGER_END_TIME_OF_DAY);
     if (endTOD != null) {
-      t.setEndTimeOfDay(fromDBObject(endTOD));
+      t.setEndTimeOfDay(fromDocument(endTOD));
     }
 
     return t;
   }
 
-  private TimeOfDay fromDBObject(DBObject endTOD) {
+  private TimeOfDay fromDocument(Document endTOD) {
     return new TimeOfDay((Integer) endTOD.get("hour"), (Integer) endTOD.get("minute"), (Integer) endTOD.get("second"));
   }
 }

@@ -4,7 +4,7 @@ import clojure.lang.DynamicClassLoader;
 
 import com.mongodb.MongoClient;
 
-public class DynamicMongoDBJobStore extends MongoDBJobStore implements org.quartz.spi.JobStore {
+public class DynamicMongoDBJobStore extends MongoDBJobStore {
 
   public DynamicMongoDBJobStore() {
     super();

@@ -1,12 +1,12 @@
 package com.novemberain.quartz.mongodb;
 
-import com.mongodb.DBObject;
+import org.bson.Document;
 import org.quartz.spi.OperableTrigger;
 
 public interface TriggerPersistenceHelper {
-  public boolean canHandleTriggerType(OperableTrigger trigger);
+  boolean canHandleTriggerType(OperableTrigger trigger);
 
-  public DBObject injectExtraPropertiesForInsert(OperableTrigger trigger, DBObject original);
+  Document injectExtraPropertiesForInsert(OperableTrigger trigger, Document original);
 
-  public OperableTrigger setExtraPropertiesAfterInstantiation(OperableTrigger trigger, DBObject stored);
+  OperableTrigger setExtraPropertiesAfterInstantiation(OperableTrigger trigger, Document stored);
 }
