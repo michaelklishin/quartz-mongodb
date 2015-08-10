@@ -1,8 +1,8 @@
 package com.novemberain.quartz.mongodb;
 
-import com.mongodb.BasicDBObject;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
+import org.bson.Document;
 import org.bson.types.ObjectId;
 
 import java.util.Collection;
@@ -14,13 +14,13 @@ import static com.novemberain.quartz.mongodb.Keys.KEY_GROUP;
 public class TriggerGroupHelper extends GroupHelper {
   public static final String JOB_ID = "jobId";
 
-  public TriggerGroupHelper(MongoCollection<BasicDBObject> collection, QueryHelper queryHelper) {
+  public TriggerGroupHelper(MongoCollection<Document> collection, QueryHelper queryHelper) {
     super(collection, queryHelper);
   }
 
   public List<String> groupsForJobId(ObjectId jobId) {
     return collection.distinct(KEY_GROUP, String.class)
-            .filter(new BasicDBObject(JOB_ID, jobId))
+            .filter(Filters.eq(JOB_ID, jobId))
             .into(new LinkedList<String>());
   }
 

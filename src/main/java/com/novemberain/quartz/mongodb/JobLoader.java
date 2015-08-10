@@ -1,6 +1,6 @@
 package com.novemberain.quartz.mongodb;
 
-import com.mongodb.DBObject;
+import org.bson.Document;
 import org.quartz.*;
 
 import java.io.IOException;
@@ -16,7 +16,7 @@ public class JobLoader {
         this.jobClassLoader = jobClassLoader;
     }
 
-    public JobDetail loadJobDetail(DBObject dbObject) throws JobPersistenceException {
+    public JobDetail loadJobDetail(Document dbObject) throws JobPersistenceException {
         try {
             // Make it possible for subclasses to use custom class loaders.
             // When Quartz jobs are implemented as Clojure records, the only way to use
@@ -37,7 +37,7 @@ public class JobLoader {
         }
     }
 
-    private JobDataMap createJobDataMap(DBObject dbObject) throws IOException {
+    private JobDataMap createJobDataMap(Document dbObject) throws IOException {
         JobDataMap jobData = new JobDataMap();
 
         String jobDataString = (String) dbObject.get(Constants.JOB_DATA);
@@ -60,7 +60,7 @@ public class JobLoader {
         return jobData;
     }
 
-    private void withDurability(DBObject dbObject, JobBuilder builder) throws JobPersistenceException {
+    private void withDurability(Document dbObject, JobBuilder builder) throws JobPersistenceException {
         Object jobDurability = dbObject.get(Constants.JOB_DURABILITY);
         if (jobDurability != null) {
             if (jobDurability instanceof Boolean) {
@@ -74,9 +74,9 @@ public class JobLoader {
         }
     }
 
-    private JobBuilder createJobBuilder(DBObject dbObject, Class<Job> jobClass) {
+    private JobBuilder createJobBuilder(Document dbObject, Class<Job> jobClass) {
         return JobBuilder.newJob(jobClass)
-                .withIdentity((String) dbObject.get(KEY_NAME), (String) dbObject.get(KEY_GROUP))
-                .withDescription((String) dbObject.get(Constants.JOB_DESCRIPTION));
+                .withIdentity(dbObject.getString(KEY_NAME), dbObject.getString(KEY_GROUP))
+                .withDescription(dbObject.getString(Constants.JOB_DESCRIPTION));
     }
 }

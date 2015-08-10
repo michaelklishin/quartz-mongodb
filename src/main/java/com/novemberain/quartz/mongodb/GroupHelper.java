@@ -1,9 +1,8 @@
 package com.novemberain.quartz.mongodb;
 
-import com.mongodb.BasicDBObject;
-import com.mongodb.DBObject;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
+import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.quartz.impl.matchers.GroupMatcher;
 
@@ -15,10 +14,10 @@ import java.util.Set;
 import static com.novemberain.quartz.mongodb.Keys.KEY_GROUP;
 
 public class GroupHelper {
-  protected MongoCollection<BasicDBObject> collection;
+  protected MongoCollection<Document> collection;
   protected QueryHelper queryHelper;
 
-  public GroupHelper(MongoCollection<BasicDBObject> collection, QueryHelper queryHelper) {
+  public GroupHelper(MongoCollection<Document> collection, QueryHelper queryHelper) {
     this.collection = collection;
     this.queryHelper = queryHelper;
   }
@@ -28,8 +27,8 @@ public class GroupHelper {
     return collection.distinct(KEY_GROUP, String.class).filter(filter).into(new HashSet<String>());
   }
 
-  public List<DBObject> inGroupsThatMatch(GroupMatcher<?> matcher) {
-    return collection.find(Filters.in(KEY_GROUP, groupsThatMatch(matcher))).into(new LinkedList<DBObject>());
+  public List<Document> inGroupsThatMatch(GroupMatcher<?> matcher) {
+    return collection.find(Filters.in(KEY_GROUP, groupsThatMatch(matcher))).into(new LinkedList<Document>());
   }
 
   public Set<String> allGroups() {
