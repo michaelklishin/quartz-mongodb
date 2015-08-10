@@ -7,10 +7,19 @@ import org.bson.conversions.Bson;
 import org.quartz.impl.matchers.GroupMatcher;
 
 import java.util.Collection;
+import java.util.Date;
 
 import static com.novemberain.quartz.mongodb.Keys.KEY_GROUP;
 
 public class QueryHelper {
+
+  public BasicDBObject createNextTriggerQuery(Date noLaterThanDate) {
+    BasicDBObject query = new BasicDBObject();
+    query.put(Constants.TRIGGER_NEXT_FIRE_TIME, new BasicDBObject("$lte", noLaterThanDate));
+    query.put(Constants.TRIGGER_STATE, Constants.STATE_WAITING);
+    return query;
+  }
+
   public BasicDBObject matchingKeysConditionFor(GroupMatcher<?> matcher) {
     BasicDBObjectBuilder builder = BasicDBObjectBuilder.start();
 

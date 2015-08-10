@@ -9,6 +9,8 @@ import org.quartz.TriggerKey;
 import org.quartz.spi.OperableTrigger;
 import org.quartz.utils.Key;
 
+import java.util.Date;
+
 public class Keys {
 
   public static final String KEY_NAME = "keyName";
@@ -60,5 +62,19 @@ public class Keys {
     trigger.put(Constants.TRIGGER_PRIORITY, newTrigger.getPriority());
     trigger.put(Constants.TRIGGER_START_TIME, newTrigger.getStartTime());
     return trigger;
+  }
+
+  public static BasicDBObject lockToBson(DBObject dbObj) {
+    BasicDBObject lock = new BasicDBObject();
+    lock.put(KEY_NAME, dbObj.get(KEY_NAME));
+    lock.put(KEY_GROUP, dbObj.get(KEY_GROUP));
+    return lock;
+  }
+
+  public static BasicDBObject createTriggerDbLock(DBObject dbObj, String instanceId) {
+    BasicDBObject lock = lockToBson(dbObj);
+    lock.put(Constants.LOCK_INSTANCE_ID, instanceId);
+    lock.put(Constants.LOCK_TIME, new Date());
+    return lock;
   }
 }

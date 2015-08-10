@@ -18,7 +18,6 @@ import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.Projections;
 import com.mongodb.client.model.UpdateOptions;
-import org.apache.commons.codec.binary.Base64;
 import org.bson.conversions.Bson;
 import org.bson.types.ObjectId;
 import org.quartz.Calendar;
@@ -30,11 +29,8 @@ import org.quartz.spi.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.NotSerializableException;
-import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.*;
 
@@ -158,8 +154,8 @@ public class MongoDBJobStore implements JobStore, Constants {
    * Job and Trigger storage Methods
    */
   @Override
-  public void storeJobAndTrigger(JobDetail newJob, OperableTrigger newTrigger) throws
-      JobPersistenceException {
+  public void storeJobAndTrigger(JobDetail newJob, OperableTrigger newTrigger)
+          throws JobPersistenceException {
     ObjectId jobId = storeJobInMongo(newJob, false);
 
     log.debug("Storing job {} and trigger {}", newJob.getKey(), newTrigger.getKey());
@@ -167,8 +163,8 @@ public class MongoDBJobStore implements JobStore, Constants {
   }
 
   @Override
-  public void storeJob(JobDetail newJob, boolean replaceExisting) throws
-      JobPersistenceException {
+  public void storeJob(JobDetail newJob, boolean replaceExisting)
+          throws JobPersistenceException {
     storeJobInMongo(newJob, replaceExisting);
   }
 
@@ -206,54 +202,8 @@ public class MongoDBJobStore implements JobStore, Constants {
       return null;
     }
 
-    try {
-      @SuppressWarnings("unchecked")
-      Class<Job> jobClass = (Class<Job>) getJobClassLoader().loadClass((String) dbObject.get(JOB_CLASS));
-
-      JobBuilder builder = JobBuilder.newJob(jobClass)
-          .withIdentity((String) dbObject.get(KEY_NAME), (String) dbObject.get(KEY_GROUP))
-          .withDescription((String) dbObject.get(JOB_DESCRIPTION));
-
-      Object jobDurability = dbObject.get(JOB_DURABILITY);
-      if (jobDurability != null) {
-        if (jobDurability instanceof Boolean){
-          builder.storeDurably((Boolean) jobDurability);
-        } else if (jobDurability instanceof String){
-          builder.storeDurably(Boolean.valueOf((String) jobDurability));
-        } else {
-          throw new JobPersistenceException("Illegal value for " + JOB_DURABILITY + ", class "
-              + jobDurability.getClass() + " not supported");
-        }
-      }
-
-      JobDataMap jobData = new JobDataMap();
-      
-      String jobDataString = (String) dbObject.get(JOB_DATA);
-      
-      if (jobDataString != null) {
-        jobDataMapFromString(jobData, jobDataString);
-      } else {
-        for (String key : dbObject.keySet()) {
-          if (!key.equals(KEY_NAME)
-              && !key.equals(KEY_GROUP)
-              && !key.equals(JOB_CLASS)
-              && !key.equals(JOB_DESCRIPTION)
-              && !key.equals(JOB_DURABILITY)
-              && !key.equals("_id")) {
-            jobData.put(key, dbObject.get(key));
-          }
-        }
-      }
-
-      jobData.clearDirtyFlag();
-      
-      return builder.usingJobData(jobData).build();
-    } catch (ClassNotFoundException e) {
-      throw new JobPersistenceException("Could not load job class " + dbObject.get(JOB_CLASS), e);
-    }
-    catch (IOException e) {
-      throw new JobPersistenceException("Could not load job class " + dbObject.get(JOB_CLASS), e);
-    }
+    JobLoader jobLoader = new JobLoader(getJobClassLoader());
+    return jobLoader.loadJobDetail(dbObject);
   }
 
   @Override
@@ -316,7 +266,7 @@ public class MongoDBJobStore implements JobStore, Constants {
   @Override
   public boolean replaceTrigger(TriggerKey triggerKey, OperableTrigger newTrigger) throws JobPersistenceException {
     OperableTrigger trigger = retrieveTrigger(triggerKey);
-    if(trigger == null) {
+    if (trigger == null) {
       return false;
     }
 
@@ -326,7 +276,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     // Can't call remove trigger as if the job is not durable, it will remove the job too
     BasicDBObject dbObject = Keys.keyToDBObject(triggerKey);
-    if ((triggerCollection.count(dbObject)) > 0) {
+    if (triggerCollection.count(dbObject) > 0) {
       triggerCollection.deleteMany(dbObject);
     }
     
@@ -498,12 +448,12 @@ public class MongoDBJobStore implements JobStore, Constants {
 
   @Override
   public Collection<String> pauseTriggers(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
-    final GroupHelper groupHelper = new GroupHelper(triggerCollection, queryHelper);
     triggerCollection.updateMany(
             queryHelper.matchingKeysConditionFor(matcher),
             updateThatSetsTriggerStateTo(STATE_PAUSED),
             new UpdateOptions().upsert(false));
 
+    final GroupHelper groupHelper = new GroupHelper(triggerCollection, queryHelper);
     final Set<String> set = groupHelper.groupsThatMatch(matcher);
     markTriggerGroupsAsPaused(set);
 
@@ -518,14 +468,14 @@ public class MongoDBJobStore implements JobStore, Constants {
 
   @Override
   public Collection<String> resumeTriggers(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
-    final GroupHelper groupHelper = new GroupHelper(triggerCollection, queryHelper);
     triggerCollection.updateMany(
             queryHelper.matchingKeysConditionFor(matcher),
             updateThatSetsTriggerStateTo(STATE_WAITING),
             new UpdateOptions().upsert(false));
 
+    final GroupHelper groupHelper = new GroupHelper(triggerCollection, queryHelper);
     final Set<String> set = groupHelper.groupsThatMatch(matcher);
-    this.unmarkTriggerGroupsAsPaused(set);
+    unmarkTriggerGroupsAsPaused(set);
     return set;
   }
 
@@ -619,14 +569,13 @@ public class MongoDBJobStore implements JobStore, Constants {
   
   private void doAcquireNextTriggers(Map<TriggerKey, OperableTrigger> triggers, Date noLaterThanDate, int maxCount)
       throws JobPersistenceException {
-    BasicDBObject query = createNextTriggerQuery(noLaterThanDate);
+    QueryHelper queryHelper = new QueryHelper();
+    BasicDBObject query = queryHelper.createNextTriggerQuery(noLaterThanDate);
     BasicDBObject sort = new BasicDBObject(TRIGGER_NEXT_FIRE_TIME, 1);
 
     MongoCursor<BasicDBObject> cursor = triggerCollection.find(query).sort(sort).iterator();
 
-    //if (log.isDebugEnabled()) {
     log.info("Found {} triggers which are eligible to be run.", triggerCollection.count(query));
-    //}
 
     while (cursor.hasNext() && maxCount > triggers.size()) {
       DBObject dbObj = cursor.next();
@@ -680,11 +629,11 @@ public class MongoDBJobStore implements JobStore, Constants {
         
         log.info("Inserting lock for trigger {}", trigger.getKey());
 
-        BasicDBObject lock = createTriggerDbLock(dbObj);
+        BasicDBObject lock = createTriggerDbLock(dbObj, instanceId);
         // A lock needs to be written with FSYNCED to be 100% effective across multiple servers
         locksCollection.withWriteConcern(WriteConcern.FSYNCED).insertOne(lock);
         
-        log.info("Aquired trigger {}", trigger.getKey());
+        log.info("Acquired trigger {}", trigger.getKey());
         triggers.put(trigger.getKey(), trigger);
         
       } catch (MongoWriteException e) {
@@ -692,9 +641,7 @@ public class MongoDBJobStore implements JobStore, Constants {
         log.info("Failed to acquire trigger {} due to a lock, reason: {}",
                 trigger.getKey(), e.getError());
 
-        BasicDBObject lock = new BasicDBObject();
-        lock.put(KEY_NAME, dbObj.get(KEY_NAME));
-        lock.put(KEY_GROUP, dbObj.get(KEY_GROUP));
+        BasicDBObject lock = lockToBson(dbObj);
 
         DBObject existingLock;
         MongoCursor<BasicDBObject> lockCursor = locksCollection.find(lock).iterator();
@@ -712,22 +659,6 @@ public class MongoDBJobStore implements JobStore, Constants {
         }
       }
     }
-  }
-
-  private BasicDBObject createNextTriggerQuery(Date noLaterThanDate) {
-    BasicDBObject query = new BasicDBObject();
-    query.put(TRIGGER_NEXT_FIRE_TIME, new BasicDBObject("$lte", noLaterThanDate));
-    query.put(TRIGGER_STATE, STATE_WAITING);
-    return query;
-  }
-
-  private BasicDBObject createTriggerDbLock(DBObject dbObj) {
-    BasicDBObject lock = new BasicDBObject();
-    lock.put(KEY_NAME, dbObj.get(KEY_NAME));
-    lock.put(KEY_GROUP, dbObj.get(KEY_GROUP));
-    lock.put(LOCK_INSTANCE_ID, instanceId);
-    lock.put(LOCK_TIME, new Date());
-    return lock;
   }
 
   @Override
@@ -978,10 +909,33 @@ public class MongoDBJobStore implements JobStore, Constants {
     if(mongoUri != null) {
       return connectToMongoDB(mongoUri);
     }
-    
+
+    return createClient();
+  }
+
+  private MongoClient createClient() throws SchedulerConfigException {
+    MongoClientOptions options = createOptions();
+    List<MongoCredential> credentials = createCredentials();
+    List<ServerAddress> serverAddresses = collectServerAddresses();
+    try {
+      return new MongoClient(serverAddresses, credentials, options);
+    } catch (MongoException e) {
+      throw new SchedulerConfigException("Could not connect to MongoDB", e);
+    }
+  }
+
+  private List<ServerAddress> collectServerAddresses() {
+    List<ServerAddress> serverAddresses = new ArrayList<ServerAddress>();
+    for (String a : addresses) {
+      serverAddresses.add(new ServerAddress(a));
+    }
+    return serverAddresses;
+  }
+
+  private MongoClientOptions createOptions() {
     MongoClientOptions.Builder optionsBuilder = MongoClientOptions.builder();
     optionsBuilder.writeConcern(WriteConcern.SAFE);
-    
+
     if (mongoOptionMaxConnectionsPerHost != null) optionsBuilder.connectionsPerHost(mongoOptionMaxConnectionsPerHost);
     if (mongoOptionConnectTimeoutMillis != null) optionsBuilder.connectTimeout(mongoOptionConnectTimeoutMillis);
     if (mongoOptionSocketTimeoutMillis != null) optionsBuilder.socketTimeout(mongoOptionSocketTimeoutMillis);
@@ -990,19 +944,7 @@ public class MongoDBJobStore implements JobStore, Constants {
       optionsBuilder.threadsAllowedToBlockForConnectionMultiplier(mongoOptionThreadsAllowedToBlockForConnectionMultiplier);
     }
 
-    List<MongoCredential> credentials = createCredentials();
-
-    MongoClientOptions options = optionsBuilder.build();
-
-    try {
-      ArrayList<ServerAddress> serverAddresses = new ArrayList<ServerAddress>();
-      for (String a : addresses) {
-        serverAddresses.add(new ServerAddress(a));
-      }
-      return new MongoClient(serverAddresses, credentials, options);
-    } catch (MongoException e) {
-      throw new SchedulerConfigException("Could not connect to MongoDB", e);
-    }
+    return optionsBuilder.build();
   }
 
   private List<MongoCredential> createCredentials() {
@@ -1060,7 +1002,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     
     if (jobDataString != null) {
       try {
-        jobDataMapFromString(trigger.getJobDataMap(), jobDataString);
+        SerialUtils.jobDataMapFromString(trigger.getJobDataMap(), jobDataString);
       } catch (IOException e) {
         throw new JobPersistenceException("Could not deserialize job data for trigger " + dbObject.get(TRIGGER_CLASS));
       }
@@ -1226,11 +1168,12 @@ public class MongoDBJobStore implements JobStore, Constants {
     }
   }
 
-  protected void storeTrigger(OperableTrigger newTrigger, ObjectId jobId, boolean replaceExisting) throws JobPersistenceException {
+  protected void storeTrigger(OperableTrigger newTrigger, ObjectId jobId, boolean replaceExisting)
+          throws JobPersistenceException {
     BasicDBObject trigger = convertToBson(newTrigger, jobId);
     if (newTrigger.getJobDataMap().size() > 0) {
       try {
-        String jobDataString = jobDataToString(newTrigger.getJobDataMap());
+        String jobDataString = SerialUtils.jobDataToString(newTrigger.getJobDataMap());
         trigger.put(JOB_DATA, jobDataString);
       } catch (IOException ioe) {
         throw new JobPersistenceException("Could not serialise job data map on the trigger for " + newTrigger.getKey(), ioe);
@@ -1405,87 +1348,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     final GroupHelper groupHelper = new GroupHelper(jobCollection, queryHelper);
     return groupHelper.inGroupsThatMatch(matcher);
   }
-  
-  protected void jobDataMapFromString(JobDataMap jobDataMap, String clob)
-    throws IOException {
-      
-    try {
-      byte[] bytes = Base64.decodeBase64(clob);
-        
-      Map<String, ?> map = stringMapFromBytes(bytes);
-        
-      jobDataMap.putAll(map);
-      jobDataMap.clearDirtyFlag();
-        
-    } catch (NotSerializableException e) {
-      throw new NotSerializableException(
-        "Unable to serialize JobDataMap for insertion into " + 
-        "database because the value of property '" + 
-        getKeyOfNonSerializableStringMapEntry(jobDataMap.getWrappedMap()) + 
-        "' is not serializable: " + e.getMessage());
-    }
-    catch (ClassNotFoundException e)
-    {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
-    }
-  }
-  
-  private Map<String, ?> stringMapFromBytes(byte[] bytes) throws IOException, ClassNotFoundException
-  {
-    ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
-    ObjectInputStream ois = new ObjectInputStream(bais);
-    @SuppressWarnings("unchecked")
-    Map<String, ?> map = (Map<String, ?>) ois.readObject();
-    ois.close();
-    
-    return map;
-  }
 
-  protected String jobDataToString(JobDataMap jobDataMap)
-      throws IOException {
-      
-    try {
-      byte[] bytes = stringMapToBytes(jobDataMap.getWrappedMap());
-      return Base64.encodeBase64String(bytes);
-    } catch (NotSerializableException e) {
-      throw new NotSerializableException(
-        "Unable to serialize JobDataMap for insertion into " + 
-        "database because the value of property '" +
-        getKeyOfNonSerializableStringMapEntry(jobDataMap.getWrappedMap()) +
-        "' is not serializable: " + e.getMessage());
-    }
-  }
-  
-  private byte[] stringMapToBytes(Object object) throws IOException
-  {
-    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    ObjectOutputStream out = new ObjectOutputStream(baos);
-    out.writeObject(object);
-    out.flush();
-    
-    return baos.toByteArray();
-  }
-
-  private String getKeyOfNonSerializableStringMapEntry(Map<String, ?> data) {
-    
-    for (Map.Entry<String, ?> entry : data.entrySet()) {
-
-      ByteArrayOutputStream baos = new ByteArrayOutputStream();
-
-      try {
-        ObjectOutputStream out = new ObjectOutputStream(baos);
-        out.writeObject(entry.getValue());
-        out.flush();
-      } 
-      catch (IOException e) {
-        return entry.getKey();
-      }
-    }
-      
-    return null;   
-  }
-  
   public void setMongoOptionMaxConnectionsPerHost(int maxConnectionsPerHost) {
     this.mongoOptionMaxConnectionsPerHost = maxConnectionsPerHost;
   }
