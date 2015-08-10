@@ -1,7 +1,7 @@
 (ns com.novemberain.quartz-mongodb.test.quartzite-integration-test
   (:use clojure.test
         clojurewerkz.quartzite.conversion
-        [clj-time.core :only [now secs from-now]])
+        [clj-time.core :only [now seconds from-now]])
   (:require [clojurewerkz.quartzite.scheduler :as sched]
             [clojurewerkz.quartzite.jobs      :as j]
             [clojurewerkz.quartzite.triggers  :as t]
@@ -256,7 +256,7 @@
                  (j/of-type JobG)
                  (j/with-identity "clojurewerkz.quartzite.test.execution.job7" "tests"))
         trigger  (t/build
-                  (t/start-at (-> 2 secs from-now))
+                  (t/start-at (-> 2 seconds from-now))
                   (t/with-schedule (calin/schedule
                                     (calin/with-interval-in-seconds 2))))]
     (is (sched/schedule job trigger))

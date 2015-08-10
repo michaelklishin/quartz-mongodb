@@ -9,7 +9,7 @@
             [clojurewerkz.quartzite.schedule.calendar-interval :as calin]
             [monger.collection :as mgc]
             [clojure.test :refer :all]
-            [clj-time.core :refer [secs months from-now]]
+            [clj-time.core :refer [seconds months from-now]]
             [clj-time.coerce :refer [to-long]])
   (:import org.quartz.simpl.SimpleClassLoadHelper
            org.quartz.impl.triggers.SimpleTriggerImpl
@@ -481,7 +481,7 @@
         j1  (make-no-op-job "job-in-test-aquire-next-trigger-job1" "main-tests")
         tk1 (t/key "test-aquire-next-trigger-trigger1" "main-tests")
         tr1 (t/build
-             (t/start-at (-> 2 secs from-now))
+             (t/start-at (-> 2 seconds from-now))
              (t/with-identity tk1)
              (t/end-at (-> 2 months from-now))
              (t/for-job j1)
@@ -492,7 +492,7 @@
         j2  (make-no-op-job "job-in-test-aquire-next-trigger-job2" "main-tests")
         tk2 (t/key "test-aquire-next-trigger-trigger2" "main-tests")
         tr2 (t/build
-             (t/start-at (-> 5 secs from-now))
+             (t/start-at (-> 5 seconds from-now))
              (t/with-identity tk2)
              (t/end-at (-> 2 months from-now))
              (t/for-job j2)
@@ -503,7 +503,7 @@
         j3  (make-no-op-job "job-in-test-aquire-next-trigger-job3" "main-tests")
         tk3 (t/key "test-aquire-next-trigger-trigger3" "main-tests")
         tr3 (t/build
-             (t/start-at (-> 10 secs from-now))
+             (t/start-at (-> 10 seconds from-now))
              (t/with-identity tk3)
              (t/end-at (-> 2 months from-now))
              (t/for-job j3)
