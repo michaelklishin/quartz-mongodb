@@ -12,7 +12,6 @@ package com.novemberain.quartz.mongodb;
 import com.mongodb.*;
 
 import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.IndexOptions;
@@ -376,31 +375,23 @@ public class MongoDBJobStore implements JobStore, Constants {
 
   @Override
   public Set<JobKey> getJobKeys(GroupMatcher<JobKey> matcher) throws JobPersistenceException {
-    Bson query = queryHelper.matchingKeysConditionFor(matcher);
-    MongoCursor<BasicDBObject> cursor = jobCollection.find(query).projection(KEY_AND_GROUP_FIELDS).iterator();
-
     Set<JobKey> result = new HashSet<JobKey>();
-    while (cursor.hasNext()) {
-      DBObject dbo = cursor.next();
+    Bson query = queryHelper.matchingKeysConditionFor(matcher);
+    for (DBObject dbo : jobCollection.find(query).projection(KEY_AND_GROUP_FIELDS)) {
       JobKey key = Keys.dbObjectToJobKey(dbo);
       result.add(key);
     }
-
     return result;
   }
 
   @Override
   public Set<TriggerKey> getTriggerKeys(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
-    Bson query = queryHelper.matchingKeysConditionFor(matcher);
-    MongoCursor<BasicDBObject> cursor = triggerCollection.find(query).projection(KEY_AND_GROUP_FIELDS).iterator();
-
     Set<TriggerKey> result = new HashSet<TriggerKey>();
-    while (cursor.hasNext()) {
-      DBObject dbo = cursor.next();
+    Bson query = queryHelper.matchingKeysConditionFor(matcher);
+    for (DBObject dbo : triggerCollection.find(query).projection(KEY_AND_GROUP_FIELDS)) {
       TriggerKey key = Keys.dbObjectToTriggerKey(dbo);
       result.add(key);
     }
-
     return result;
   }
 
@@ -573,12 +564,12 @@ public class MongoDBJobStore implements JobStore, Constants {
     Bson query = queryHelper.createNextTriggerQuery(noLaterThanDate);
     BasicDBObject sort = new BasicDBObject(TRIGGER_NEXT_FIRE_TIME, 1);
 
-    MongoCursor<BasicDBObject> cursor = triggerCollection.find(query).sort(sort).iterator();
-
     log.info("Found {} triggers which are eligible to be run.", triggerCollection.count(query));
 
-    while (cursor.hasNext() && maxCount > triggers.size()) {
-      DBObject dbObj = cursor.next();
+    for (DBObject dbObj : triggerCollection.find(query).sort(sort)) {
+      if (maxCount <= triggers.size()) {
+          break;
+      }
 
       OperableTrigger trigger = toTrigger(dbObj);
 
@@ -643,10 +634,8 @@ public class MongoDBJobStore implements JobStore, Constants {
 
         BasicDBObject lock = lockToBson(dbObj);
 
-        DBObject existingLock;
-        MongoCursor<BasicDBObject> lockCursor = locksCollection.find(lock).iterator();
-        if (lockCursor.hasNext()) {
-          existingLock = lockCursor.next();
+        DBObject existingLock = locksCollection.find(lock).first();
+        if (existingLock != null) {
           // support for trigger lock expirations
           if (isTriggerLockExpired(existingLock)) {
             log.warn("Lock for trigger {} is expired - removing lock and retrying trigger acquisition", trigger.getKey());
@@ -710,23 +699,19 @@ public class MongoDBJobStore implements JobStore, Constants {
           
           results.add(new TriggerFiredResult(bundle));
           storeTrigger(trigger, true);
-        }
-        catch (MongoWriteException dk) {
-          log.debug("Job disallows concurrent execution and is already running {}", job.getKey());
+        } catch (MongoWriteException dk) {
+            log.debug("Job disallows concurrent execution and is already running {}", job.getKey());
           
           // Remove the trigger lock
           removeTriggerLock(trigger);
           
           // Find the existing lock and if still present, and expired, then remove it.
           BasicDBObject lock = new BasicDBObject();
-          lock.put(KEY_NAME, "jobconcurrentlock:" + job.getKey().getName());
+            lock.put(KEY_NAME, "jobconcurrentlock:" + job.getKey().getName());
           lock.put(KEY_GROUP, job.getKey().getGroup());
           
-          BasicDBObject existingLock;
-          MongoCursor<BasicDBObject> lockCursor = locksCollection.find(lock).iterator();
-          if (lockCursor.hasNext()) {
-            existingLock = lockCursor.next();
-            
+          BasicDBObject existingLock = locksCollection.find(lock).first();
+          if (existingLock != null) {
             if (isJobLockExpired(existingLock)) {
               log.debug("Removing expired lock for job {}", job.getKey());
               locksCollection.deleteMany(existingLock);
