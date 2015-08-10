@@ -1208,7 +1208,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     if (replaceExisting) {
       trigger.remove("_id");
-      triggerCollection.updateOne(keyToDBObject(newTrigger.getKey()), trigger);
+      triggerCollection.replaceOne(keyToDBObject(newTrigger.getKey()), trigger);
     } else {
       try {
         triggerCollection.insertOne(trigger);
@@ -1237,7 +1237,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     ObjectId objectId = null;
     
     if (object != null && replaceExisting) {
-      jobCollection.updateOne(keyDbo, job);
+      jobCollection.replaceOne(keyDbo, job);
     } else if (object == null) {
       try {
         jobCollection.insertOne(job);
