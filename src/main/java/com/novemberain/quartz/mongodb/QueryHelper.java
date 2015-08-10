@@ -32,17 +32,17 @@ public class QueryHelper {
     return (BasicDBObject) builder.get();
   }
 
-  public BasicDBObject startsWithRegexDBObject(String compareToValue) {
+  private BasicDBObject startsWithRegexDBObject(String compareToValue) {
     //TODO rewrite using Filters
     return (BasicDBObject) BasicDBObjectBuilder.start().append("$regex", "^" + compareToValue + ".*").get();
   }
 
-  public BasicDBObject endsWithRegexDBObject(String compareToValue) {
+  private BasicDBObject endsWithRegexDBObject(String compareToValue) {
     //TODO rewrite using Filters
     return (BasicDBObject) BasicDBObjectBuilder.start().append("$regex", ".*" + compareToValue + "$").get();
   }
 
-  public BasicDBObject containsWithRegexDBObject(String compareToValue) {
+  private BasicDBObject containsWithRegexDBObject(String compareToValue) {
     //TODO rewrite using Filters
     return (BasicDBObject) BasicDBObjectBuilder.start().append("$regex", compareToValue).get();
   }
