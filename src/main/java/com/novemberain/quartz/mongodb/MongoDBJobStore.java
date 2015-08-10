@@ -16,8 +16,10 @@ import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.IndexOptions;
+import com.mongodb.client.model.Projections;
 import com.mongodb.client.model.UpdateOptions;
 import org.apache.commons.codec.binary.Base64;
+import org.bson.conversions.Bson;
 import org.bson.types.ObjectId;
 import org.quartz.Calendar;
 import org.quartz.*;
@@ -41,9 +43,7 @@ import static com.novemberain.quartz.mongodb.Keys.*;
 public class MongoDBJobStore implements JobStore, Constants {
   protected final Logger log = LoggerFactory.getLogger(getClass());
 
-  public static final BasicDBObject KEY_AND_GROUP_FIELDS = new BasicDBObject()
-      .append(KEY_GROUP, 1)
-      .append(KEY_NAME, 1);
+  private static final Bson KEY_AND_GROUP_FIELDS = Projections.include(KEY_GROUP, KEY_NAME);
 
   @Deprecated
   private static MongoClient overriddenMongo;
@@ -88,7 +88,6 @@ public class MongoDBJobStore implements JobStore, Constants {
   private QueryHelper queryHelper;
 
   public MongoDBJobStore(){
-
   }
 
   public MongoDBJobStore(final MongoClient mongo){
