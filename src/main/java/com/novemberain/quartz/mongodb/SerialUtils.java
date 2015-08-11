@@ -4,6 +4,7 @@ import org.apache.commons.codec.binary.Base64;
 import org.quartz.JobDataMap;
 
 import java.io.*;
+import java.util.Collections;
 import java.util.Map;
 
 public class SerialUtils {
@@ -22,18 +23,17 @@ public class SerialUtils {
         }
     }
 
-    public static void deserialize(JobDataMap jobDataMap, String clob) throws IOException {
+    public static Map<String, ?> deserialize(JobDataMap jobDataMap, String clob) throws IOException {
         try {
             byte[] bytes = Base64.decodeBase64(clob);
-            Map<String, ?> map = stringMapFromBytes(bytes);
-            jobDataMap.putAll(map);
-            jobDataMap.clearDirtyFlag();
+            return stringMapFromBytes(bytes);
         } catch (NotSerializableException e) {
             rethrowEnhanced(jobDataMap, e);
         } catch (ClassNotFoundException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
         }
+        return Collections.emptyMap();
     }
 
     private static byte[] stringMapToBytes(Object object) throws IOException {
