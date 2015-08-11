@@ -26,9 +26,7 @@ import org.quartz.spi.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.util.*;
 
 import static com.mongodb.client.model.Sorts.ascending;
@@ -328,7 +326,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     }
 
     Document doc = new Document(CALENDAR_NAME, name)
-            .append(CALENDAR_SERIALIZED_OBJECT, serialize(calendar));
+            .append(CALENDAR_SERIALIZED_OBJECT, SerialUtils.serialize(calendar));
     calendarCollection.insertOne(doc);
   }
 
@@ -1068,19 +1066,6 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     storeTrigger(trigger, true);
     return true;
-  }
-
-
-  private Object serialize(Calendar calendar) throws JobPersistenceException {
-    ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
-    try {
-      ObjectOutputStream objectStream = new ObjectOutputStream(byteStream);
-      objectStream.writeObject(calendar);
-      objectStream.close();
-      return byteStream.toByteArray();
-    } catch (IOException e) {
-      throw new JobPersistenceException("Could not serialize Calendar.", e);
-    }
   }
 
   /**

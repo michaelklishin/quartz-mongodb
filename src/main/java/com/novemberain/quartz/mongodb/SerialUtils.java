@@ -1,7 +1,9 @@
 package com.novemberain.quartz.mongodb;
 
 import org.apache.commons.codec.binary.Base64;
+import org.quartz.Calendar;
 import org.quartz.JobDataMap;
+import org.quartz.JobPersistenceException;
 
 import java.io.*;
 import java.util.Collections;
@@ -13,6 +15,18 @@ public class SerialUtils {
             "Unable to serialize JobDataMap for insertion into " +
             "database because the value of property '%s' " +
             "is not serializable: %s";
+
+    public static Object serialize(Calendar calendar) throws JobPersistenceException {
+        ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
+        try {
+            ObjectOutputStream objectStream = new ObjectOutputStream(byteStream);
+            objectStream.writeObject(calendar);
+            objectStream.close();
+            return byteStream.toByteArray();
+        } catch (IOException e) {
+            throw new JobPersistenceException("Could not serialize Calendar.", e);
+        }
+    }
 
     public static String serialize(JobDataMap jobDataMap) throws IOException {
         try {
