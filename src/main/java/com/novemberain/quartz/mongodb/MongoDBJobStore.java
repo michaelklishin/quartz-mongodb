@@ -541,10 +541,10 @@ public class MongoDBJobStore implements JobStore, Constants {
     
     Collections.sort(triggerList, new Comparator<OperableTrigger>() {
 
-        @Override
-        public int compare(OperableTrigger o1, OperableTrigger o2) {
-            return (int) (o1.getNextFireTime().getTime() - o2.getNextFireTime().getTime());
-        }
+      @Override
+      public int compare(OperableTrigger o1, OperableTrigger o2) {
+        return (int) (o1.getNextFireTime().getTime() - o2.getNextFireTime().getTime());
+      }
     });
     
     return triggerList;
@@ -974,7 +974,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     
     if (jobDataString != null) {
       try {
-        SerialUtils.jobDataMapFromString(trigger.getJobDataMap(), jobDataString);
+        SerialUtils.deserialize(trigger.getJobDataMap(), jobDataString);
       } catch (IOException e) {
         throw new JobPersistenceException("Could not deserialize job data for trigger " + triggerDoc.get(TRIGGER_CLASS));
       }
@@ -1129,7 +1129,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     Document trigger = convertToBson(newTrigger, jobId);
     if (newTrigger.getJobDataMap().size() > 0) {
       try {
-        String jobDataString = SerialUtils.jobDataToString(newTrigger.getJobDataMap());
+        String jobDataString = SerialUtils.serialize(newTrigger.getJobDataMap());
         trigger.put(JOB_DATA, jobDataString);
       } catch (IOException ioe) {
         throw new JobPersistenceException("Could not serialise job data map on the trigger for " + newTrigger.getKey(), ioe);
