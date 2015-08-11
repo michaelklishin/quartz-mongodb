@@ -75,6 +75,8 @@ public class MongoDBJobStore implements JobStore, Constants {
   private Integer mongoOptionConnectTimeoutMillis; 
   private Integer mongoOptionSocketTimeoutMillis; // read timeout
   private Integer mongoOptionThreadsAllowedToBlockForConnectionMultiplier;
+  private Boolean mongoOptionEnableSSL;
+  private Boolean mongoOptionSslInvalidHostNameAllowed;
 
   private List<TriggerPersistenceHelper> persistenceHelpers;
   private QueryHelper queryHelper;
@@ -913,6 +915,12 @@ public class MongoDBJobStore implements JobStore, Constants {
     if (mongoOptionThreadsAllowedToBlockForConnectionMultiplier != null) {
       optionsBuilder.threadsAllowedToBlockForConnectionMultiplier(mongoOptionThreadsAllowedToBlockForConnectionMultiplier);
     }
+    if (mongoOptionEnableSSL != null) {
+      optionsBuilder.sslEnabled(mongoOptionEnableSSL);
+      if (mongoOptionSslInvalidHostNameAllowed != null) {
+        optionsBuilder.sslInvalidHostNameAllowed(mongoOptionSslInvalidHostNameAllowed);
+      }
+    }
 
     return optionsBuilder.build();
   }
@@ -1301,8 +1309,16 @@ public class MongoDBJobStore implements JobStore, Constants {
     this.mongoOptionThreadsAllowedToBlockForConnectionMultiplier = threadsAllowedToBlockForConnectionMultiplier;
   }
 
-  public void setMongoOptionSocketKeepAlive(boolean mongoOptionSocketKeepAlive) {
-    this.mongoOptionSocketKeepAlive = mongoOptionSocketKeepAlive;
+  public void setMongoOptionSocketKeepAlive(boolean socketKeepAlive) {
+    this.mongoOptionSocketKeepAlive = socketKeepAlive;
+  }
+
+  public void setMongoOptionEnableSSL(boolean enableSSL) {
+    this.mongoOptionEnableSSL = enableSSL;
+  }
+
+  public void setMongoOptionSslInvalidHostNameAllowed(boolean sslInvalidHostNameAllowed) {
+    this.mongoOptionSslInvalidHostNameAllowed = sslInvalidHostNameAllowed;
   }
 
   public String getAuthDbName() {
