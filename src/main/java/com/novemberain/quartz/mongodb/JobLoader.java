@@ -42,7 +42,7 @@ public class JobLoader {
 
         String jobDataString = (String) doc.get(Constants.JOB_DATA);
         if (jobDataString != null) {
-            SerialUtils.jobDataMapFromString(jobData, jobDataString);
+            jobData.putAll(SerialUtils.deserialize(jobData, jobDataString));
         } else {
             for (String key : doc.keySet()) {
                 if (!key.equals(KEY_NAME)

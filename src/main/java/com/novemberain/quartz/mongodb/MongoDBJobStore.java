@@ -26,9 +26,7 @@ import org.quartz.spi.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.util.*;
 
 import static com.mongodb.client.model.Sorts.ascending;
@@ -77,6 +75,8 @@ public class MongoDBJobStore implements JobStore, Constants {
   private Integer mongoOptionConnectTimeoutMillis; 
   private Integer mongoOptionSocketTimeoutMillis; // read timeout
   private Integer mongoOptionThreadsAllowedToBlockForConnectionMultiplier;
+  private Boolean mongoOptionEnableSSL;
+  private Boolean mongoOptionSslInvalidHostNameAllowed;
 
   private List<TriggerPersistenceHelper> persistenceHelpers;
   private QueryHelper queryHelper;
@@ -328,7 +328,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     }
 
     Document doc = new Document(CALENDAR_NAME, name)
-            .append(CALENDAR_SERIALIZED_OBJECT, serialize(calendar));
+            .append(CALENDAR_SERIALIZED_OBJECT, SerialUtils.serialize(calendar));
     calendarCollection.insertOne(doc);
   }
 
@@ -541,10 +541,10 @@ public class MongoDBJobStore implements JobStore, Constants {
     
     Collections.sort(triggerList, new Comparator<OperableTrigger>() {
 
-        @Override
-        public int compare(OperableTrigger o1, OperableTrigger o2) {
-            return (int) (o1.getNextFireTime().getTime() - o2.getNextFireTime().getTime());
-        }
+      @Override
+      public int compare(OperableTrigger o1, OperableTrigger o2) {
+        return (int) (o1.getNextFireTime().getTime() - o2.getNextFireTime().getTime());
+      }
     });
     
     return triggerList;
@@ -915,6 +915,12 @@ public class MongoDBJobStore implements JobStore, Constants {
     if (mongoOptionThreadsAllowedToBlockForConnectionMultiplier != null) {
       optionsBuilder.threadsAllowedToBlockForConnectionMultiplier(mongoOptionThreadsAllowedToBlockForConnectionMultiplier);
     }
+    if (mongoOptionEnableSSL != null) {
+      optionsBuilder.sslEnabled(mongoOptionEnableSSL);
+      if (mongoOptionSslInvalidHostNameAllowed != null) {
+        optionsBuilder.sslInvalidHostNameAllowed(mongoOptionSslInvalidHostNameAllowed);
+      }
+    }
 
     return optionsBuilder.build();
   }
@@ -974,7 +980,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     
     if (jobDataString != null) {
       try {
-        SerialUtils.jobDataMapFromString(trigger.getJobDataMap(), jobDataString);
+        SerialUtils.deserialize(trigger.getJobDataMap(), jobDataString);
       } catch (IOException e) {
         throw new JobPersistenceException("Could not deserialize job data for trigger " + triggerDoc.get(TRIGGER_CLASS));
       }
@@ -1070,19 +1076,6 @@ public class MongoDBJobStore implements JobStore, Constants {
     return true;
   }
 
-
-  private Object serialize(Calendar calendar) throws JobPersistenceException {
-    ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
-    try {
-      ObjectOutputStream objectStream = new ObjectOutputStream(byteStream);
-      objectStream.writeObject(calendar);
-      objectStream.close();
-      return byteStream.toByteArray();
-    } catch (IOException e) {
-      throw new JobPersistenceException("Could not serialize Calendar.", e);
-    }
-  }
-
   /**
    * Initializes the indexes for the scheduler collections.
    *
@@ -1129,7 +1122,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     Document trigger = convertToBson(newTrigger, jobId);
     if (newTrigger.getJobDataMap().size() > 0) {
       try {
-        String jobDataString = SerialUtils.jobDataToString(newTrigger.getJobDataMap());
+        String jobDataString = SerialUtils.serialize(newTrigger.getJobDataMap());
         trigger.put(JOB_DATA, jobDataString);
       } catch (IOException ioe) {
         throw new JobPersistenceException("Could not serialise job data map on the trigger for " + newTrigger.getKey(), ioe);
@@ -1316,8 +1309,16 @@ public class MongoDBJobStore implements JobStore, Constants {
     this.mongoOptionThreadsAllowedToBlockForConnectionMultiplier = threadsAllowedToBlockForConnectionMultiplier;
   }
 
-  public void setMongoOptionSocketKeepAlive(boolean mongoOptionSocketKeepAlive) {
-    this.mongoOptionSocketKeepAlive = mongoOptionSocketKeepAlive;
+  public void setMongoOptionSocketKeepAlive(boolean socketKeepAlive) {
+    this.mongoOptionSocketKeepAlive = socketKeepAlive;
+  }
+
+  public void setMongoOptionEnableSSL(boolean enableSSL) {
+    this.mongoOptionEnableSSL = enableSSL;
+  }
+
+  public void setMongoOptionSslInvalidHostNameAllowed(boolean sslInvalidHostNameAllowed) {
+    this.mongoOptionSslInvalidHostNameAllowed = sslInvalidHostNameAllowed;
   }
 
   public String getAuthDbName() {
