@@ -13,7 +13,7 @@
                    :default (constantly true)}
   :javac-options     ["-target" "1.6" "-source" "1.6" "-Xlint:deprecation"]
   :profiles {:dev {:resource-paths ["src/test/resources"]
-                   :dependencies [[org.clojure/clojure       "1.6.0"]
+                   :dependencies [[org.clojure/clojure       "1.7.0"]
                                   [clojurewerkz/quartzite    "1.3.0"]
                                   [com.novemberain/monger    "1.7.0"]
                                   [org.clojure/tools.logging "0.3.1" :exclusions [org.clojure/clojure]]
