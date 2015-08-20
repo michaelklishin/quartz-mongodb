@@ -2,16 +2,15 @@ package com.novemberain.quartz.mongodb;
 
 import clojure.lang.DynamicClassLoader;
 
-import com.mongodb.Mongo;
-import com.novemberain.quartz.mongodb.MongoDBJobStore;
+import com.mongodb.MongoClient;
 
-public class DynamicMongoDBJobStore extends MongoDBJobStore implements org.quartz.spi.JobStore {
+public class DynamicMongoDBJobStore extends MongoDBJobStore {
 
   public DynamicMongoDBJobStore() {
     super();
   }
 
-  public DynamicMongoDBJobStore(Mongo mongo) {
+  public DynamicMongoDBJobStore(MongoClient mongo) {
     super(mongo);
   }
 

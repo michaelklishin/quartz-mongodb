@@ -1,49 +1,41 @@
 package com.novemberain.quartz.mongodb;
 
-import com.mongodb.BasicDBObjectBuilder;
-import com.mongodb.DBObject;
-import com.mongodb.QueryBuilder;
+import com.mongodb.client.model.Filters;
+import org.bson.BsonDocument;
+import org.bson.conversions.Bson;
 import org.quartz.impl.matchers.GroupMatcher;
 
 import java.util.Collection;
+import java.util.Date;
 
 import static com.novemberain.quartz.mongodb.Keys.KEY_GROUP;
 
 public class QueryHelper {
-  public DBObject matchingKeysConditionFor(GroupMatcher<?> matcher) {
-    BasicDBObjectBuilder builder = BasicDBObjectBuilder.start();
 
-    final String compareToValue = matcher.getCompareToValue();
-    switch (matcher.getCompareWithOperator()) {
-      case EQUALS:
-        builder.append(KEY_GROUP, compareToValue);
-        break;
-      case STARTS_WITH:
-        builder.append(KEY_GROUP, startsWithRegexDBObject(compareToValue));
-        break;
-      case ENDS_WITH:
-        builder.append(KEY_GROUP, endsWithRegexDBObject(compareToValue));
-      case CONTAINS:
-        builder.append(KEY_GROUP, containsWithRegexDBObject(compareToValue));
-        break;
+    public Bson createNextTriggerQuery(Date noLaterThanDate) {
+        return Filters.and(
+                Filters.lte(Constants.TRIGGER_NEXT_FIRE_TIME, noLaterThanDate),
+                Filters.eq(Constants.TRIGGER_STATE, Constants.STATE_WAITING));
     }
 
-    return builder.get();
-  }
+    public Bson matchingKeysConditionFor(GroupMatcher<?> matcher) {
+        final String compareToValue = matcher.getCompareToValue();
 
-  public DBObject startsWithRegexDBObject(String compareToValue) {
-    return BasicDBObjectBuilder.start().append("$regex", "^" + compareToValue + ".*").get();
-  }
+        switch (matcher.getCompareWithOperator()) {
+            case EQUALS:
+                return Filters.eq(KEY_GROUP, compareToValue);
+            case STARTS_WITH:
+                return Filters.regex(KEY_GROUP, "^" + compareToValue + ".*");
+            case ENDS_WITH:
+                return Filters.regex(KEY_GROUP, ".*" + compareToValue + "$");
+            case CONTAINS:
+                return Filters.regex(KEY_GROUP, compareToValue);
+        }
 
-  public DBObject endsWithRegexDBObject(String compareToValue) {
-    return BasicDBObjectBuilder.start().append("$regex", ".*" + compareToValue + "$").get();
-  }
+        return new BsonDocument();
+    }
 
-  public DBObject containsWithRegexDBObject(String compareToValue) {
-    return BasicDBObjectBuilder.start().append("$regex", compareToValue).get();
-  }
-
-  public DBObject inGroups(Collection<String> groups) {
-    return QueryBuilder.start(KEY_GROUP).in(groups).get();
-  }
+    public Bson inGroups(Collection<String> groups) {
+        return Filters.in(KEY_GROUP, groups);
+    }
 }

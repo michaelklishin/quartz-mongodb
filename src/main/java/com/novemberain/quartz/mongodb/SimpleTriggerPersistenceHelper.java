@@ -1,7 +1,6 @@
 package com.novemberain.quartz.mongodb;
 
-import com.mongodb.BasicDBObjectBuilder;
-import com.mongodb.DBObject;
+import org.bson.Document;
 import org.quartz.SimpleTrigger;
 import org.quartz.impl.triggers.SimpleTriggerImpl;
 import org.quartz.spi.OperableTrigger;
@@ -17,18 +16,17 @@ public class SimpleTriggerPersistenceHelper implements TriggerPersistenceHelper 
   }
 
   @Override
-  public DBObject injectExtraPropertiesForInsert(OperableTrigger trigger, DBObject original) {
+  public Document injectExtraPropertiesForInsert(OperableTrigger trigger, Document original) {
     SimpleTrigger t = (SimpleTrigger) trigger;
 
-    return BasicDBObjectBuilder.start(original.toMap()).
+    return new Document(original).
         append(TRIGGER_REPEAT_COUNT, t.getRepeatCount()).
         append(TRIGGER_REPEAT_INTERVAL, t.getRepeatInterval()).
-        append(TRIGGER_TIMES_TRIGGERED, t.getTimesTriggered()).
-        get();
+        append(TRIGGER_TIMES_TRIGGERED, t.getTimesTriggered());
   }
 
   @Override
-  public OperableTrigger setExtraPropertiesAfterInstantiation(OperableTrigger trigger, DBObject stored) {
+  public OperableTrigger setExtraPropertiesAfterInstantiation(OperableTrigger trigger, Document stored) {
     SimpleTriggerImpl t = (SimpleTriggerImpl) trigger;
 
     Object repeatCount = stored.get(TRIGGER_REPEAT_COUNT);

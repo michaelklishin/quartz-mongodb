@@ -5,6 +5,7 @@ This is a MongoDB-backed job store for the [Quartz scheduler](http://quartz-sche
 ## Maven Artifacts
 
 Artifacts are released to [clojars.org](http://clojars.org).
+[![Clojars Project](http://clojars.org/com.novemberain/quartz-mongodb/latest-version.svg)](http://clojars.org/com.novemberain/quartz-mongodb)
 
 If you are using Maven, add the following repository
 definition to your `pom.xml`:
@@ -16,11 +17,22 @@ definition to your `pom.xml`:
 </repository>
 ```
 
+If you are using Gradle, add the following to your `build.gradle`:
+
+``` groovy
+repositories {
+    maven {
+        url "http://clojars.org/repo"
+    }
+}
+```
+
+
 ### The Most Recent Release
 
 With Leiningen:
 
-    [com.novemberain/quartz-mongodb "1.8.0"]
+    [com.novemberain/quartz-mongodb "1.9.0"]
 
 
 With Maven:
@@ -28,8 +40,13 @@ With Maven:
     <dependency>
       <groupId>com.novemberain</groupId>
       <artifactId>quartz-mongodb</artifactId>
-      <version>1.8.0</version>
+      <version>1.9.0</version>
     </dependency>
+
+
+With Gradle:
+
+    compile "com.novemberain:quartz-mongodb:1.9.0"
 
 
 ## Usage
@@ -75,7 +92,7 @@ CI is hosted by [Travis CI](http://travis-ci.org/)
 
 ## Copyright & License
 
-(c) Michael S. Klishin, Alex Petrov, 2011-2014.
+(c) Michael S. Klishin, Alex Petrov, 2011-2015.
 
 [Apache Public License 2.0](http://www.apache.org/licenses/LICENSE-2.0.html)
 
@@ -95,7 +112,3 @@ and implementation code refactored, I decided to completely separate
 this fork form GitHub forks network because the project is now too
 different from the original one. All changes were made with respect to
 the Apache Public License 2.0.
-
-
-[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/michaelklishin/quartz-mongodb/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
-

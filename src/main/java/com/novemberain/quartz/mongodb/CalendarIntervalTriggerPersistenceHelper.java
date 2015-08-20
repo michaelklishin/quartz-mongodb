@@ -1,7 +1,6 @@
 package com.novemberain.quartz.mongodb;
 
-import com.mongodb.BasicDBObjectBuilder;
-import com.mongodb.DBObject;
+import org.bson.Document;
 import org.quartz.DateBuilder.IntervalUnit;
 import org.quartz.impl.triggers.CalendarIntervalTriggerImpl;
 import org.quartz.spi.OperableTrigger;
@@ -17,18 +16,17 @@ public class CalendarIntervalTriggerPersistenceHelper implements TriggerPersiste
   }
 
   @Override
-  public DBObject injectExtraPropertiesForInsert(OperableTrigger trigger, DBObject original) {
+  public Document injectExtraPropertiesForInsert(OperableTrigger trigger, Document original) {
     CalendarIntervalTriggerImpl t = (CalendarIntervalTriggerImpl) trigger;
 
-    return BasicDBObjectBuilder.start(original.toMap()).
+    return new Document(original).
         append(TRIGGER_REPEAT_INTERVAL_UNIT, t.getRepeatIntervalUnit().name()).
         append(TRIGGER_REPEAT_INTERVAL, t.getRepeatInterval()).
-        append(TRIGGER_TIMES_TRIGGERED, t.getTimesTriggered()).
-        get();
+        append(TRIGGER_TIMES_TRIGGERED, t.getTimesTriggered());
   }
 
   @Override
-  public OperableTrigger setExtraPropertiesAfterInstantiation(OperableTrigger trigger, DBObject stored) {
+  public OperableTrigger setExtraPropertiesAfterInstantiation(OperableTrigger trigger, Document stored) {
     CalendarIntervalTriggerImpl t = (CalendarIntervalTriggerImpl) trigger;
 
     String repeatIntervalUnit = (String) stored.get(TRIGGER_REPEAT_INTERVAL_UNIT);

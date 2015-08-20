@@ -1,38 +1,37 @@
 package com.novemberain.quartz.mongodb;
 
-import com.mongodb.DBCollection;
-import com.mongodb.DBObject;
-import com.mongodb.QueryBuilder;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.Filters;
+import org.bson.Document;
+import org.bson.conversions.Bson;
 import org.quartz.impl.matchers.GroupMatcher;
 
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
 import static com.novemberain.quartz.mongodb.Keys.KEY_GROUP;
 
-@SuppressWarnings("unchecked")
 public class GroupHelper {
-  protected DBCollection collection;
+  protected MongoCollection<Document> collection;
   protected QueryHelper queryHelper;
 
-  public GroupHelper(DBCollection collection, QueryHelper queryHelper) {
+  public GroupHelper(MongoCollection<Document> collection, QueryHelper queryHelper) {
     this.collection = collection;
     this.queryHelper = queryHelper;
   }
 
   public Set<String> groupsThatMatch(GroupMatcher<?> matcher) {
-    return new HashSet<String>(this.collection.distinct(KEY_GROUP, queryHelper.matchingKeysConditionFor(matcher)));
+    Bson filter = queryHelper.matchingKeysConditionFor(matcher);
+    return collection.distinct(KEY_GROUP, String.class).filter(filter).into(new HashSet<String>());
   }
 
-  public List<DBObject> inGroupsThatMatch(GroupMatcher<?> matcher) {
-    return collection.find(QueryBuilder.start(KEY_GROUP).
-        in(groupsThatMatch(matcher)).get()).
-        toArray();
+  public List<Document> inGroupsThatMatch(GroupMatcher<?> matcher) {
+    return collection.find(Filters.in(KEY_GROUP, groupsThatMatch(matcher))).into(new LinkedList<Document>());
   }
 
   public Set<String> allGroups() {
-    return new HashSet<String>(this.collection.distinct(KEY_GROUP));
+    return collection.distinct(KEY_GROUP, String.class).into(new HashSet<String>());
   }
-
 }
