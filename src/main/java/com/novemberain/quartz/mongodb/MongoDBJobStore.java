@@ -473,14 +473,14 @@ public class MongoDBJobStore implements JobStore, Constants {
   @Override
   public void pauseAll() throws JobPersistenceException {
     final GroupHelper groupHelper = new GroupHelper(triggerCollection, queryHelper);
-    triggerCollection.updateOne(new Document(), updateThatSetsTriggerStateTo(STATE_PAUSED));
+    triggerCollection.updateMany(new Document(), updateThatSetsTriggerStateTo(STATE_PAUSED));
     this.markTriggerGroupsAsPaused(groupHelper.allGroups());
   }
 
   @Override
   public void resumeAll() throws JobPersistenceException {
     final GroupHelper groupHelper = new GroupHelper(triggerCollection, queryHelper);
-    triggerCollection.updateOne(new Document(), updateThatSetsTriggerStateTo(STATE_WAITING));
+    triggerCollection.updateMany(new Document(), updateThatSetsTriggerStateTo(STATE_WAITING));
     this.unmarkTriggerGroupsAsPaused(groupHelper.allGroups());
   }
 
@@ -489,7 +489,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     final ObjectId jobId = findJobDocumentByKey(jobKey).getObjectId("_id");
     final TriggerGroupHelper groupHelper = new TriggerGroupHelper(triggerCollection, queryHelper);
     List<String> groups = groupHelper.groupsForJobId(jobId);
-    triggerCollection.updateOne(new Document(TRIGGER_JOB_ID, jobId), updateThatSetsTriggerStateTo(STATE_PAUSED));
+    triggerCollection.updateMany(new Document(TRIGGER_JOB_ID, jobId), updateThatSetsTriggerStateTo(STATE_PAUSED));
     this.markTriggerGroupsAsPaused(groups);
   }
 
@@ -497,7 +497,7 @@ public class MongoDBJobStore implements JobStore, Constants {
   public Collection<String> pauseJobs(GroupMatcher<JobKey> groupMatcher) throws JobPersistenceException {
     final TriggerGroupHelper groupHelper = new TriggerGroupHelper(triggerCollection, queryHelper);
     List<String> groups = groupHelper.groupsForJobIds(idsFrom(findJobDocumentsThatMatch(groupMatcher)));
-    triggerCollection.updateOne(queryHelper.inGroups(groups), updateThatSetsTriggerStateTo(STATE_PAUSED));
+    triggerCollection.updateMany(queryHelper.inGroups(groups), updateThatSetsTriggerStateTo(STATE_PAUSED));
     this.markJobGroupsAsPaused(groups);
 
     return groups;
@@ -507,14 +507,14 @@ public class MongoDBJobStore implements JobStore, Constants {
   public void resumeJob(JobKey jobKey) throws JobPersistenceException {
     final ObjectId jobId = findJobDocumentByKey(jobKey).getObjectId("_id");
     // TODO: port blocking behavior and misfired triggers handling from StdJDBCDelegate in Quartz
-    triggerCollection.updateOne(new Document(TRIGGER_JOB_ID, jobId), updateThatSetsTriggerStateTo(STATE_WAITING));
+    triggerCollection.updateMany(new Document(TRIGGER_JOB_ID, jobId), updateThatSetsTriggerStateTo(STATE_WAITING));
   }
 
   @Override
   public Collection<String> resumeJobs(GroupMatcher<JobKey> groupMatcher) throws JobPersistenceException {
     final TriggerGroupHelper groupHelper = new TriggerGroupHelper(triggerCollection, queryHelper);
     List<String> groups = groupHelper.groupsForJobIds(idsFrom(findJobDocumentsThatMatch(groupMatcher)));
-    triggerCollection.updateOne(queryHelper.inGroups(groups), updateThatSetsTriggerStateTo(STATE_WAITING));
+    triggerCollection.updateMany(queryHelper.inGroups(groups), updateThatSetsTriggerStateTo(STATE_WAITING));
     this.unmarkJobGroupsAsPaused(groups);
 
     return groups;
