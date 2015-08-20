@@ -385,15 +385,19 @@
     (let [m (mgc/find-one-as-map triggers-collection {"keyName" "test-pause-all-triggers2"
                                                       "keyGroup" "alt-tests"})]
       (is m)
-      (is (= "waiting" (:state m)))
-      (is (= "NORMAL" (str (.getTriggerState store tk2)))))
+      (is (= "paused" (:state m)))
+      (is (= "PAUSED" (str (.getTriggerState store tk2)))))
     (is (= #{"main-tests" "alt-tests"} (.getPausedTriggerGroups store)))
     (.resumeAll store)
     (is (empty? (.getPausedTriggerGroups store)))
     (let [m (mgc/find-one-as-map triggers-collection {"keyName" "test-pause-all-triggers1"
                                                       "keyGroup" "main-tests"})]
       (is (= "waiting" (:state m)))
-      (is (= "NORMAL" (str (.getTriggerState store tk1)))))))
+      (is (= "NORMAL" (str (.getTriggerState store tk1)))))
+    (let [m (mgc/find-one-as-map triggers-collection {"keyName" "test-pause-all-triggers2"
+                                                          "keyGroup" "alt-tests"})]
+      (is (= "waiting" (:state m)))
+      (is (= "NORMAL" (str (.getTriggerState store tk2)))))))
 
 
 
