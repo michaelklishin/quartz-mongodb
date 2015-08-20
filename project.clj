@@ -18,7 +18,8 @@
                                   [com.novemberain/monger    "1.7.0"]
                                   [org.clojure/tools.logging "0.3.1" :exclusions [org.clojure/clojure]]
                                   [org.slf4j/slf4j-simple    "1.7.10"]
-                                  [org.slf4j/slf4j-api       "1.7.10"]]}}
+                                  [org.slf4j/slf4j-api       "1.7.10"]]}
+             :provided {:dependencies [[org.clojure/clojure       "1.7.0"]]}}
   :repositories {"sonatype" {:url "http://oss.sonatype.org/content/repositories/releases"
                              :snapshots false
                              :releases {:checksum :fail :update :always}}
