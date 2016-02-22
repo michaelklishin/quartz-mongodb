@@ -15,6 +15,7 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.*;
 import com.novemberain.quartz.mongodb.dao.CalendarDao;
+import com.novemberain.quartz.mongodb.dao.PausedJobGroupsDao;
 import com.novemberain.quartz.mongodb.dao.PausedTriggerGroupsDao;
 import org.bson.Document;
 import org.bson.conversions.Bson;
@@ -55,11 +56,11 @@ public class MongoDBJobStore implements JobStore, Constants {
   private String dbName;
   private String authDbName;
   private CalendarDao calendarDao;
+  private PausedJobGroupsDao pausedJobGroupsDao;
   private PausedTriggerGroupsDao pausedTriggerGroupsDao;
   private MongoCollection<Document> jobCollection;
   private MongoCollection<Document> triggerCollection;
   private MongoCollection<Document> locksCollection;
-  private MongoCollection<Document> pausedJobGroupsCollection;
   private ClassLoadHelper loadHelper;
   private String instanceId;
   private String[] addresses;
@@ -317,7 +318,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     jobCollection.deleteMany(new Document());
     triggerCollection.deleteMany(new Document());
     calendarDao.clear();
-    pausedJobGroupsCollection.deleteMany(new Document());
+    pausedJobGroupsDao.remove();
     pausedTriggerGroupsDao.remove();
   }
 
@@ -462,7 +463,7 @@ public class MongoDBJobStore implements JobStore, Constants {
   }
 
   public Set<String> getPausedJobGroups() throws JobPersistenceException {
-    return pausedJobGroupsCollection.distinct(KEY_GROUP, String.class).into(new HashSet<String>());
+    return pausedJobGroupsDao.getPausedGroups();
   }
 
   @Override
@@ -493,7 +494,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     final TriggerGroupHelper groupHelper = new TriggerGroupHelper(triggerCollection, queryHelper);
     List<String> groups = groupHelper.groupsForJobIds(idsFrom(findJobDocumentsThatMatch(groupMatcher)));
     triggerCollection.updateMany(queryHelper.inGroups(groups), updateThatSetsTriggerStateTo(STATE_PAUSED));
-    this.markJobGroupsAsPaused(groups);
+    pausedJobGroupsDao.pauseGroups(groups);
 
     return groups;
   }
@@ -510,7 +511,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     final TriggerGroupHelper groupHelper = new TriggerGroupHelper(triggerCollection, queryHelper);
     List<String> groups = groupHelper.groupsForJobIds(idsFrom(findJobDocumentsThatMatch(groupMatcher)));
     triggerCollection.updateMany(queryHelper.inGroups(groups), updateThatSetsTriggerStateTo(STATE_WAITING));
-    this.unmarkJobGroupsAsPaused(groups);
+    pausedJobGroupsDao.unpauseGroups(groups);
 
     return groups;
   }
@@ -857,8 +858,8 @@ public class MongoDBJobStore implements JobStore, Constants {
     calendarDao = new CalendarDao(db.getCollection(collectionPrefix + "calendars"));
     locksCollection = db.getCollection(collectionPrefix + "locks");
 
+    pausedJobGroupsDao = new PausedJobGroupsDao(db.getCollection(collectionPrefix + "paused_job_groups"));
     pausedTriggerGroupsDao = new PausedTriggerGroupsDao(db.getCollection(collectionPrefix + "paused_trigger_groups"));
-    pausedJobGroupsCollection = db.getCollection(collectionPrefix + "paused_job_groups");
   }
 
   private MongoDatabase selectDatabase(MongoClient mongo) {
@@ -1244,21 +1245,6 @@ public class MongoDBJobStore implements JobStore, Constants {
 
   private Bson updateThatSetsTriggerStateTo(String state) {
     return new Document("$set", new Document(TRIGGER_STATE, state));
-  }
-
-  private void markJobGroupsAsPaused(List<String> groups) {
-    if (groups == null) {
-      throw new IllegalArgumentException("groups cannot be null!");
-    }
-    List<Document> list = new ArrayList<Document>();
-    for (String s : groups) {
-      list.add(new Document(KEY_GROUP, s));
-    }
-    pausedJobGroupsCollection.insertMany(list);
-  }
-
-  private void unmarkJobGroupsAsPaused(Collection<String> groups) {
-    pausedJobGroupsCollection.deleteMany(Filters.in(KEY_GROUP, groups));
   }
 
 
