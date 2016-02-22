@@ -228,9 +228,8 @@ public class MongoDBJobStore implements JobStore, Constants {
   @Override
   public boolean removeTrigger(TriggerKey triggerKey) throws JobPersistenceException {
     Bson filter = Keys.toFilter(triggerKey);
-    List<Document> triggers = triggerCollection.find(filter).limit(2).into(new ArrayList<Document>(2));
-    if (triggers.size() > 0) {
-      Document trigger = triggers.get(0);
+    Document trigger = triggerCollection.find(filter).first();
+    if (trigger != null) {
       if (trigger.containsKey(TRIGGER_JOB_ID)) {
         // There is only 1 job per trigger so no need to look further.
         Document job = jobDao.getById(trigger.get(TRIGGER_JOB_ID));
