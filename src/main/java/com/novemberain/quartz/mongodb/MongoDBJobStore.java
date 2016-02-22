@@ -14,6 +14,7 @@ import com.mongodb.*;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.*;
+import com.novemberain.quartz.mongodb.dao.CalendarDao;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.bson.types.ObjectId;
@@ -52,9 +53,9 @@ public class MongoDBJobStore implements JobStore, Constants {
   private String collectionPrefix = "quartz_";
   private String dbName;
   private String authDbName;
+  private CalendarDao calendarDao;
   private MongoCollection<Document> jobCollection;
   private MongoCollection<Document> triggerCollection;
-  private MongoCollection<Document> calendarCollection;
   private MongoCollection<Document> locksCollection;
   private MongoCollection<Document> pausedTriggerGroupsCollection;
   private MongoCollection<Document> pausedJobGroupsCollection;
@@ -314,7 +315,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     //TODO: consider using coll.drop() here
     jobCollection.deleteMany(new Document());
     triggerCollection.deleteMany(new Document());
-    calendarCollection.deleteMany(new Document());
+    calendarDao.clear();
     pausedJobGroupsCollection.deleteMany(new Document());
     pausedTriggerGroupsCollection.deleteMany(new Document());
   }
@@ -327,19 +328,12 @@ public class MongoDBJobStore implements JobStore, Constants {
       throw new UnsupportedOperationException("Updating triggers is not supported.");
     }
 
-    Document doc = new Document(CALENDAR_NAME, name)
-            .append(CALENDAR_SERIALIZED_OBJECT, SerialUtils.serialize(calendar));
-    calendarCollection.insertOne(doc);
+    calendarDao.store(name, calendar);
   }
 
   @Override
   public boolean removeCalendar(String calName) throws JobPersistenceException {
-    Bson searchObj = Filters.eq(CALENDAR_NAME, calName);
-    if (calendarCollection.count(searchObj) > 0) {
-      calendarCollection.deleteMany(searchObj);
-      return true;
-    }
-    return false;
+    return calendarDao.remove(calName);
   }
 
   @Override
@@ -360,7 +354,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
   @Override
   public int getNumberOfCalendars() throws JobPersistenceException {
-    return (int) calendarCollection.count();
+    return calendarDao.getCount();
   }
 
   public int getNumberOfLocks() {
@@ -794,7 +788,7 @@ public class MongoDBJobStore implements JobStore, Constants {
   }
 
   public MongoCollection<Document> getCalendarCollection() {
-    return calendarCollection;
+    return calendarDao.getCollection();
   }
 
   public MongoCollection<Document> getLocksCollection() {
@@ -859,7 +853,7 @@ public class MongoDBJobStore implements JobStore, Constants {
   private void initializeCollections(MongoDatabase db) {
     jobCollection = db.getCollection(collectionPrefix + "jobs");
     triggerCollection = db.getCollection(collectionPrefix + "triggers");
-    calendarCollection = db.getCollection(collectionPrefix + "calendars");
+    calendarDao = new CalendarDao(db.getCollection(collectionPrefix + "calendars"));
     locksCollection = db.getCollection(collectionPrefix + "locks");
 
     pausedTriggerGroupsCollection = db.getCollection(collectionPrefix + "paused_trigger_groups");
@@ -1102,7 +1096,7 @@ public class MongoDBJobStore implements JobStore, Constants {
       // remove all locks for this instance on startup
       locksCollection.deleteMany(Filters.eq(LOCK_INSTANCE_ID, instanceId));
 
-      calendarCollection.createIndex(Projections.include(CALENDAR_NAME), new IndexOptions().unique(true));
+      calendarDao.createIndex();
 
       try {
         // Drop the old indexes that were declared as name then group rather than group then name

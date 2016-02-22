@@ -19,8 +19,6 @@ public interface Constants {
   String TRIGGER_JOB_ID = "jobId";
   String TRIGGER_CLASS = "class";
   String TRIGGER_STATE = "state";
-  String CALENDAR_NAME = "name";
-  String CALENDAR_SERIALIZED_OBJECT = "serializedObject";
   String LOCK_INSTANCE_ID = "instanceId";
   String LOCK_TIME = "time";
 
