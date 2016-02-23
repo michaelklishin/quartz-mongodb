@@ -7,7 +7,6 @@ import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.result.DeleteResult;
 import com.novemberain.quartz.mongodb.GroupHelper;
 import com.novemberain.quartz.mongodb.Keys;
-import com.novemberain.quartz.mongodb.MongoDBJobStore;
 import com.novemberain.quartz.mongodb.QueryHelper;
 import org.bson.Document;
 import org.bson.conversions.Bson;
@@ -43,7 +42,7 @@ public class JobDao {
     }
 
     public void createIndex() {
-        jobCollection.createIndex(MongoDBJobStore.KEY_AND_GROUP_FIELDS, new IndexOptions().unique(true));
+        jobCollection.createIndex(Keys.KEY_AND_GROUP_FIELDS, new IndexOptions().unique(true));
     }
 
     public void dropIndex() {
@@ -73,7 +72,7 @@ public class JobDao {
     public Set<JobKey> getJobKeys(GroupMatcher<JobKey> matcher) {
         Set<JobKey> keys = new HashSet<JobKey>();
         Bson query = queryHelper.matchingKeysConditionFor(matcher);
-        for (Document doc : jobCollection.find(query).projection(MongoDBJobStore.KEY_AND_GROUP_FIELDS)) {
+        for (Document doc : jobCollection.find(query).projection(Keys.KEY_AND_GROUP_FIELDS)) {
             keys.add(Keys.toJobKey(doc));
         }
         return keys;

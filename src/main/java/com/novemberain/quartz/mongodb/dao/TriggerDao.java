@@ -8,7 +8,6 @@ import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.UpdateOptions;
 import com.novemberain.quartz.mongodb.Constants;
 import com.novemberain.quartz.mongodb.Keys;
-import com.novemberain.quartz.mongodb.MongoDBJobStore;
 import com.novemberain.quartz.mongodb.QueryHelper;
 import org.bson.Document;
 import org.bson.conversions.Bson;
@@ -39,7 +38,7 @@ public class TriggerDao {
     }
 
     public void createIndex() {
-        triggerCollection.createIndex(MongoDBJobStore.KEY_AND_GROUP_FIELDS,
+        triggerCollection.createIndex(Keys.KEY_AND_GROUP_FIELDS,
                 new IndexOptions().unique(true));
     }
 
@@ -91,7 +90,7 @@ public class TriggerDao {
     public Set<TriggerKey> getTriggerKeys(GroupMatcher<TriggerKey> matcher) {
         Set<TriggerKey> keys = new HashSet<TriggerKey>();
         Bson query = queryHelper.matchingKeysConditionFor(matcher);
-        for (Document doc : triggerCollection.find(query).projection(MongoDBJobStore.KEY_AND_GROUP_FIELDS)) {
+        for (Document doc : triggerCollection.find(query).projection(Keys.KEY_AND_GROUP_FIELDS)) {
             keys.add(Keys.toTriggerKey(doc));
         }
         return keys;

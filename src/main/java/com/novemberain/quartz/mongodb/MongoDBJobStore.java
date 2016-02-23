@@ -13,7 +13,6 @@ import com.mongodb.*;
 
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
-import com.mongodb.client.model.*;
 import com.novemberain.quartz.mongodb.dao.*;
 import org.bson.Document;
 import org.bson.conversions.Bson;
@@ -35,8 +34,6 @@ import static com.novemberain.quartz.mongodb.Keys.*;
 public class MongoDBJobStore implements JobStore, Constants {
   protected final Logger log = LoggerFactory.getLogger(getClass());
 
-  public static final Bson KEY_AND_GROUP_FIELDS = Projections.include(KEY_GROUP, KEY_NAME);
-
   @Deprecated
   private static MongoClient overriddenMongo;
 
@@ -54,10 +51,10 @@ public class MongoDBJobStore implements JobStore, Constants {
   private String authDbName;
   private CalendarDao calendarDao;
   private JobDao jobDao;
+  private LocksDao locksDao;
   private PausedJobGroupsDao pausedJobGroupsDao;
   private PausedTriggerGroupsDao pausedTriggerGroupsDao;
   private TriggerDao triggerDao;
-  private MongoCollection<Document> locksCollection;
   private ClassLoadHelper loadHelper;
   private String instanceId;
   private String[] addresses;
@@ -350,10 +347,6 @@ public class MongoDBJobStore implements JobStore, Constants {
     return calendarDao.getCount();
   }
 
-  public int getNumberOfLocks() {
-    return (int) locksCollection.count();
-  }
-
   @Override
   public Set<JobKey> getJobKeys(GroupMatcher<JobKey> matcher) throws JobPersistenceException {
     return jobDao.getJobKeys(matcher);
@@ -580,9 +573,8 @@ public class MongoDBJobStore implements JobStore, Constants {
         log.info("Inserting lock for trigger {}", trigger.getKey());
 
         Document lock = createTriggerDbLock(triggerDoc, instanceId);
-        // A lock needs to be written with FSYNCED to be 100% effective across multiple servers
-        locksCollection.withWriteConcern(WriteConcern.FSYNCED).insertOne(lock);
-        
+        locksDao.insertLock(lock);
+
         log.info("Acquired trigger {}", trigger.getKey());
         triggers.put(trigger.getKey(), trigger);
         
@@ -592,7 +584,7 @@ public class MongoDBJobStore implements JobStore, Constants {
                 trigger.getKey(), e.getError());
 
         Document filter = lockToBson(triggerDoc);
-        Document existingLock = locksCollection.find(filter).first();
+        Document existingLock = locksDao.findLock(filter);
         if (existingLock != null) {
           // support for trigger lock expirations
           if (isTriggerLockExpired(existingLock)) {
@@ -651,8 +643,7 @@ public class MongoDBJobStore implements JobStore, Constants {
             lock.put(KEY_GROUP, job.getKey().getGroup());
             lock.put(LOCK_INSTANCE_ID, instanceId);
             lock.put(LOCK_TIME, new Date());
-            // A lock needs to be written with FSYNCED to be 100% effective across multiple servers
-            locksCollection.withWriteConcern(WriteConcern.FSYNCED).insertOne(lock);
+            locksDao.insertLock(lock);
           }
           
           results.add(new TriggerFiredResult(bundle));
@@ -665,11 +656,11 @@ public class MongoDBJobStore implements JobStore, Constants {
           
           // Find the existing lock and if still present, and expired, then remove it.
           Bson lock = createLockFilter(job);
-          Document existingLock = locksCollection.find(lock).first();
+          Document existingLock = locksDao.findLock(lock);
           if (existingLock != null) {
             if (isJobLockExpired(existingLock)) {
               log.debug("Removing expired lock for job {}", job.getKey());
-              locksCollection.deleteMany(existingLock);
+              locksDao.remove(existingLock);
             }
           }
         }
@@ -695,7 +686,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     
     if (job.isConcurrentExectionDisallowed()) {
       log.debug("Removing lock for job {}", job.getKey());
-      locksCollection.deleteMany(createLockFilter(job));
+      locksDao.remove(createLockFilter(job));
     }
     
     // check for trigger deleted during execution...
@@ -730,15 +721,9 @@ public class MongoDBJobStore implements JobStore, Constants {
     removeTriggerLock(trigger);
   }
 
-    private Bson createLockFilter(JobDetail job) {
-        return Filters.and(
-                Filters.eq(KEY_NAME, "jobconcurrentlock:" + job.getKey().getName()),
-                Filters.eq(KEY_GROUP, job.getKey().getGroup()));
-    }
-
-    @Override
+  @Override
   public void setInstanceId(String instanceId) {
-    this.instanceId = instanceId;
+      this.instanceId = instanceId;
   }
 
   @Override
@@ -768,7 +753,7 @@ public class MongoDBJobStore implements JobStore, Constants {
   }
 
   public MongoCollection<Document> getLocksCollection() {
-    return locksCollection;
+    return locksDao.getCollection();
   }
 
   public String getDbName() {
@@ -830,7 +815,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     jobDao = new JobDao(db.getCollection(collectionPrefix + "jobs"), queryHelper);
     triggerDao = new TriggerDao(db.getCollection(collectionPrefix + "triggers"), queryHelper);
     calendarDao = new CalendarDao(db.getCollection(collectionPrefix + "calendars"));
-    locksCollection = db.getCollection(collectionPrefix + "locks");
+    locksDao = new LocksDao(db.getCollection(collectionPrefix + "locks"), instanceId);
 
     pausedJobGroupsDao = new PausedJobGroupsDao(db.getCollection(collectionPrefix + "paused_job_groups"));
     pausedTriggerGroupsDao = new PausedTriggerGroupsDao(db.getCollection(collectionPrefix + "paused_trigger_groups"));
@@ -1064,21 +1049,14 @@ public class MongoDBJobStore implements JobStore, Constants {
 
       jobDao.createIndex();
       triggerDao.createIndex();
-      locksCollection.createIndex(KEY_AND_GROUP_FIELDS, new IndexOptions().unique(true));
-
-      // Need this to stop table scan when removing all locks
-      locksCollection.createIndex(Projections.include(LOCK_INSTANCE_ID));
-      
-      // remove all locks for this instance on startup
-      locksCollection.deleteMany(Filters.eq(LOCK_INSTANCE_ID, instanceId));
-
+      locksDao.createIndex();
       calendarDao.createIndex();
 
       try {
         // Drop the old indexes that were declared as name then group rather than group then name
         jobDao.dropIndex();
         triggerDao.dropIndex();
-        locksCollection.dropIndex("keyName_1_keyGroup_1");
+        locksDao.dropIndex();
       } catch (MongoCommandException cfe) {
         // Ignore, the old indexes have already been removed
       }
@@ -1117,7 +1095,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     // Comment this out, as expired trigger locks should be deleted by any another instance
     // lock.put(LOCK_INSTANCE_ID, instanceId);
 
-    locksCollection.deleteMany(lock);
+    locksDao.remove(lock);
     log.info("Trigger lock {}.{} removed.", trigger.getKey(), instanceId);
   }
 

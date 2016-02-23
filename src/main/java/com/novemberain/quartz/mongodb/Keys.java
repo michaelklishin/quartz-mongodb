@@ -1,6 +1,7 @@
 package com.novemberain.quartz.mongodb;
 
 import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.Projections;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.bson.types.ObjectId;
@@ -16,6 +17,13 @@ public class Keys {
 
   public static final String KEY_NAME = "keyName";
   public static final String KEY_GROUP = "keyGroup";
+  public static final Bson KEY_AND_GROUP_FIELDS = Projections.include(KEY_GROUP, KEY_NAME);
+
+  public static Bson createLockFilter(JobDetail job) {
+    return Filters.and(
+            Filters.eq(KEY_NAME, "jobconcurrentlock:" + job.getKey().getName()),
+            Filters.eq(KEY_GROUP, job.getKey().getGroup()));
+  }
 
   public static Bson toFilter(Key<?> key) {
     return Filters.and(
