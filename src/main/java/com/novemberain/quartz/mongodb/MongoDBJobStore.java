@@ -48,6 +48,7 @@ public class MongoDBJobStore implements JobStore, Constants {
   }
 
   private MongoConnector mongoConnector;
+  private TriggerStateManager triggerStateManager;
 
   private MongoClient mongo;
   private String collectionPrefix = "quartz_";
@@ -124,6 +125,8 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     MongoDatabase db = mongoConnector.selectDatabase(dbName);
     initializeCollections(db);
+    triggerStateManager = new TriggerStateManager(triggerDao, jobDao,
+            pausedJobGroupsDao, pausedTriggerGroupsDao, queryHelper);
     ensureIndexes();
   }
 
@@ -208,7 +211,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
   @Override
   public JobDetail retrieveJob(JobKey jobKey) throws JobPersistenceException {
-    Document doc = findJobDocumentByKey(jobKey);
+    Document doc = jobDao.getJob(jobKey);
     if (doc == null) {
       //Return null if job does not exist, per interface
       return null;
@@ -392,7 +395,7 @@ public class MongoDBJobStore implements JobStore, Constants {
   @Override
   public List<OperableTrigger> getTriggersForJob(JobKey jobKey) throws JobPersistenceException {
     final List<OperableTrigger> triggers = new ArrayList<OperableTrigger>();
-    final Document doc = findJobDocumentByKey(jobKey);
+    final Document doc = jobDao.getJob(jobKey);
     if (doc  == null) {
       return triggers;
     }
@@ -411,93 +414,62 @@ public class MongoDBJobStore implements JobStore, Constants {
 
   @Override
   public void pauseTrigger(TriggerKey triggerKey) throws JobPersistenceException {
-    triggerDao.pause(triggerKey);
+    triggerStateManager.pause(triggerKey);
   }
 
   @Override
   public Collection<String> pauseTriggers(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
-    triggerDao.pauseMatching(matcher);
-
-    final GroupHelper groupHelper = new GroupHelper(triggerDao.getCollection(), queryHelper);
-    final Set<String> set = groupHelper.groupsThatMatch(matcher);
-    pausedTriggerGroupsDao.pauseGroups(set);
-
-    return set;
+    return triggerStateManager.pause(matcher);
   }
 
   @Override
   public void resumeTrigger(TriggerKey triggerKey) throws JobPersistenceException {
-    // TODO: port blocking behavior and misfired triggers handling from StdJDBCDelegate in Quartz
-    triggerDao.resume(triggerKey);
+    triggerStateManager.resume(triggerKey);
   }
 
   @Override
   public Collection<String> resumeTriggers(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
-    triggerDao.resumeMatching(matcher);
-
-    final GroupHelper groupHelper = new GroupHelper(triggerDao.getCollection(), queryHelper);
-    final Set<String> set = groupHelper.groupsThatMatch(matcher);
-    pausedTriggerGroupsDao.unpauseGroups(set);
-    return set;
+    return triggerStateManager.resume(matcher);
   }
 
   @Override
   public Set<String> getPausedTriggerGroups() throws JobPersistenceException {
-    return pausedTriggerGroupsDao.getPausedGroups();
+    return triggerStateManager.getPausedTriggerGroups();
   }
 
+  // only for tests
   public Set<String> getPausedJobGroups() throws JobPersistenceException {
     return pausedJobGroupsDao.getPausedGroups();
   }
 
   @Override
   public void pauseAll() throws JobPersistenceException {
-    final GroupHelper groupHelper = new GroupHelper(triggerDao.getCollection(), queryHelper);
-    triggerDao.pauseAll();
-    this.pausedTriggerGroupsDao.pauseGroups(groupHelper.allGroups());
+    triggerStateManager.pauseAll();
   }
 
   @Override
   public void resumeAll() throws JobPersistenceException {
-    final GroupHelper groupHelper = new GroupHelper(triggerDao.getCollection(), queryHelper);
-    triggerDao.resumeAll();
-    pausedTriggerGroupsDao.unpauseGroups(groupHelper.allGroups());
+    triggerStateManager.resumeAll();
   }
 
   @Override
   public void pauseJob(JobKey jobKey) throws JobPersistenceException {
-    final ObjectId jobId = findJobDocumentByKey(jobKey).getObjectId("_id");
-    final TriggerGroupHelper groupHelper = new TriggerGroupHelper(triggerDao.getCollection(), queryHelper);
-    List<String> groups = groupHelper.groupsForJobId(jobId);
-    triggerDao.pauseByJobId(jobId);
-    this.pausedTriggerGroupsDao.pauseGroups(groups);
+    triggerStateManager.pauseJob(jobKey);
   }
 
   @Override
   public Collection<String> pauseJobs(GroupMatcher<JobKey> groupMatcher) throws JobPersistenceException {
-    final TriggerGroupHelper groupHelper = new TriggerGroupHelper(triggerDao.getCollection(), queryHelper);
-    List<String> groups = groupHelper.groupsForJobIds(jobDao.idsOfMatching(groupMatcher));
-    triggerDao.pauseGroups(groups);
-    pausedJobGroupsDao.pauseGroups(groups);
-
-    return groups;
+    return triggerStateManager.pauseJobs(groupMatcher);
   }
 
   @Override
   public void resumeJob(JobKey jobKey) throws JobPersistenceException {
-    final ObjectId jobId = findJobDocumentByKey(jobKey).getObjectId("_id");
-    // TODO: port blocking behavior and misfired triggers handling from StdJDBCDelegate in Quartz
-    triggerDao.resumeByJobId(jobId);
+    triggerStateManager.resume(jobKey);
   }
 
   @Override
   public Collection<String> resumeJobs(GroupMatcher<JobKey> groupMatcher) throws JobPersistenceException {
-    final TriggerGroupHelper groupHelper = new TriggerGroupHelper(triggerDao.getCollection(), queryHelper);
-    List<String> groups = groupHelper.groupsForJobIds(jobDao.idsOfMatching(groupMatcher));
-    triggerDao.resumeGroups(groups);
-    pausedJobGroupsDao.unpauseGroups(groups);
-
-    return groups;
+    return triggerStateManager.resumeJobs(groupMatcher);
   }
 
   @Override
@@ -1035,10 +1007,6 @@ public class MongoDBJobStore implements JobStore, Constants {
       removeTriggerLock(trigger);
       throw e;
     }
-  }
-
-  protected Document findJobDocumentByKey(JobKey key) {
-    return jobDao.getJob(toFilter(key));
   }
 
   public void setMongoOptionMaxConnectionsPerHost(int maxConnectionsPerHost) {

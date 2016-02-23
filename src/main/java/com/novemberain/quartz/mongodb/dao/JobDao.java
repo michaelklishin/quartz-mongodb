@@ -61,6 +61,10 @@ public class JobDao {
         return jobCollection.find(keyObject).first();
     }
 
+    public Document getJob(JobKey key) {
+        return getJob(toFilter(key));
+    }
+
     public int getCount() {
         return (int) jobCollection.count();
     }
