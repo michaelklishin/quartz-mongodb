@@ -14,10 +14,7 @@ import com.mongodb.*;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.*;
-import com.novemberain.quartz.mongodb.dao.CalendarDao;
-import com.novemberain.quartz.mongodb.dao.JobDao;
-import com.novemberain.quartz.mongodb.dao.PausedJobGroupsDao;
-import com.novemberain.quartz.mongodb.dao.PausedTriggerGroupsDao;
+import com.novemberain.quartz.mongodb.dao.*;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.bson.types.ObjectId;
@@ -33,7 +30,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.*;
 
-import static com.mongodb.client.model.Sorts.ascending;
 import static com.novemberain.quartz.mongodb.Keys.*;
 
 public class MongoDBJobStore implements JobStore, Constants {
@@ -60,7 +56,7 @@ public class MongoDBJobStore implements JobStore, Constants {
   private JobDao jobDao;
   private PausedJobGroupsDao pausedJobGroupsDao;
   private PausedTriggerGroupsDao pausedTriggerGroupsDao;
-  private MongoCollection<Document> triggerCollection;
+  private TriggerDao triggerDao;
   private MongoCollection<Document> locksCollection;
   private ClassLoadHelper loadHelper;
   private String instanceId;
@@ -182,7 +178,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     Document item = jobDao.getJob(keyObject);
     if (item != null) {
       jobDao.remove(keyObject);
-      triggerCollection.deleteMany(Filters.eq(TRIGGER_JOB_ID, item.get("_id")));
+      triggerDao.removeByJobId(item.get("_id"));
       return true;
     }
     return false;
@@ -228,7 +224,7 @@ public class MongoDBJobStore implements JobStore, Constants {
   @Override
   public boolean removeTrigger(TriggerKey triggerKey) throws JobPersistenceException {
     Bson filter = Keys.toFilter(triggerKey);
-    Document trigger = triggerCollection.find(filter).first();
+    Document trigger = triggerDao.findTrigger(filter);
     if (trigger != null) {
       if (trigger.containsKey(TRIGGER_JOB_ID)) {
         // There is only 1 job per trigger so no need to look further.
@@ -236,11 +232,7 @@ public class MongoDBJobStore implements JobStore, Constants {
         // Remove the orphaned job if it's durable and has no other triggers associated with it,
         // remove it
         if (job != null && (!job.containsKey(JOB_DURABILITY) || job.get(JOB_DURABILITY).toString().equals("false"))) {
-          List<Document> referencedTriggers = triggerCollection
-                  .find(Filters.eq(TRIGGER_JOB_ID, job.get("_id")))
-                  .limit(2)
-                  .into(new ArrayList<Document>(2));
-          if (referencedTriggers.size() == 1) {
+          if (triggerDao.hasLastTrigger(job)) {
             jobDao.remove(job);
           }
         }
@@ -248,7 +240,7 @@ public class MongoDBJobStore implements JobStore, Constants {
         log.debug("The trigger had no associated jobs");
       }
       //TODO: check if can .deleteOne(filter) here
-      triggerCollection.deleteMany(filter);
+      triggerDao.remove(filter);
 
       return true;
     }
@@ -277,8 +269,8 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     // Can't call remove trigger as if the job is not durable, it will remove the job too
     Bson filter = Keys.toFilter(triggerKey);
-    if (triggerCollection.count(filter) > 0) {
-      triggerCollection.deleteMany(filter);
+    if (triggerDao.exists(filter)) {
+      triggerDao.remove(filter);
     }
     
     // Copy across the job data map from the old trigger to the new one.
@@ -295,7 +287,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
   @Override
   public OperableTrigger retrieveTrigger(TriggerKey triggerKey) throws JobPersistenceException {
-    Document doc = triggerCollection.find(Keys.toFilter(triggerKey)).first();
+    Document doc = triggerDao.findTrigger(Keys.toFilter(triggerKey));
     if (doc == null) {
       return null;
     }
@@ -309,13 +301,13 @@ public class MongoDBJobStore implements JobStore, Constants {
 
   @Override
   public boolean checkExists(TriggerKey triggerKey) throws JobPersistenceException {
-    return triggerCollection.count(Keys.toFilter(triggerKey)) > 0;
+    return triggerDao.exists(Keys.toFilter(triggerKey));
   }
 
   @Override
   public void clearAllSchedulingData() throws JobPersistenceException {
     jobDao.clear();
-    triggerCollection.deleteMany(new Document());
+    triggerDao.clear();
     calendarDao.clear();
     pausedJobGroupsDao.remove();
     pausedTriggerGroupsDao.remove();
@@ -350,7 +342,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
   @Override
   public int getNumberOfTriggers() throws JobPersistenceException {
-    return (int) triggerCollection.count();
+    return triggerDao.getCount();
   }
 
   @Override
@@ -369,12 +361,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
   @Override
   public Set<TriggerKey> getTriggerKeys(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
-    Set<TriggerKey> keys = new HashSet<TriggerKey>();
-    Bson query = queryHelper.matchingKeysConditionFor(matcher);
-    for (Document doc : triggerCollection.find(query).projection(KEY_AND_GROUP_FIELDS)) {
-        keys.add(Keys.toTriggerKey(doc));
-    }
-    return keys;
+    return triggerDao.getTriggerKeys(matcher);
   }
 
   @Override
@@ -384,7 +371,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
   @Override
   public List<String> getTriggerGroupNames() throws JobPersistenceException {
-    return triggerCollection.distinct(KEY_GROUP, String.class).into(new ArrayList<String>());
+    return triggerDao.getGroupNames();
   }
 
   @Override
@@ -400,7 +387,7 @@ public class MongoDBJobStore implements JobStore, Constants {
       return triggers;
     }
     
-    for (Document item : triggerCollection.find(Filters.eq(TRIGGER_JOB_ID, doc.get("_id")))) {
+    for (Document item : triggerDao.findByJobId(doc.get("_id"))) {
       triggers.add(toTrigger(item));
     }
 
@@ -409,23 +396,19 @@ public class MongoDBJobStore implements JobStore, Constants {
 
   @Override
   public TriggerState getTriggerState(TriggerKey triggerKey) throws JobPersistenceException {
-    Document doc = findTriggerDocumentByKey(triggerKey);
-    return triggerStateForValue(doc.getString(TRIGGER_STATE));
+    return triggerDao.getState(triggerKey);
   }
 
   @Override
   public void pauseTrigger(TriggerKey triggerKey) throws JobPersistenceException {
-    triggerCollection.updateOne(Keys.toFilter(triggerKey), updateThatSetsTriggerStateTo(STATE_PAUSED));
+    triggerDao.pause(triggerKey);
   }
 
   @Override
   public Collection<String> pauseTriggers(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
-    triggerCollection.updateMany(
-            queryHelper.matchingKeysConditionFor(matcher),
-            updateThatSetsTriggerStateTo(STATE_PAUSED),
-            new UpdateOptions().upsert(false));
+    triggerDao.pauseMatching(matcher);
 
-    final GroupHelper groupHelper = new GroupHelper(triggerCollection, queryHelper);
+    final GroupHelper groupHelper = new GroupHelper(triggerDao.getCollection(), queryHelper);
     final Set<String> set = groupHelper.groupsThatMatch(matcher);
     pausedTriggerGroupsDao.pauseGroups(set);
 
@@ -435,17 +418,14 @@ public class MongoDBJobStore implements JobStore, Constants {
   @Override
   public void resumeTrigger(TriggerKey triggerKey) throws JobPersistenceException {
     // TODO: port blocking behavior and misfired triggers handling from StdJDBCDelegate in Quartz
-    triggerCollection.updateOne(Keys.toFilter(triggerKey), updateThatSetsTriggerStateTo(STATE_WAITING));
+    triggerDao.resume(triggerKey);
   }
 
   @Override
   public Collection<String> resumeTriggers(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
-    triggerCollection.updateMany(
-            queryHelper.matchingKeysConditionFor(matcher),
-            updateThatSetsTriggerStateTo(STATE_WAITING),
-            new UpdateOptions().upsert(false));
+    triggerDao.resumeMatching(matcher);
 
-    final GroupHelper groupHelper = new GroupHelper(triggerCollection, queryHelper);
+    final GroupHelper groupHelper = new GroupHelper(triggerDao.getCollection(), queryHelper);
     final Set<String> set = groupHelper.groupsThatMatch(matcher);
     pausedTriggerGroupsDao.unpauseGroups(set);
     return set;
@@ -462,32 +442,32 @@ public class MongoDBJobStore implements JobStore, Constants {
 
   @Override
   public void pauseAll() throws JobPersistenceException {
-    final GroupHelper groupHelper = new GroupHelper(triggerCollection, queryHelper);
-    triggerCollection.updateMany(new Document(), updateThatSetsTriggerStateTo(STATE_PAUSED));
+    final GroupHelper groupHelper = new GroupHelper(triggerDao.getCollection(), queryHelper);
+    triggerDao.pauseAll();
     this.pausedTriggerGroupsDao.pauseGroups(groupHelper.allGroups());
   }
 
   @Override
   public void resumeAll() throws JobPersistenceException {
-    final GroupHelper groupHelper = new GroupHelper(triggerCollection, queryHelper);
-    triggerCollection.updateMany(new Document(), updateThatSetsTriggerStateTo(STATE_WAITING));
+    final GroupHelper groupHelper = new GroupHelper(triggerDao.getCollection(), queryHelper);
+    triggerDao.resumeAll();
     pausedTriggerGroupsDao.unpauseGroups(groupHelper.allGroups());
   }
 
   @Override
   public void pauseJob(JobKey jobKey) throws JobPersistenceException {
     final ObjectId jobId = findJobDocumentByKey(jobKey).getObjectId("_id");
-    final TriggerGroupHelper groupHelper = new TriggerGroupHelper(triggerCollection, queryHelper);
+    final TriggerGroupHelper groupHelper = new TriggerGroupHelper(triggerDao.getCollection(), queryHelper);
     List<String> groups = groupHelper.groupsForJobId(jobId);
-    triggerCollection.updateMany(new Document(TRIGGER_JOB_ID, jobId), updateThatSetsTriggerStateTo(STATE_PAUSED));
+    triggerDao.pauseByJobId(jobId);
     this.pausedTriggerGroupsDao.pauseGroups(groups);
   }
 
   @Override
   public Collection<String> pauseJobs(GroupMatcher<JobKey> groupMatcher) throws JobPersistenceException {
-    final TriggerGroupHelper groupHelper = new TriggerGroupHelper(triggerCollection, queryHelper);
+    final TriggerGroupHelper groupHelper = new TriggerGroupHelper(triggerDao.getCollection(), queryHelper);
     List<String> groups = groupHelper.groupsForJobIds(jobDao.idsOfMatching(groupMatcher));
-    triggerCollection.updateMany(queryHelper.inGroups(groups), updateThatSetsTriggerStateTo(STATE_PAUSED));
+    triggerDao.pauseGroups(groups);
     pausedJobGroupsDao.pauseGroups(groups);
 
     return groups;
@@ -497,14 +477,14 @@ public class MongoDBJobStore implements JobStore, Constants {
   public void resumeJob(JobKey jobKey) throws JobPersistenceException {
     final ObjectId jobId = findJobDocumentByKey(jobKey).getObjectId("_id");
     // TODO: port blocking behavior and misfired triggers handling from StdJDBCDelegate in Quartz
-    triggerCollection.updateMany(new Document(TRIGGER_JOB_ID, jobId), updateThatSetsTriggerStateTo(STATE_WAITING));
+    triggerDao.resumeByJobId(jobId);
   }
 
   @Override
   public Collection<String> resumeJobs(GroupMatcher<JobKey> groupMatcher) throws JobPersistenceException {
-    final TriggerGroupHelper groupHelper = new TriggerGroupHelper(triggerCollection, queryHelper);
+    final TriggerGroupHelper groupHelper = new TriggerGroupHelper(triggerDao.getCollection(), queryHelper);
     List<String> groups = groupHelper.groupsForJobIds(jobDao.idsOfMatching(groupMatcher));
-    triggerCollection.updateMany(queryHelper.inGroups(groups), updateThatSetsTriggerStateTo(STATE_WAITING));
+    triggerDao.resumeGroups(groups);
     pausedJobGroupsDao.unpauseGroups(groups);
 
     return groups;
@@ -545,9 +525,9 @@ public class MongoDBJobStore implements JobStore, Constants {
     QueryHelper queryHelper = new QueryHelper();
     Bson query = queryHelper.createNextTriggerQuery(noLaterThanDate);
 
-    log.info("Found {} triggers which are eligible to be run.", triggerCollection.count(query));
+    log.info("Found {} triggers which are eligible to be run.", triggerDao.getCount(query));
 
-    for (Document triggerDoc : triggerCollection.find(query).sort(ascending(TRIGGER_NEXT_FIRE_TIME))) {
+    for (Document triggerDoc : triggerDao.findEligibleToRun(query)) {
       if (maxCount <= triggers.size()) {
           break;
       }
@@ -780,7 +760,7 @@ public class MongoDBJobStore implements JobStore, Constants {
   }
 
   public MongoCollection<Document> getTriggerCollection() {
-    return triggerCollection;
+    return triggerDao.getCollection();
   }
 
   public MongoCollection<Document> getCalendarCollection() {
@@ -848,7 +828,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
   private void initializeCollections(MongoDatabase db) {
     jobDao = new JobDao(db.getCollection(collectionPrefix + "jobs"), queryHelper);
-    triggerCollection = db.getCollection(collectionPrefix + "triggers");
+    triggerDao = new TriggerDao(db.getCollection(collectionPrefix + "triggers"), queryHelper);
     calendarDao = new CalendarDao(db.getCollection(collectionPrefix + "calendars"));
     locksCollection = db.getCollection(collectionPrefix + "locks");
 
@@ -1083,7 +1063,7 @@ public class MongoDBJobStore implements JobStore, Constants {
        */
 
       jobDao.createIndex();
-      triggerCollection.createIndex(KEY_AND_GROUP_FIELDS, new IndexOptions().unique(true));
+      triggerDao.createIndex();
       locksCollection.createIndex(KEY_AND_GROUP_FIELDS, new IndexOptions().unique(true));
 
       // Need this to stop table scan when removing all locks
@@ -1097,7 +1077,7 @@ public class MongoDBJobStore implements JobStore, Constants {
       try {
         // Drop the old indexes that were declared as name then group rather than group then name
         jobDao.dropIndex();
-        triggerCollection.dropIndex("keyName_1_keyGroup_1");
+        triggerDao.dropIndex();
         locksCollection.dropIndex("keyName_1_keyGroup_1");
       } catch (MongoCommandException cfe) {
         // Ignore, the old indexes have already been removed
@@ -1124,13 +1104,9 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     if (replaceExisting) {
       trigger.remove("_id");
-      triggerCollection.replaceOne(toFilter(newTrigger.getKey()), trigger);
+      triggerDao.replace(newTrigger.getKey(), trigger);
     } else {
-      try {
-        triggerCollection.insertOne(trigger);
-      } catch (MongoWriteException key) {
-        throw new ObjectAlreadyExistsException(newTrigger);
-      }
+      triggerDao.insert(trigger, newTrigger);
     }
   }
 
@@ -1162,10 +1138,6 @@ public class MongoDBJobStore implements JobStore, Constants {
     return jobDao.getJob(toFilter(key));
   }
 
-  protected Document findTriggerDocumentByKey(TriggerKey key) {
-    return triggerCollection.find(toFilter(key)).first();
-  }
-
   private void initializeHelpers() {
     this.persistenceHelpers = new ArrayList<TriggerPersistenceHelper>();
 
@@ -1175,43 +1147,6 @@ public class MongoDBJobStore implements JobStore, Constants {
     persistenceHelpers.add(new DailyTimeIntervalTriggerPersistenceHelper());
 
     this.queryHelper = new QueryHelper();
-  }
-
-  private TriggerState triggerStateForValue(String ts) {
-    if (ts == null) {
-      return TriggerState.NONE;
-    }
-
-    if (ts.equals(STATE_DELETED)) {
-      return TriggerState.NONE;
-    }
-
-    if (ts.equals(STATE_COMPLETE)) {
-      return TriggerState.COMPLETE;
-    }
-
-    if (ts.equals(STATE_PAUSED)) {
-      return TriggerState.PAUSED;
-    }
-
-    if (ts.equals(STATE_PAUSED_BLOCKED)) {
-      return TriggerState.PAUSED;
-    }
-
-    if (ts.equals(STATE_ERROR)) {
-      return TriggerState.ERROR;
-    }
-
-    if (ts.equals(STATE_BLOCKED)) {
-      return TriggerState.BLOCKED;
-    }
-
-    // waiting or acquired
-    return TriggerState.NORMAL;
-  }
-
-  private Bson updateThatSetsTriggerStateTo(String state) {
-    return new Document("$set", new Document(TRIGGER_STATE, state));
   }
 
 
