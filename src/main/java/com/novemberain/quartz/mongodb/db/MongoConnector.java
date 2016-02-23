@@ -18,6 +18,10 @@ public class MongoConnector {
         // use the builder
     }
 
+    public void shutdown() {
+        mongo.close();
+    }
+
     public MongoDatabase selectDatabase(String dbName) {
         // MongoDB defaults are insane, set a reasonable write concern explicitly. MK.
         // But we would be insane not to override this when writing lock records. LB.

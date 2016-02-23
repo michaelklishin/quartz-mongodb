@@ -47,6 +47,8 @@ public class MongoDBJobStore implements JobStore, Constants {
     overriddenMongo = mongo;
   }
 
+  private MongoConnector mongoConnector;
+
   private MongoClient mongo;
   private String collectionPrefix = "quartz_";
   private String dbName;
@@ -104,8 +106,8 @@ public class MongoDBJobStore implements JobStore, Constants {
     this.loadHelper = loadHelper;
     this.signaler = signaler;
 
-    MongoConnector mongoConnector = MongoConnector.builder()
-            .withClient(this.mongo)
+    mongoConnector = MongoConnector.builder()
+            .withClient(mongo)
             .withOverriddenMongo(overriddenMongo)
             .withUri(mongoUri)
             .withCredentials(username, password)
@@ -141,7 +143,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
   @Override
   public void shutdown() {
-    mongo.close();
+    mongoConnector.shutdown();
   }
 
   @Override
