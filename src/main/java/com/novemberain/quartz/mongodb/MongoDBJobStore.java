@@ -14,6 +14,7 @@ import com.mongodb.*;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.novemberain.quartz.mongodb.dao.*;
+import com.novemberain.quartz.mongodb.db.MongoConnector;
 import com.novemberain.quartz.mongodb.util.*;
 import org.bson.Document;
 import org.bson.conversions.Bson;
@@ -46,6 +47,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     overriddenMongo = mongo;
   }
 
+  private MongoConnector mongoConnector;
   private MongoClient mongo;
   private String collectionPrefix = "quartz_";
   private String dbName;
@@ -93,20 +95,30 @@ public class MongoDBJobStore implements JobStore, Constants {
   }
 
   @Override
-  public void initialize(ClassLoadHelper loadHelper, SchedulerSignaler signaler) throws SchedulerConfigException {
-    this.loadHelper = loadHelper;
-    this.signaler = signaler;
-    if (this.mongo == null) {
-      initializeMongo();
-    } else {
-      if (mongoUri != null  || username != null || password != null || addresses != null){
-        throw new SchedulerConfigException("Configure either a Mongo instance or MongoDB connection parameters.");
-      }
-    }
-
+  public void initialize(ClassLoadHelper loadHelper, SchedulerSignaler signaler)
+          throws SchedulerConfigException {
     initializeHelpers();
 
-    MongoDatabase db = selectDatabase(this.mongo);
+    this.loadHelper = loadHelper;
+    this.signaler = signaler;
+
+    mongoConnector = MongoConnector.builder()
+            .withClient(this.mongo)
+            .withOverriddenMongo(overriddenMongo)
+            .withUri(mongoUri)
+            .withCredentials(username, password)
+            .withAddresses(addresses)
+            .withDatabaseName(dbName)
+            .withAuthDatabaseName(authDbName)
+            .withMaxConnectionsPerHost(mongoOptionMaxConnectionsPerHost)
+            .withConnectTimeoutMillis(mongoOptionConnectTimeoutMillis)
+            .withSocketTimeoutMillis(mongoOptionSocketTimeoutMillis)
+            .withSocketKeepAlive(mongoOptionSocketKeepAlive)
+            .withThreadsAllowedToBlockForConnectionMultiplier(mongoOptionThreadsAllowedToBlockForConnectionMultiplier)
+            .withSSL(mongoOptionEnableSSL, mongoOptionSslInvalidHostNameAllowed)
+            .build();
+
+    MongoDatabase db = mongoConnector.selectDatabase(dbName);
     initializeCollections(db);
     ensureIndexes();
   }
@@ -801,17 +813,6 @@ public class MongoDBJobStore implements JobStore, Constants {
   // Implementation
   //
 
-  private void initializeMongo() throws SchedulerConfigException {
-    if (overriddenMongo != null) {
-      this.mongo = overriddenMongo;
-    } else {
-      this.mongo = connectToMongoDB();
-    }
-    if (this.mongo == null) {
-      throw new SchedulerConfigException("Could not connect to MongoDB! Please check that quartz-mongodb configuration is correct.");
-    }
-  }
-
   private void initializeCollections(MongoDatabase db) {
     jobDao = new JobDao(db.getCollection(collectionPrefix + "jobs"), queryHelper);
     triggerDao = new TriggerDao(db.getCollection(collectionPrefix + "triggers"), queryHelper);
@@ -820,87 +821,6 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     pausedJobGroupsDao = new PausedJobGroupsDao(db.getCollection(collectionPrefix + "paused_job_groups"));
     pausedTriggerGroupsDao = new PausedTriggerGroupsDao(db.getCollection(collectionPrefix + "paused_trigger_groups"));
-  }
-
-  private MongoDatabase selectDatabase(MongoClient mongo) {
-    // MongoDB defaults are insane, set a reasonable write concern explicitly. MK.
-    // But we would be insane not to override this when writing lock records. LB.
-    mongo.setWriteConcern(WriteConcern.JOURNALED);
-    return mongo.getDatabase(dbName);
-  }
-
-  private MongoClient connectToMongoDB() throws SchedulerConfigException {
-    if (mongoUri == null && (addresses == null || addresses.length == 0)) {
-      throw new SchedulerConfigException("At least one MongoDB address or a MongoDB URI must be specified .");
-    }
-
-    if(mongoUri != null) {
-      return connectToMongoDB(mongoUri);
-    }
-
-    return createClient();
-  }
-
-  private MongoClient createClient() throws SchedulerConfigException {
-    MongoClientOptions options = createOptions();
-    List<MongoCredential> credentials = createCredentials();
-    List<ServerAddress> serverAddresses = collectServerAddresses();
-    try {
-      return new MongoClient(serverAddresses, credentials, options);
-    } catch (MongoException e) {
-      throw new SchedulerConfigException("Could not connect to MongoDB", e);
-    }
-  }
-
-  private List<ServerAddress> collectServerAddresses() {
-    List<ServerAddress> serverAddresses = new ArrayList<ServerAddress>();
-    for (String a : addresses) {
-      serverAddresses.add(new ServerAddress(a));
-    }
-    return serverAddresses;
-  }
-
-  private MongoClientOptions createOptions() {
-    MongoClientOptions.Builder optionsBuilder = MongoClientOptions.builder();
-    optionsBuilder.writeConcern(WriteConcern.SAFE);
-
-    if (mongoOptionMaxConnectionsPerHost != null) optionsBuilder.connectionsPerHost(mongoOptionMaxConnectionsPerHost);
-    if (mongoOptionConnectTimeoutMillis != null) optionsBuilder.connectTimeout(mongoOptionConnectTimeoutMillis);
-    if (mongoOptionSocketTimeoutMillis != null) optionsBuilder.socketTimeout(mongoOptionSocketTimeoutMillis);
-    if (mongoOptionSocketKeepAlive != null) optionsBuilder.socketKeepAlive(mongoOptionSocketKeepAlive);
-    if (mongoOptionThreadsAllowedToBlockForConnectionMultiplier != null) {
-      optionsBuilder.threadsAllowedToBlockForConnectionMultiplier(mongoOptionThreadsAllowedToBlockForConnectionMultiplier);
-    }
-    if (mongoOptionEnableSSL != null) {
-      optionsBuilder.sslEnabled(mongoOptionEnableSSL);
-      if (mongoOptionSslInvalidHostNameAllowed != null) {
-        optionsBuilder.sslInvalidHostNameAllowed(mongoOptionSslInvalidHostNameAllowed);
-      }
-    }
-
-    return optionsBuilder.build();
-  }
-
-  private List<MongoCredential> createCredentials() {
-    List<MongoCredential> credentials = new ArrayList<MongoCredential>(1);
-    if (username != null) {
-      if (authDbName != null) {
-        // authenticating to db which gives access to all other dbs (role - readWriteAnyDatabase)
-        // by default in mongo it should be "admin"
-        credentials.add(MongoCredential.createCredential(username, authDbName, password.toCharArray()));
-      } else {
-        credentials.add(MongoCredential.createCredential(username, dbName, password.toCharArray()));
-      }
-    }
-    return credentials;
-  }
-
-  private MongoClient connectToMongoDB(final String mongoUriAsString) throws SchedulerConfigException {
-    try {
-      return new MongoClient(new MongoClientURI(mongoUriAsString));
-   } catch (final MongoException e) {
-      throw new SchedulerConfigException("MongoDB driver thrown an exception", e);
-    }
   }
 
   protected OperableTrigger toTrigger(Document doc) throws JobPersistenceException {
