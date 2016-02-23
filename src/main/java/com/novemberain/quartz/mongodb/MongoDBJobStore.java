@@ -14,6 +14,7 @@ import com.mongodb.*;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.novemberain.quartz.mongodb.dao.*;
+import com.novemberain.quartz.mongodb.util.*;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.bson.types.ObjectId;
@@ -29,7 +30,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.*;
 
-import static com.novemberain.quartz.mongodb.Keys.*;
+import static com.novemberain.quartz.mongodb.util.Keys.*;
 
 public class MongoDBJobStore implements JobStore, Constants {
   protected final Logger log = LoggerFactory.getLogger(getClass());

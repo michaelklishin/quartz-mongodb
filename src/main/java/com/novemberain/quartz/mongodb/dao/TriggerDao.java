@@ -7,8 +7,8 @@ import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.UpdateOptions;
 import com.novemberain.quartz.mongodb.Constants;
-import com.novemberain.quartz.mongodb.Keys;
-import com.novemberain.quartz.mongodb.QueryHelper;
+import com.novemberain.quartz.mongodb.util.Keys;
+import com.novemberain.quartz.mongodb.util.QueryHelper;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.bson.types.ObjectId;
@@ -24,8 +24,8 @@ import java.util.List;
 import java.util.Set;
 
 import static com.mongodb.client.model.Sorts.ascending;
-import static com.novemberain.quartz.mongodb.Keys.KEY_GROUP;
-import static com.novemberain.quartz.mongodb.Keys.toFilter;
+import static com.novemberain.quartz.mongodb.util.Keys.KEY_GROUP;
+import static com.novemberain.quartz.mongodb.util.Keys.toFilter;
 
 public class TriggerDao {
 

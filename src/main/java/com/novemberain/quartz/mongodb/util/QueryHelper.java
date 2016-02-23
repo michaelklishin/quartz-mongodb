@@ -1,6 +1,7 @@
-package com.novemberain.quartz.mongodb;
+package com.novemberain.quartz.mongodb.util;
 
 import com.mongodb.client.model.Filters;
+import com.novemberain.quartz.mongodb.Constants;
 import org.bson.BsonDocument;
 import org.bson.conversions.Bson;
 import org.quartz.impl.matchers.GroupMatcher;
@@ -8,7 +9,7 @@ import org.quartz.impl.matchers.GroupMatcher;
 import java.util.Collection;
 import java.util.Date;
 
-import static com.novemberain.quartz.mongodb.Keys.KEY_GROUP;
+import static com.novemberain.quartz.mongodb.util.Keys.KEY_GROUP;
 
 public class QueryHelper {
 

@@ -9,7 +9,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 
-import static com.novemberain.quartz.mongodb.Keys.KEY_GROUP;
+import static com.novemberain.quartz.mongodb.util.Keys.KEY_GROUP;
 
 public class PausedTriggerGroupsDao {
 

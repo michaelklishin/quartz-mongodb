@@ -1,5 +1,6 @@
-package com.novemberain.quartz.mongodb;
+package com.novemberain.quartz.mongodb.util;
 
+import com.novemberain.quartz.mongodb.TriggerPersistenceHelper;
 import org.bson.Document;
 import org.quartz.DailyTimeIntervalTrigger;
 import org.quartz.TimeOfDay;

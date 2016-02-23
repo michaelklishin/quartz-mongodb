@@ -1,4 +1,4 @@
-package com.novemberain.quartz.mongodb;
+package com.novemberain.quartz.mongodb.util;
 
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
@@ -11,7 +11,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
-import static com.novemberain.quartz.mongodb.Keys.KEY_GROUP;
+import static com.novemberain.quartz.mongodb.util.Keys.KEY_GROUP;
 
 public class GroupHelper {
   protected MongoCollection<Document> collection;

@@ -1,12 +1,13 @@
 package com.novemberain.quartz.mongodb;
 
+import com.novemberain.quartz.mongodb.util.SerialUtils;
 import org.bson.Document;
 import org.quartz.*;
 
 import java.io.IOException;
 
-import static com.novemberain.quartz.mongodb.Keys.KEY_GROUP;
-import static com.novemberain.quartz.mongodb.Keys.KEY_NAME;
+import static com.novemberain.quartz.mongodb.util.Keys.KEY_GROUP;
+import static com.novemberain.quartz.mongodb.util.Keys.KEY_NAME;
 
 public class JobLoader {
 

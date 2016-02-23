@@ -1,7 +1,8 @@
-package com.novemberain.quartz.mongodb;
+package com.novemberain.quartz.mongodb.util;
 
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.Projections;
+import com.novemberain.quartz.mongodb.Constants;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.bson.types.ObjectId;
