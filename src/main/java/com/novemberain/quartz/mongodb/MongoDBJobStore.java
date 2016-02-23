@@ -47,7 +47,6 @@ public class MongoDBJobStore implements JobStore, Constants {
     overriddenMongo = mongo;
   }
 
-  private MongoConnector mongoConnector;
   private MongoClient mongo;
   private String collectionPrefix = "quartz_";
   private String dbName;
@@ -78,8 +77,13 @@ public class MongoDBJobStore implements JobStore, Constants {
   private Boolean mongoOptionEnableSSL;
   private Boolean mongoOptionSslInvalidHostNameAllowed;
 
-  private List<TriggerPersistenceHelper> persistenceHelpers;
-  private QueryHelper queryHelper;
+  private List<TriggerPersistenceHelper> persistenceHelpers = Arrays.asList(
+          new SimpleTriggerPersistenceHelper(),
+          new CalendarIntervalTriggerPersistenceHelper(),
+          new CronTriggerPersistenceHelper(),
+          new DailyTimeIntervalTriggerPersistenceHelper());
+
+  private QueryHelper queryHelper = new QueryHelper();
 
   public MongoDBJobStore(){
   }
@@ -97,12 +101,10 @@ public class MongoDBJobStore implements JobStore, Constants {
   @Override
   public void initialize(ClassLoadHelper loadHelper, SchedulerSignaler signaler)
           throws SchedulerConfigException {
-    initializeHelpers();
-
     this.loadHelper = loadHelper;
     this.signaler = signaler;
 
-    mongoConnector = MongoConnector.builder()
+    MongoConnector mongoConnector = MongoConnector.builder()
             .withClient(this.mongo)
             .withOverriddenMongo(overriddenMongo)
             .withUri(mongoUri)
@@ -1036,18 +1038,6 @@ public class MongoDBJobStore implements JobStore, Constants {
   protected Document findJobDocumentByKey(JobKey key) {
     return jobDao.getJob(toFilter(key));
   }
-
-  private void initializeHelpers() {
-    this.persistenceHelpers = new ArrayList<TriggerPersistenceHelper>();
-
-    persistenceHelpers.add(new SimpleTriggerPersistenceHelper());
-    persistenceHelpers.add(new CalendarIntervalTriggerPersistenceHelper());
-    persistenceHelpers.add(new CronTriggerPersistenceHelper());
-    persistenceHelpers.add(new DailyTimeIntervalTriggerPersistenceHelper());
-
-    this.queryHelper = new QueryHelper();
-  }
-
 
   public void setMongoOptionMaxConnectionsPerHost(int maxConnectionsPerHost) {
     this.mongoOptionMaxConnectionsPerHost = maxConnectionsPerHost;
