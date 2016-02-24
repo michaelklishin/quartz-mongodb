@@ -442,7 +442,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     public void triggeredJobComplete(OperableTrigger trigger, JobDetail job,
                                      CompletedExecutionInstruction triggerInstCode)
             throws JobPersistenceException {
-        triggerRunner.triggeredComplete(trigger, job, triggerInstCode);
+        triggerRunner.triggeredJobComplete(trigger, job, triggerInstCode);
     }
 
     @Override

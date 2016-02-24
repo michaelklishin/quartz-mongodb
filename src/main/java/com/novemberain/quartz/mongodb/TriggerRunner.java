@@ -240,8 +240,8 @@ public class TriggerRunner {
         return results;
     }
 
-    public void triggeredComplete(OperableTrigger trigger, JobDetail job,
-                                  CompletedExecutionInstruction triggerInstCode)
+    public void triggeredJobComplete(OperableTrigger trigger, JobDetail job,
+                                     CompletedExecutionInstruction triggerInstCode)
             throws JobPersistenceException {
         log.debug("Trigger completed {}", trigger.getKey());
 
