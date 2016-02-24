@@ -17,6 +17,8 @@ import org.quartz.Trigger.TriggerState;
 import org.quartz.TriggerKey;
 import org.quartz.impl.matchers.GroupMatcher;
 import org.quartz.spi.OperableTrigger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -28,6 +30,8 @@ import static com.novemberain.quartz.mongodb.util.Keys.KEY_GROUP;
 import static com.novemberain.quartz.mongodb.util.Keys.toFilter;
 
 public class TriggerDao {
+
+    private static final Logger log = LoggerFactory.getLogger(TriggerDao.class);
 
     private MongoCollection<Document> triggerCollection;
     private QueryHelper queryHelper;
@@ -59,6 +63,9 @@ public class TriggerDao {
     }
 
     public FindIterable<Document> findEligibleToRun(Bson query) {
+        if (log.isInfoEnabled()) {
+            log.info("Found {} triggers which are eligible to be run.", getCount(query));
+        }
         return triggerCollection.find(query).sort(ascending(Constants.TRIGGER_NEXT_FIRE_TIME));
     }
 
@@ -72,10 +79,6 @@ public class TriggerDao {
 
     public int getCount() {
         return (int) triggerCollection.count();
-    }
-
-    public long getCount(Bson query) {
-        return triggerCollection.count(query);
     }
 
     public List<String> getGroupNames() {
@@ -176,6 +179,10 @@ public class TriggerDao {
                 queryHelper.matchingKeysConditionFor(matcher),
                 updateThatSetsTriggerStateTo(Constants.STATE_WAITING),
                 new UpdateOptions().upsert(false));
+    }
+
+    private long getCount(Bson query) {
+        return triggerCollection.count(query);
     }
 
     private TriggerState triggerStateForValue(String ts) {

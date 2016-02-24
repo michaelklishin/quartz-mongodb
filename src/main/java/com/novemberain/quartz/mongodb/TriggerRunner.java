@@ -96,8 +96,6 @@ public class TriggerRunner {
         QueryHelper queryHelper = new QueryHelper();
         Bson query = queryHelper.createNextTriggerQuery(noLaterThanDate);
 
-        log.info("Found {} triggers which are eligible to be run.", triggerDao.getCount(query));
-
         for (Document triggerDoc : triggerDao.findEligibleToRun(query)) {
             if (maxCount <= triggers.size()) {
                 break;
