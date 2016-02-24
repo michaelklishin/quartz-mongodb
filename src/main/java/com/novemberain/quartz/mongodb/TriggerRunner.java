@@ -42,29 +42,24 @@ public class TriggerRunner {
             new CronTriggerPersistenceHelper(),
             new DailyTimeIntervalTriggerPersistenceHelper());
 
+    private TriggerTimeCalculator timeCalculator;
     private TriggerDao triggerDao;
     private JobDao jobDao;
     private LocksDao locksDao;
     private CalendarDao calendarDao;
     private SchedulerSignaler signaler;
-    private long triggerTimeoutMillis;
-    private long misfireThreshold;
-    private long jobTimeoutMillis;
     private String instanceId;
 
     public TriggerRunner(TriggerDao triggerDao, JobDao jobDao, LocksDao locksDao,
                          CalendarDao calendarDao, SchedulerSignaler signaler,
-                         long triggerTimeoutMillis, long misfireThreshold, long jobTimeoutMillis,
-                         String instanceId) {
+                         String instanceId, TriggerTimeCalculator timeCalculator) {
         this.triggerDao = triggerDao;
         this.jobDao = jobDao;
         this.locksDao = locksDao;
         this.calendarDao = calendarDao;
         this.signaler = signaler;
-        this.triggerTimeoutMillis = triggerTimeoutMillis;
-        this.misfireThreshold = misfireThreshold;
-        this.jobTimeoutMillis = jobTimeoutMillis;
         this.instanceId = instanceId;
+        this.timeCalculator = timeCalculator;
     }
 
     public List<OperableTrigger> acquireNext(long noLaterThan, int maxCount, long timeWindow)
@@ -160,7 +155,7 @@ public class TriggerRunner {
                 Document existingLock = locksDao.findLock(filter);
                 if (existingLock != null) {
                     // support for trigger lock expirations
-                    if (isTriggerLockExpired(existingLock)) {
+                    if (timeCalculator.isTriggerLockExpired(existingLock)) {
                         log.warn("Lock for trigger {} is expired - removing lock and retrying trigger acquisition",
                                 trigger.getKey());
                         removeTriggerLock(trigger);
@@ -175,13 +170,8 @@ public class TriggerRunner {
     }
 
     private boolean applyMisfire(OperableTrigger trigger) throws JobPersistenceException {
-        long misfireTime = System.currentTimeMillis();
-        if (misfireThreshold > 0) {
-            misfireTime -= misfireThreshold;
-        }
-
-        Date tnft = trigger.getNextFireTime();
-        if (tnft == null || tnft.getTime() > misfireTime
+        Date fireTime = trigger.getNextFireTime();
+        if (fireTime == null || timeCalculator.isNotMisfired(fireTime)
                 || trigger.getMisfireInstruction() == Trigger.MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY) {
             return false;
         }
@@ -197,18 +187,12 @@ public class TriggerRunner {
 
         if (trigger.getNextFireTime() == null) {
             signaler.notifySchedulerListenersFinalized(trigger);
-        } else if (tnft.equals(trigger.getNextFireTime())) {
+        } else if (fireTime.equals(trigger.getNextFireTime())) {
             return false;
         }
 
         storeTrigger(trigger, true);
         return true;
-    }
-
-    private boolean isTriggerLockExpired(Document lock) {
-        Date lockTime = lock.getDate(Constants.LOCK_TIME);
-        long elaspedTime = System.currentTimeMillis() - lockTime.getTime();
-        return (elaspedTime > triggerTimeoutMillis);
     }
 
     public void releaseAcquired(OperableTrigger trigger) throws JobPersistenceException {
@@ -264,7 +248,7 @@ public class TriggerRunner {
                     Bson lock = createLockFilter(job);
                     Document existingLock = locksDao.findLock(lock);
                     if (existingLock != null) {
-                        if (isJobLockExpired(existingLock)) {
+                        if (timeCalculator.isJobLockExpired(existingLock)) {
                             log.debug("Removing expired lock for job {}", job.getKey());
                             locksDao.remove(existingLock);
                         }
@@ -426,12 +410,6 @@ public class TriggerRunner {
         } else {
             throw new JobPersistenceException("Could not find job with key " + newTrigger.getJobKey());
         }
-    }
-
-    private boolean isJobLockExpired(Document lock) {
-        Date lockTime = lock.getDate(Constants.LOCK_TIME);
-        long elaspedTime = System.currentTimeMillis() - lockTime.getTime();
-        return (elaspedTime > jobTimeoutMillis);
     }
 
     private void removeTriggerLock(OperableTrigger trigger) {
