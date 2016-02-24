@@ -48,6 +48,11 @@ public class CalendarDao {
         return false;
     }
 
+    public Calendar retrieveCalendar(String calName) {
+        // TODO
+        throw new UnsupportedOperationException();
+    }
+
     public void store(String name, Calendar calendar) throws JobPersistenceException {
         Document doc = new Document(CALENDAR_NAME, name)
                 .append(CALENDAR_SERIALIZED_OBJECT, SerialUtils.serialize(calendar));

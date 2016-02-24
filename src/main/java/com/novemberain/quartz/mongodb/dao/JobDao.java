@@ -5,6 +5,7 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.result.DeleteResult;
+import com.novemberain.quartz.mongodb.JobLoader;
 import com.novemberain.quartz.mongodb.util.GroupHelper;
 import com.novemberain.quartz.mongodb.util.Keys;
 import com.novemberain.quartz.mongodb.util.QueryHelper;
@@ -13,8 +14,10 @@ import org.bson.conversions.Bson;
 import org.bson.types.ObjectId;
 import org.quartz.JobDetail;
 import org.quartz.JobKey;
+import org.quartz.JobPersistenceException;
 import org.quartz.ObjectAlreadyExistsException;
 import org.quartz.impl.matchers.GroupMatcher;
+import org.quartz.spi.ClassLoadHelper;
 
 import java.util.*;
 
@@ -24,11 +27,14 @@ import static com.novemberain.quartz.mongodb.util.Keys.toFilter;
 public class JobDao {
 
     private final MongoCollection<Document> jobCollection;
+    private final ClassLoadHelper loadHelper;
     private final QueryHelper queryHelper;
     private final GroupHelper groupHelper;
 
-    public JobDao(MongoCollection<Document> jobCollection, QueryHelper queryHelper) {
+    public JobDao(MongoCollection<Document> jobCollection, ClassLoadHelper loadHelper,
+                  QueryHelper queryHelper) {
         this.jobCollection = jobCollection;
+        this.loadHelper = loadHelper;
         this.queryHelper = queryHelper;
         this.groupHelper = new GroupHelper(jobCollection, queryHelper);
     }
@@ -92,6 +98,17 @@ public class JobDao {
 
     public void remove(Bson keyObject) {
         jobCollection.deleteMany(keyObject);
+    }
+
+    public JobDetail retrieveJob(JobKey jobKey) throws JobPersistenceException {
+        Document doc = getJob(jobKey);
+        if (doc == null) {
+            //Return null if job does not exist, per interface
+            return null;
+        }
+
+        JobLoader jobLoader = new JobLoader(loadHelper.getClassLoader());
+        return jobLoader.loadJobDetail(doc);
     }
 
     public ObjectId storeJobInMongo(JobDetail newJob, boolean replaceExisting) throws ObjectAlreadyExistsException {
