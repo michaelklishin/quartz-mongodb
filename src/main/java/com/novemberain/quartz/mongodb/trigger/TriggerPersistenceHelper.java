@@ -1,4 +1,4 @@
-package com.novemberain.quartz.mongodb;
+package com.novemberain.quartz.mongodb.trigger;
 
 import org.bson.Document;
 import org.quartz.spi.OperableTrigger;

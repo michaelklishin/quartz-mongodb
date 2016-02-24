@@ -1,6 +1,6 @@
-package com.novemberain.quartz.mongodb.util;
+package com.novemberain.quartz.mongodb.trigger;
 
-import com.novemberain.quartz.mongodb.TriggerPersistenceHelper;
+import com.novemberain.quartz.mongodb.trigger.TriggerPersistenceHelper;
 import org.bson.Document;
 import org.quartz.CronExpression;
 import org.quartz.CronTrigger;

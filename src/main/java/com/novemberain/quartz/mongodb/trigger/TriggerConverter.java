@@ -1,7 +1,6 @@
 package com.novemberain.quartz.mongodb.trigger;
 
 import com.novemberain.quartz.mongodb.Constants;
-import com.novemberain.quartz.mongodb.TriggerPersistenceHelper;
 import com.novemberain.quartz.mongodb.dao.JobDao;
 import com.novemberain.quartz.mongodb.util.*;
 import org.bson.Document;
@@ -20,9 +19,19 @@ import java.util.List;
 
 import static com.novemberain.quartz.mongodb.util.Keys.KEY_GROUP;
 import static com.novemberain.quartz.mongodb.util.Keys.KEY_NAME;
-import static com.novemberain.quartz.mongodb.util.Keys.convertToBson;
 
 public class TriggerConverter {
+
+    private static final String TRIGGER_CALENDAR_NAME = "calendarName";
+    private static final String TRIGGER_CLASS = "class";
+    private static final String TRIGGER_DESCRIPTION = "description";
+    private static final String TRIGGER_END_TIME = "endTime";
+    private static final String TRIGGER_FINAL_FIRE_TIME = "finalFireTime";
+    private static final String TRIGGER_FIRE_INSTANCE_ID = "fireInstanceId";
+    private static final String TRIGGER_MISFIRE_INSTRUCTION = "misfireInstruction";
+    private static final String TRIGGER_PREVIOUS_FIRE_TIME = "previousFireTime";
+    private static final String TRIGGER_PRIORITY = "priority";
+    private static final String TRIGGER_START_TIME = "startTime";
 
     private static final Logger log = LoggerFactory.getLogger(TriggerConverter.class);
 
@@ -85,8 +94,28 @@ public class TriggerConverter {
         return toTrigger(key, doc);
     }
 
+    private Document convertToBson(OperableTrigger newTrigger, ObjectId jobId) {
+        Document trigger = new Document();
+        trigger.put(Constants.TRIGGER_STATE, Constants.STATE_WAITING);
+        trigger.put(TRIGGER_CALENDAR_NAME, newTrigger.getCalendarName());
+        trigger.put(TRIGGER_CLASS, newTrigger.getClass().getName());
+        trigger.put(TRIGGER_DESCRIPTION, newTrigger.getDescription());
+        trigger.put(TRIGGER_END_TIME, newTrigger.getEndTime());
+        trigger.put(TRIGGER_FINAL_FIRE_TIME, newTrigger.getFinalFireTime());
+        trigger.put(TRIGGER_FIRE_INSTANCE_ID, newTrigger.getFireInstanceId());
+        trigger.put(Constants.TRIGGER_JOB_ID, jobId);
+        trigger.put(KEY_NAME, newTrigger.getKey().getName());
+        trigger.put(KEY_GROUP, newTrigger.getKey().getGroup());
+        trigger.put(TRIGGER_MISFIRE_INSTRUCTION, newTrigger.getMisfireInstruction());
+        trigger.put(Constants.TRIGGER_NEXT_FIRE_TIME, newTrigger.getNextFireTime());
+        trigger.put(TRIGGER_PREVIOUS_FIRE_TIME, newTrigger.getPreviousFireTime());
+        trigger.put(TRIGGER_PRIORITY, newTrigger.getPriority());
+        trigger.put(TRIGGER_START_TIME, newTrigger.getStartTime());
+        return trigger;
+    }
+
     private OperableTrigger createNewInstance(Document triggerDoc) throws JobPersistenceException {
-        String triggerClassName = triggerDoc.getString(Constants.TRIGGER_CLASS);
+        String triggerClassName = triggerDoc.getString(TRIGGER_CLASS);
         try {
             @SuppressWarnings("unchecked")
             Class<OperableTrigger> triggerClass = (Class<OperableTrigger>) getTriggerClassLoader()
@@ -118,13 +147,13 @@ public class TriggerConverter {
 
     private void loadCommonProperties(TriggerKey triggerKey, Document triggerDoc, OperableTrigger trigger) {
         trigger.setKey(triggerKey);
-        trigger.setCalendarName(triggerDoc.getString(Constants.TRIGGER_CALENDAR_NAME));
-        trigger.setDescription(triggerDoc.getString(Constants.TRIGGER_DESCRIPTION));
-        trigger.setFireInstanceId(triggerDoc.getString(Constants.TRIGGER_FIRE_INSTANCE_ID));
-        trigger.setMisfireInstruction(triggerDoc.getInteger(Constants.TRIGGER_MISFIRE_INSTRUCTION));
+        trigger.setCalendarName(triggerDoc.getString(TRIGGER_CALENDAR_NAME));
+        trigger.setDescription(triggerDoc.getString(TRIGGER_DESCRIPTION));
+        trigger.setFireInstanceId(triggerDoc.getString(TRIGGER_FIRE_INSTANCE_ID));
+        trigger.setMisfireInstruction(triggerDoc.getInteger(TRIGGER_MISFIRE_INSTRUCTION));
         trigger.setNextFireTime(triggerDoc.getDate(Constants.TRIGGER_NEXT_FIRE_TIME));
-        trigger.setPreviousFireTime(triggerDoc.getDate(Constants.TRIGGER_PREVIOUS_FIRE_TIME));
-        trigger.setPriority(triggerDoc.getInteger(Constants.TRIGGER_PRIORITY));
+        trigger.setPreviousFireTime(triggerDoc.getDate(TRIGGER_PREVIOUS_FIRE_TIME));
+        trigger.setPriority(triggerDoc.getInteger(TRIGGER_PRIORITY));
     }
 
     private void loadJobData(Document triggerDoc, OperableTrigger trigger)
@@ -136,7 +165,7 @@ public class TriggerConverter {
                 SerialUtils.deserialize(trigger.getJobDataMap(), jobDataString);
             } catch (IOException e) {
                 throw new JobPersistenceException("Could not deserialize job data for trigger "
-                        + triggerDoc.get(Constants.TRIGGER_CLASS));
+                        + triggerDoc.get(TRIGGER_CLASS));
             }
         }
     }
@@ -148,8 +177,8 @@ public class TriggerConverter {
 
     private void loadStartAndEndTime(Document triggerDoc, OperableTrigger trigger) {
         try {
-            trigger.setStartTime(triggerDoc.getDate(Constants.TRIGGER_START_TIME));
-            trigger.setEndTime(triggerDoc.getDate(Constants.TRIGGER_END_TIME));
+            trigger.setStartTime(triggerDoc.getDate(TRIGGER_START_TIME));
+            trigger.setEndTime(triggerDoc.getDate(TRIGGER_END_TIME));
         } catch (IllegalArgumentException e) {
             //Ignore illegal arg exceptions thrown by triggers doing JIT validation of start and endtime
             log.warn("Trigger had illegal start / end time combination: {}", trigger.getKey(), e);
