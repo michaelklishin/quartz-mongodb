@@ -5,6 +5,7 @@ import com.novemberain.quartz.mongodb.dao.CalendarDao;
 import com.novemberain.quartz.mongodb.dao.JobDao;
 import com.novemberain.quartz.mongodb.dao.LocksDao;
 import com.novemberain.quartz.mongodb.dao.TriggerDao;
+import com.novemberain.quartz.mongodb.trigger.MisfireHandler;
 import com.novemberain.quartz.mongodb.util.*;
 import org.bson.Document;
 import org.bson.conversions.Bson;
@@ -42,6 +43,7 @@ public class TriggerRunner {
             new CronTriggerPersistenceHelper(),
             new DailyTimeIntervalTriggerPersistenceHelper());
 
+    private MisfireHandler misfireHandler;
     private TriggerTimeCalculator timeCalculator;
     private TriggerDao triggerDao;
     private JobDao jobDao;
@@ -52,7 +54,8 @@ public class TriggerRunner {
 
     public TriggerRunner(TriggerDao triggerDao, JobDao jobDao, LocksDao locksDao,
                          CalendarDao calendarDao, SchedulerSignaler signaler,
-                         String instanceId, TriggerTimeCalculator timeCalculator) {
+                         String instanceId, TriggerTimeCalculator timeCalculator,
+                         MisfireHandler misfireHandler) {
         this.triggerDao = triggerDao;
         this.jobDao = jobDao;
         this.locksDao = locksDao;
@@ -60,6 +63,7 @@ public class TriggerRunner {
         this.signaler = signaler;
         this.instanceId = instanceId;
         this.timeCalculator = timeCalculator;
+        this.misfireHandler = misfireHandler;
     }
 
     public List<OperableTrigger> acquireNext(long noLaterThan, int maxCount, long timeWindow)
@@ -114,7 +118,9 @@ public class TriggerRunner {
                 }
 
                 // deal with misfires
-                if (applyMisfire(trigger)) {
+                if (misfireHandler.applyMisfire(trigger)) {
+                    storeTrigger(trigger, true);
+
                     log.debug("Misfire trigger {}.", trigger.getKey());
 
                     Date nextFireTime = trigger.getNextFireTime();
@@ -167,32 +173,6 @@ public class TriggerRunner {
                 }
             }
         }
-    }
-
-    private boolean applyMisfire(OperableTrigger trigger) throws JobPersistenceException {
-        Date fireTime = trigger.getNextFireTime();
-        if (fireTime == null || timeCalculator.isNotMisfired(fireTime)
-                || trigger.getMisfireInstruction() == Trigger.MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY) {
-            return false;
-        }
-
-        org.quartz.Calendar cal = null;
-        if (trigger.getCalendarName() != null) {
-            cal = calendarDao.retrieveCalendar(trigger.getCalendarName());
-        }
-
-        signaler.notifyTriggerListenersMisfired((OperableTrigger) trigger.clone());
-
-        trigger.updateAfterMisfire(cal);
-
-        if (trigger.getNextFireTime() == null) {
-            signaler.notifySchedulerListenersFinalized(trigger);
-        } else if (fireTime.equals(trigger.getNextFireTime())) {
-            return false;
-        }
-
-        storeTrigger(trigger, true);
-        return true;
     }
 
     public void releaseAcquired(OperableTrigger trigger) throws JobPersistenceException {

@@ -9,32 +9,18 @@ public class TriggerTimeCalculator {
 
     private long jobTimeoutMillis;
     private long triggerTimeoutMillis;
-    private long misfireThreshold;
 
-    public TriggerTimeCalculator(long jobTimeoutMillis, long triggerTimeoutMillis, long misfireThreshold) {
+    public TriggerTimeCalculator(long jobTimeoutMillis, long triggerTimeoutMillis) {
         this.jobTimeoutMillis = jobTimeoutMillis;
         this.triggerTimeoutMillis = triggerTimeoutMillis;
-        this.misfireThreshold = misfireThreshold;
     }
 
     public boolean isJobLockExpired(Document lock) {
         return isLockExpired(lock, jobTimeoutMillis);
     }
 
-    public boolean isNotMisfired(Date fireTime) {
-        return calculateMisfireTime() < fireTime.getTime();
-    }
-
     public boolean isTriggerLockExpired(Document lock) {
         return isLockExpired(lock, triggerTimeoutMillis);
-    }
-
-    private long calculateMisfireTime() {
-        long misfireTime = System.currentTimeMillis();
-        if (misfireThreshold > 0) {
-            misfireTime -= misfireThreshold;
-        }
-        return misfireTime;
     }
 
     private boolean isLockExpired(Document lock, long timeoutMillis) {
