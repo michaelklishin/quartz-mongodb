@@ -16,6 +16,7 @@ import com.mongodb.client.MongoDatabase;
 import com.novemberain.quartz.mongodb.dao.*;
 import com.novemberain.quartz.mongodb.db.MongoConnector;
 import com.novemberain.quartz.mongodb.trigger.MisfireHandler;
+import com.novemberain.quartz.mongodb.trigger.TriggerConverter;
 import com.novemberain.quartz.mongodb.util.*;
 import org.bson.Document;
 import org.bson.conversions.Bson;
@@ -127,14 +128,15 @@ public class MongoDBJobStore implements JobStore, Constants {
 
         ensureIndexes();
 
-        triggerStateManager = new TriggerStateManager(triggerDao, jobDao,
-                pausedJobGroupsDao, pausedTriggerGroupsDao, queryHelper);
-
         MisfireHandler misfireHandler = new MisfireHandler(calendarDao, signaler, misfireThreshold);
         TriggerTimeCalculator timeCalculator = new TriggerTimeCalculator(jobTimeoutMillis,
                 triggerTimeoutMillis);
+        TriggerConverter triggerConverter = new TriggerConverter(jobDao);
+
+        triggerStateManager = new TriggerStateManager(triggerDao, jobDao,
+                pausedJobGroupsDao, pausedTriggerGroupsDao, queryHelper);
         triggerRunner = new TriggerRunner(triggerDao, jobDao, locksDao, calendarDao, signaler,
-                instanceId, timeCalculator, misfireHandler);
+                instanceId, timeCalculator, misfireHandler, triggerConverter);
     }
 
     @Override

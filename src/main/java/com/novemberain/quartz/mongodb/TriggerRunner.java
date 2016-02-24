@@ -6,6 +6,7 @@ import com.novemberain.quartz.mongodb.dao.JobDao;
 import com.novemberain.quartz.mongodb.dao.LocksDao;
 import com.novemberain.quartz.mongodb.dao.TriggerDao;
 import com.novemberain.quartz.mongodb.trigger.MisfireHandler;
+import com.novemberain.quartz.mongodb.trigger.TriggerConverter;
 import com.novemberain.quartz.mongodb.util.*;
 import org.bson.Document;
 import org.bson.conversions.Bson;
@@ -20,7 +21,6 @@ import org.quartz.spi.TriggerFiredResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.*;
 
 import static com.novemberain.quartz.mongodb.util.Keys.*;
@@ -37,15 +37,10 @@ public class TriggerRunner {
         }
     };
 
-    private List<TriggerPersistenceHelper> persistenceHelpers = Arrays.asList(
-            new SimpleTriggerPersistenceHelper(),
-            new CalendarIntervalTriggerPersistenceHelper(),
-            new CronTriggerPersistenceHelper(),
-            new DailyTimeIntervalTriggerPersistenceHelper());
-
     private MisfireHandler misfireHandler;
     private TriggerTimeCalculator timeCalculator;
     private TriggerDao triggerDao;
+    private TriggerConverter triggerConverter;
     private JobDao jobDao;
     private LocksDao locksDao;
     private CalendarDao calendarDao;
@@ -55,7 +50,7 @@ public class TriggerRunner {
     public TriggerRunner(TriggerDao triggerDao, JobDao jobDao, LocksDao locksDao,
                          CalendarDao calendarDao, SchedulerSignaler signaler,
                          String instanceId, TriggerTimeCalculator timeCalculator,
-                         MisfireHandler misfireHandler) {
+                         MisfireHandler misfireHandler, TriggerConverter triggerConverter) {
         this.triggerDao = triggerDao;
         this.jobDao = jobDao;
         this.locksDao = locksDao;
@@ -64,6 +59,7 @@ public class TriggerRunner {
         this.instanceId = instanceId;
         this.timeCalculator = timeCalculator;
         this.misfireHandler = misfireHandler;
+        this.triggerConverter = triggerConverter;
     }
 
     public List<OperableTrigger> acquireNext(long noLaterThan, int maxCount, long timeWindow)
@@ -97,7 +93,7 @@ public class TriggerRunner {
                 break;
             }
 
-            OperableTrigger trigger = toTrigger(triggerDoc);
+            OperableTrigger trigger = triggerConverter.toTrigger(triggerDoc);
 
             try {
                 if (trigger == null) {
@@ -338,24 +334,12 @@ public class TriggerRunner {
         if (doc == null) {
             return null;
         }
-        return toTrigger(triggerKey, doc);
+        return triggerConverter.toTrigger(triggerKey, doc);
     }
 
     public void storeTrigger(OperableTrigger newTrigger, ObjectId jobId, boolean replaceExisting)
             throws JobPersistenceException {
-        Document trigger = convertToBson(newTrigger, jobId);
-        if (newTrigger.getJobDataMap().size() > 0) {
-            try {
-                String jobDataString = SerialUtils.serialize(newTrigger.getJobDataMap());
-                trigger.put(Constants.JOB_DATA, jobDataString);
-            } catch (IOException ioe) {
-                throw new JobPersistenceException("Could not serialise job data map on the trigger for " + newTrigger.getKey(), ioe);
-            }
-        }
-
-        TriggerPersistenceHelper tpd = triggerPersistenceDelegateFor(newTrigger);
-        trigger = tpd.injectExtraPropertiesForInsert(newTrigger, trigger);
-
+        Document trigger = triggerConverter.toDocument(newTrigger, jobId);
         if (replaceExisting) {
             trigger.remove("_id");
             triggerDao.replace(newTrigger.getKey(), trigger);
@@ -372,7 +356,7 @@ public class TriggerRunner {
         }
 
         for (Document item : triggerDao.findByJobId(doc.get("_id"))) {
-            triggers.add(toTrigger(item));
+            triggers.add(triggerConverter.toTrigger(item));
         }
 
         return triggers;
@@ -401,92 +385,5 @@ public class TriggerRunner {
 
         locksDao.remove(lock);
         log.info("Trigger lock {}.{} removed.", trigger.getKey(), instanceId);
-    }
-
-    private OperableTrigger toTrigger(Document doc) throws JobPersistenceException {
-        TriggerKey key = new TriggerKey(doc.getString(KEY_NAME), doc.getString(KEY_GROUP));
-        return toTrigger(key, doc);
-    }
-
-    private OperableTrigger toTrigger(TriggerKey triggerKey, Document triggerDoc)
-            throws JobPersistenceException {
-        OperableTrigger trigger;
-        try {
-            @SuppressWarnings("unchecked")
-            Class<OperableTrigger> triggerClass = (Class<OperableTrigger>) getTriggerClassLoader()
-                    .loadClass(triggerDoc.getString(Constants.TRIGGER_CLASS));
-            trigger = triggerClass.newInstance();
-        } catch (ClassNotFoundException e) {
-            throw new JobPersistenceException("Could not find trigger class " + triggerDoc.get(Constants.TRIGGER_CLASS));
-        } catch (Exception e) {
-            throw new JobPersistenceException("Could not instantiate trigger class " + triggerDoc.get(Constants.TRIGGER_CLASS));
-        }
-
-        TriggerPersistenceHelper tpd = triggerPersistenceDelegateFor(trigger);
-
-        trigger.setKey(triggerKey);
-        trigger.setCalendarName(triggerDoc.getString(Constants.TRIGGER_CALENDAR_NAME));
-        trigger.setDescription(triggerDoc.getString(Constants.TRIGGER_DESCRIPTION));
-        trigger.setFireInstanceId(triggerDoc.getString(Constants.TRIGGER_FIRE_INSTANCE_ID));
-        trigger.setMisfireInstruction(triggerDoc.getInteger(Constants.TRIGGER_MISFIRE_INSTRUCTION));
-        trigger.setNextFireTime(triggerDoc.getDate(Constants.TRIGGER_NEXT_FIRE_TIME));
-        trigger.setPreviousFireTime(triggerDoc.getDate(Constants.TRIGGER_PREVIOUS_FIRE_TIME));
-        trigger.setPriority(triggerDoc.getInteger(Constants.TRIGGER_PRIORITY));
-
-        String jobDataString = triggerDoc.getString(Constants.JOB_DATA);
-
-        if (jobDataString != null) {
-            try {
-                SerialUtils.deserialize(trigger.getJobDataMap(), jobDataString);
-            } catch (IOException e) {
-                throw new JobPersistenceException("Could not deserialize job data for trigger " + triggerDoc.get(Constants.TRIGGER_CLASS));
-            }
-        }
-
-        try {
-            trigger.setStartTime(triggerDoc.getDate(Constants.TRIGGER_START_TIME));
-            trigger.setEndTime(triggerDoc.getDate(Constants.TRIGGER_END_TIME));
-        } catch (IllegalArgumentException e) {
-            //Ignore illegal arg exceptions thrown by triggers doing JIT validation of start and endtime
-            log.warn("Trigger had illegal start / end time combination: {}", trigger.getKey(), e);
-        }
-
-
-        try {
-            trigger.setStartTime(triggerDoc.getDate(Constants.TRIGGER_START_TIME));
-            trigger.setEndTime(triggerDoc.getDate(Constants.TRIGGER_END_TIME));
-        } catch (IllegalArgumentException e) {
-            //Ignore illegal arg exceptions thrown by triggers doing JIT validation of start and endtime
-            log.warn("Trigger had illegal start / end time combination: {}", trigger.getKey(), e);
-        }
-
-        trigger = tpd.setExtraPropertiesAfterInstantiation(trigger, triggerDoc);
-
-        Document job = jobDao.getById(triggerDoc.get(Constants.TRIGGER_JOB_ID));
-        if (job != null) {
-            trigger.setJobKey(new JobKey(job.getString(KEY_NAME), job.getString(KEY_GROUP)));
-            return trigger;
-        } else {
-            // job was deleted
-            return null;
-        }
-    }
-
-    private ClassLoader getTriggerClassLoader() {
-        return Job.class.getClassLoader();
-    }
-
-    private TriggerPersistenceHelper triggerPersistenceDelegateFor(OperableTrigger trigger) {
-        TriggerPersistenceHelper result = null;
-
-        for (TriggerPersistenceHelper d : persistenceHelpers) {
-            if (d.canHandleTriggerType(trigger)) {
-                result = d;
-                break;
-            }
-        }
-
-        assert result != null;
-        return result;
     }
 }
