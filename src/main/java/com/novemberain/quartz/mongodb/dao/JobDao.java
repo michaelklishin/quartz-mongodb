@@ -17,7 +17,6 @@ import org.quartz.JobKey;
 import org.quartz.JobPersistenceException;
 import org.quartz.ObjectAlreadyExistsException;
 import org.quartz.impl.matchers.GroupMatcher;
-import org.quartz.spi.ClassLoadHelper;
 
 import java.util.*;
 
@@ -27,16 +26,16 @@ import static com.novemberain.quartz.mongodb.util.Keys.toFilter;
 public class JobDao {
 
     private final MongoCollection<Document> jobCollection;
-    private final ClassLoadHelper loadHelper;
     private final QueryHelper queryHelper;
     private final GroupHelper groupHelper;
+    private final JobLoader jobLoader;
 
-    public JobDao(MongoCollection<Document> jobCollection, ClassLoadHelper loadHelper,
-                  QueryHelper queryHelper) {
+    public JobDao(MongoCollection<Document> jobCollection,
+                  QueryHelper queryHelper, JobLoader jobLoader) {
         this.jobCollection = jobCollection;
-        this.loadHelper = loadHelper;
         this.queryHelper = queryHelper;
         this.groupHelper = new GroupHelper(jobCollection, queryHelper);
+        this.jobLoader = jobLoader;
     }
 
     public MongoCollection<Document> getCollection() {
@@ -106,8 +105,6 @@ public class JobDao {
             //Return null if job does not exist, per interface
             return null;
         }
-
-        JobLoader jobLoader = new JobLoader(loadHelper.getClassLoader());
         return jobLoader.loadJobDetail(doc);
     }
 

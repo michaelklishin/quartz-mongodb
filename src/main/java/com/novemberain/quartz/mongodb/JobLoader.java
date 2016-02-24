@@ -3,6 +3,7 @@ package com.novemberain.quartz.mongodb;
 import com.novemberain.quartz.mongodb.util.SerialUtils;
 import org.bson.Document;
 import org.quartz.*;
+import org.quartz.spi.ClassLoadHelper;
 
 import java.io.IOException;
 
@@ -11,10 +12,10 @@ import static com.novemberain.quartz.mongodb.util.Keys.KEY_NAME;
 
 public class JobLoader {
 
-    private ClassLoader jobClassLoader;
+    private ClassLoadHelper loadHelper;
 
-    public JobLoader(ClassLoader jobClassLoader) {
-        this.jobClassLoader = jobClassLoader;
+    public JobLoader(ClassLoadHelper loadHelper) {
+        this.loadHelper = loadHelper;
     }
 
     public JobDetail loadJobDetail(Document doc) throws JobPersistenceException {
@@ -24,8 +25,8 @@ public class JobLoader {
             // them without switching to gen-class is by using a
             // clojure.lang.DynamicClassLoader instance.
             @SuppressWarnings("unchecked")
-            Class<Job> jobClass = (Class<Job>) jobClassLoader
-                    .loadClass((String) doc.get(Constants.JOB_CLASS));
+            Class<Job> jobClass = (Class<Job>) loadHelper.getClassLoader()
+                    .loadClass(doc.getString(Constants.JOB_CLASS));
 
             JobBuilder builder = createJobBuilder(doc, jobClass);
             withDurability(doc, builder);
@@ -41,7 +42,7 @@ public class JobLoader {
     private JobDataMap createJobDataMap(Document doc) throws IOException {
         JobDataMap jobData = new JobDataMap();
 
-        String jobDataString = (String) doc.get(Constants.JOB_DATA);
+        String jobDataString = doc.getString(Constants.JOB_DATA);
         if (jobDataString != null) {
             jobData.putAll(SerialUtils.deserialize(jobData, jobDataString));
         } else {
