@@ -241,31 +241,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     @Override
     public boolean replaceTrigger(TriggerKey triggerKey, OperableTrigger newTrigger) throws JobPersistenceException {
-        OperableTrigger trigger = retrieveTrigger(triggerKey);
-        if (trigger == null) {
-            return false;
-        }
-
-        if (!trigger.getJobKey().equals(newTrigger.getJobKey())) {
-            throw new JobPersistenceException("New trigger is not related to the same job as the old trigger.");
-        }
-
-        // Can't call remove trigger as if the job is not durable, it will remove the job too
-        Bson filter = Keys.toFilter(triggerKey);
-        if (triggerDao.exists(filter)) {
-            triggerDao.remove(filter);
-        }
-
-        // Copy across the job data map from the old trigger to the new one.
-        newTrigger.getJobDataMap().putAll(trigger.getJobDataMap());
-
-        try {
-            storeTrigger(newTrigger, false);
-        } catch (JobPersistenceException jpe) {
-            storeTrigger(trigger, false); // put previous trigger back...
-            throw jpe;
-        }
-        return true;
+        return triggerRunner.replaceTrigger(triggerKey, newTrigger);
     }
 
     @Override
