@@ -21,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -62,7 +63,8 @@ public class TriggerDao {
         return triggerCollection.find(Filters.eq(Constants.TRIGGER_JOB_ID, jobId));
     }
 
-    public FindIterable<Document> findEligibleToRun(Bson query) {
+    public FindIterable<Document> findEligibleToRun(Date noLaterThanDate) {
+        Bson query = createNextTriggerQuery(noLaterThanDate);
         if (log.isInfoEnabled()) {
             log.info("Found {} triggers which are eligible to be run.", getCount(query));
         }
@@ -181,6 +183,16 @@ public class TriggerDao {
                 new UpdateOptions().upsert(false));
     }
 
+    public MongoCollection<Document> getCollection() {
+        return triggerCollection;
+    }
+
+    private Bson createNextTriggerQuery(Date noLaterThanDate) {
+        return Filters.and(
+                Filters.lte(Constants.TRIGGER_NEXT_FIRE_TIME, noLaterThanDate),
+                Filters.eq(Constants.TRIGGER_STATE, Constants.STATE_WAITING));
+    }
+
     private long getCount(Bson query) {
         return triggerCollection.count(query);
     }
@@ -218,11 +230,7 @@ public class TriggerDao {
         return TriggerState.NORMAL;
     }
 
-    public Bson updateThatSetsTriggerStateTo(String state) {
+    private Bson updateThatSetsTriggerStateTo(String state) {
         return new Document("$set", new Document(Constants.TRIGGER_STATE, state));
-    }
-
-    public MongoCollection<Document> getCollection() {
-        return triggerCollection;
     }
 }

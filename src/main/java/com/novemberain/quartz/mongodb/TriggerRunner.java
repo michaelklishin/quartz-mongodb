@@ -93,10 +93,7 @@ public class TriggerRunner {
     private void doAcquireNextTriggers(Map<TriggerKey, OperableTrigger> triggers,
                                        Date noLaterThanDate, int maxCount)
             throws JobPersistenceException {
-        QueryHelper queryHelper = new QueryHelper();
-        Bson query = queryHelper.createNextTriggerQuery(noLaterThanDate);
-
-        for (Document triggerDoc : triggerDao.findEligibleToRun(query)) {
+        for (Document triggerDoc : triggerDao.findEligibleToRun(noLaterThanDate)) {
             if (maxCount <= triggers.size()) {
                 break;
             }
