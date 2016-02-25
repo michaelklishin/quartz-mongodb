@@ -62,9 +62,6 @@ public class MisfireHandler {
     }
 
     private Calendar retrieveCalendar(OperableTrigger trigger) {
-        if (trigger.getCalendarName() != null) {
-            return calendarDao.retrieveCalendar(trigger.getCalendarName());
-        }
-        return null;
+        return calendarDao.retrieveCalendar(trigger.getCalendarName());
     }
 }

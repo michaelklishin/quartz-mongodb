@@ -184,11 +184,9 @@ public class TriggerRunner {
 
         for (OperableTrigger trigger : triggers) {
             log.debug("Fired trigger {}", trigger.getKey());
-            Calendar cal = null;
-            if (trigger.getCalendarName() != null) {
-                cal = calendarDao.retrieveCalendar(trigger.getCalendarName());
-                if (cal == null)
-                    continue;
+            Calendar cal = calendarDao.retrieveCalendar(trigger.getCalendarName());
+            if (expectedCalendarButNotFound(trigger, cal)) {
+                continue;
             }
 
             Date prevFireTime = trigger.getPreviousFireTime();
@@ -283,15 +281,6 @@ public class TriggerRunner {
         }
 
         removeTriggerLock(trigger);
-    }
-
-    private JobDetail retrieveJob(OperableTrigger trigger) throws JobPersistenceException {
-        try {
-            return jobDao.retrieveJob(trigger.getJobKey());
-        } catch (JobPersistenceException e) {
-            removeTriggerLock(trigger);
-            throw e;
-        }
     }
 
     public boolean removeTrigger(TriggerKey triggerKey) {
@@ -405,6 +394,10 @@ public class TriggerRunner {
         }
     }
 
+    private boolean expectedCalendarButNotFound(OperableTrigger trigger, Calendar cal) {
+        return trigger.getCalendarName() != null && cal == null;
+    }
+
     private void removeTriggerLock(OperableTrigger trigger) {
         log.info("Removing trigger lock {}.{}", trigger.getKey(), instanceId);
         Bson lock = Keys.toFilter(trigger.getKey());
@@ -414,5 +407,14 @@ public class TriggerRunner {
 
         locksDao.remove(lock);
         log.info("Trigger lock {}.{} removed.", trigger.getKey(), instanceId);
+    }
+
+    private JobDetail retrieveJob(OperableTrigger trigger) throws JobPersistenceException {
+        try {
+            return jobDao.retrieveJob(trigger.getJobKey());
+        } catch (JobPersistenceException e) {
+            removeTriggerLock(trigger);
+            throw e;
+        }
     }
 }

@@ -49,8 +49,11 @@ public class CalendarDao {
     }
 
     public Calendar retrieveCalendar(String calName) {
-        // TODO
-        throw new UnsupportedOperationException();
+        if (calName != null) {
+            // TODO
+            throw new UnsupportedOperationException();
+        }
+        return null;
     }
 
     public void store(String name, Calendar calendar) throws JobPersistenceException {
