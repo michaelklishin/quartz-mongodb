@@ -66,14 +66,12 @@ public class TriggerRunner {
             throws JobPersistenceException {
         Date noLaterThanDate = new Date(noLaterThan + timeWindow);
 
-        if (log.isDebugEnabled()) {
-            log.debug("Finding up to {} triggers which have time less than {}",
-                    maxCount, noLaterThanDate);
-        }
+        log.debug("Finding up to {} triggers which have time less than {}",
+                maxCount, noLaterThanDate);
 
         Map<TriggerKey, OperableTrigger> triggers = new HashMap<TriggerKey, OperableTrigger>();
 
-        doAcquireNextTriggers(triggers, noLaterThanDate, maxCount);
+        acquireNextTriggers(triggers, noLaterThanDate, maxCount);
 
         List<OperableTrigger> triggerList = new LinkedList<OperableTrigger>(triggers.values());
 
@@ -85,11 +83,148 @@ public class TriggerRunner {
         return triggerList;
     }
 
-    private void doAcquireNextTriggers(Map<TriggerKey, OperableTrigger> triggers,
-                                       Date noLaterThanDate, int maxCount)
+    public List<OperableTrigger> getTriggersForJob(JobKey jobKey) throws JobPersistenceException {
+        final List<OperableTrigger> triggers = new ArrayList<OperableTrigger>();
+        final Document doc = jobDao.getJob(jobKey);
+        if (doc != null) {
+            for (Document item : triggerDao.findByJobId(doc.get("_id"))) {
+                triggers.add(triggerConverter.toTrigger(item));
+            }
+        }
+        return triggers;
+    }
+
+    public void releaseAcquiredTrigger(OperableTrigger trigger) throws JobPersistenceException {
+        try {
+            unlock(trigger);
+        } catch (Exception e) {
+            throw new JobPersistenceException(e.getLocalizedMessage(), e);
+        }
+    }
+
+    public List<TriggerFiredResult> triggersFired(List<OperableTrigger> triggers) throws JobPersistenceException {
+        List<TriggerFiredResult> results = new ArrayList<TriggerFiredResult>();
+
+        for (OperableTrigger trigger : triggers) {
+            log.debug("Fired trigger {}", trigger.getKey());
+
+            TriggerFiredBundle bundle = createTriggerFiredBundle(trigger);
+
+            if (hasJobDetail(bundle)) {
+                JobDetail job = bundle.getJobDetail();
+                try {
+                    lockJob(job);
+                    results.add(new TriggerFiredResult(bundle));
+                    storeTrigger(trigger, true);
+                } catch (MongoWriteException dk) {
+                    log.debug("Job disallows concurrent execution and is already running {}", job.getKey());
+                    unlock(trigger);
+                    unlock(job);
+                }
+            }
+
+        }
+        return results;
+    }
+
+    public void triggeredJobComplete(OperableTrigger trigger, JobDetail job,
+                                     CompletedExecutionInstruction executionInstruction)
+            throws JobPersistenceException {
+        log.debug("Trigger completed {}", trigger.getKey());
+
+        if (job.isPersistJobDataAfterExecution()) {
+            if (job.getJobDataMap().isDirty()) {
+                log.debug("Job data map dirty, will store {}", job.getKey());
+                jobDao.storeJobInMongo(job, true);
+            }
+        }
+
+        if (job.isConcurrentExectionDisallowed()) {
+            log.debug("Removing lock for job {}", job.getKey());
+            locksDao.remove(createLockFilter(job));
+        }
+
+        process(trigger, executionInstruction);
+
+        unlock(trigger);
+    }
+
+    public boolean removeTrigger(TriggerKey triggerKey) {
+        Bson filter = Keys.toFilter(triggerKey);
+        Document trigger = triggerDao.findTrigger(filter);
+        if (trigger != null) {
+            removeOrphanedJob(trigger);
+            //TODO: check if can .deleteOne(filter) here
+            triggerDao.remove(filter);
+            return true;
+        }
+        return false;
+    }
+
+    public boolean removeTriggers(List<TriggerKey> triggerKeys) throws JobPersistenceException {
+        //FIXME return boolean allFound = true when all removed
+        for (TriggerKey key : triggerKeys) {
+            removeTrigger(key);
+        }
+        return false;
+    }
+
+    public boolean replaceTrigger(TriggerKey triggerKey, OperableTrigger newTrigger)
+            throws JobPersistenceException {
+        OperableTrigger oldTrigger = retrieveTrigger(triggerKey);
+        if (oldTrigger == null) {
+            return false;
+        }
+
+        if (!oldTrigger.getJobKey().equals(newTrigger.getJobKey())) {
+            throw new JobPersistenceException("New trigger is not related to the same job as the old trigger.");
+        }
+
+        removeOldTrigger(triggerKey);
+        copyOldJobDataMap(newTrigger, oldTrigger);
+        storeNewTrigger(newTrigger, oldTrigger);
+
+        return true;
+    }
+
+    public OperableTrigger retrieveTrigger(TriggerKey triggerKey) throws JobPersistenceException {
+        Document doc = triggerDao.findTrigger(Keys.toFilter(triggerKey));
+        if (doc == null) {
+            return null;
+        }
+        return triggerConverter.toTrigger(triggerKey, doc);
+    }
+
+    public void storeTrigger(OperableTrigger newTrigger, ObjectId jobId, boolean replaceExisting)
+            throws JobPersistenceException {
+        Document trigger = triggerConverter.toDocument(newTrigger, jobId);
+        if (replaceExisting) {
+            trigger.remove("_id");
+            triggerDao.replace(newTrigger.getKey(), trigger);
+        } else {
+            triggerDao.insert(trigger, newTrigger);
+        }
+    }
+
+    public void storeTrigger(OperableTrigger newTrigger, boolean replaceExisting)
+            throws JobPersistenceException {
+        if (newTrigger.getJobKey() == null) {
+            throw new JobPersistenceException("Trigger must be associated with a job. Please specify a JobKey.");
+        }
+
+        Document doc = jobDao.getJob(Keys.toFilter(newTrigger.getJobKey()));
+        if (doc != null) {
+            storeTrigger(newTrigger, doc.getObjectId("_id"), replaceExisting);
+        } else {
+            throw new JobPersistenceException("Could not find job with key " + newTrigger.getJobKey());
+        }
+    }
+
+    private void acquireNextTriggers(Map<TriggerKey, OperableTrigger> triggers,
+                                     Date noLaterThanDate, int maxCount)
             throws JobPersistenceException {
         for (Document triggerDoc : triggerDao.findEligibleToRun(noLaterThanDate)) {
-            if (maxCount <= triggers.size()) {
+            if (acquiredEnough(triggers, maxCount)) {
                 break;
             }
 
@@ -160,245 +295,156 @@ public class TriggerRunner {
                     if (timeCalculator.isTriggerLockExpired(existingLock)) {
                         log.warn("Lock for trigger {} is expired - removing lock and retrying trigger acquisition",
                                 trigger.getKey());
-                        removeTriggerLock(trigger);
-                        doAcquireNextTriggers(triggers, noLaterThanDate, maxCount - triggers.size());
+                        unlock(trigger);
+                        acquireNextTriggers(triggers, noLaterThanDate, maxCount - triggers.size());
                     }
                 } else {
                     log.warn("Error retrieving expired lock from the database. Maybe it was deleted");
-                    doAcquireNextTriggers(triggers, noLaterThanDate, maxCount - triggers.size());
+                    acquireNextTriggers(triggers, noLaterThanDate, maxCount - triggers.size());
                 }
             }
         }
     }
 
-    public void releaseAcquired(OperableTrigger trigger) throws JobPersistenceException {
-        try {
-            removeTriggerLock(trigger);
-        } catch (Exception e) {
-            throw new JobPersistenceException(e.getLocalizedMessage(), e);
-        }
+    private boolean acquiredEnough(Map<TriggerKey, OperableTrigger> triggers, int maxCount) {
+        return maxCount <= triggers.size();
     }
 
-    public List<TriggerFiredResult> triggersFired(List<OperableTrigger> triggers) throws JobPersistenceException {
-        List<TriggerFiredResult> results = new ArrayList<TriggerFiredResult>();
-
-        for (OperableTrigger trigger : triggers) {
-            log.debug("Fired trigger {}", trigger.getKey());
-            Calendar cal = calendarDao.retrieveCalendar(trigger.getCalendarName());
-            if (expectedCalendarButNotFound(trigger, cal)) {
-                continue;
-            }
-
-            Date prevFireTime = trigger.getPreviousFireTime();
-            trigger.triggered(cal);
-
-            TriggerFiredBundle bundle = new TriggerFiredBundle(retrieveJob(trigger), trigger, cal,
-                    false, new Date(), trigger.getPreviousFireTime(), prevFireTime,
-                    trigger.getNextFireTime());
-
-            JobDetail job = bundle.getJobDetail();
-
-            if (job != null) {
-
-                try {
-                    if (job.isConcurrentExectionDisallowed()) {
-                        log.debug("Inserting lock for job {}", job.getKey());
-                        Document lock = new Document();
-                        lock.put(KEY_NAME, "jobconcurrentlock:" + job.getKey().getName());
-                        lock.put(KEY_GROUP, job.getKey().getGroup());
-                        lock.put(Constants.LOCK_INSTANCE_ID, instanceId);
-                        lock.put(Constants.LOCK_TIME, new Date());
-                        locksDao.insertLock(lock);
-                    }
-
-                    results.add(new TriggerFiredResult(bundle));
-                    storeTrigger(trigger, true);
-                } catch (MongoWriteException dk) {
-                    log.debug("Job disallows concurrent execution and is already running {}", job.getKey());
-
-                    removeTriggerLock(trigger);
-
-                    // Find the existing lock and if still present, and expired, then remove it.
-                    Bson lock = createLockFilter(job);
-                    Document existingLock = locksDao.findLock(lock);
-                    if (existingLock != null) {
-                        if (timeCalculator.isJobLockExpired(existingLock)) {
-                            log.debug("Removing expired lock for job {}", job.getKey());
-                            locksDao.remove(existingLock);
-                        }
-                    }
-                }
-            }
-
-        }
-        return results;
-    }
-
-    public void triggeredJobComplete(OperableTrigger trigger, JobDetail job,
-                                     CompletedExecutionInstruction triggerInstCode)
-            throws JobPersistenceException {
-        log.debug("Trigger completed {}", trigger.getKey());
-
-        if (job.isPersistJobDataAfterExecution()) {
-            if (job.getJobDataMap().isDirty()) {
-                log.debug("Job data map dirty, will store {}", job.getKey());
-                jobDao.storeJobInMongo(job, true);
-            }
-        }
-
-        if (job.isConcurrentExectionDisallowed()) {
-            log.debug("Removing lock for job {}", job.getKey());
-            locksDao.remove(createLockFilter(job));
-        }
-
-        // check for trigger deleted during execution...
-        OperableTrigger trigger2 = retrieveTrigger(trigger.getKey());
-        if (trigger2 != null) {
-            if (triggerInstCode == CompletedExecutionInstruction.DELETE_TRIGGER) {
-                if (trigger.getNextFireTime() == null) {
-                    // double check for possible reschedule within job
-                    // execution, which would cancel the need to delete...
-                    if (trigger2.getNextFireTime() == null) {
-                        removeTrigger(trigger.getKey());
-                    }
-                } else {
-                    removeTrigger(trigger.getKey());
-                    signaler.signalSchedulingChange(0L);
-                }
-            } else if (triggerInstCode == CompletedExecutionInstruction.SET_TRIGGER_COMPLETE) {
-                // TODO: need to store state
-                signaler.signalSchedulingChange(0L);
-            } else if (triggerInstCode == CompletedExecutionInstruction.SET_TRIGGER_ERROR) {
-                // TODO: need to store state
-                signaler.signalSchedulingChange(0L);
-            } else if (triggerInstCode == CompletedExecutionInstruction.SET_ALL_JOB_TRIGGERS_ERROR) {
-                // TODO: need to store state
-                signaler.signalSchedulingChange(0L);
-            } else if (triggerInstCode == CompletedExecutionInstruction.SET_ALL_JOB_TRIGGERS_COMPLETE) {
-                // TODO: need to store state
-                signaler.signalSchedulingChange(0L);
-            }
-        }
-
-        removeTriggerLock(trigger);
-    }
-
-    public boolean removeTrigger(TriggerKey triggerKey) {
-        // If the removal of the Trigger results in an 'orphaned' Job that is not 'durable',
-        // then the job should be removed also.
-        Bson filter = Keys.toFilter(triggerKey);
-        Document trigger = triggerDao.findTrigger(filter);
-        if (trigger != null) {
-            if (trigger.containsKey(Constants.TRIGGER_JOB_ID)) {
-                // There is only 1 job per trigger so no need to look further.
-                Document job = jobDao.getById(trigger.get(Constants.TRIGGER_JOB_ID));
-                // Remove the orphaned job if it's durable and has no other triggers associated with it,
-                // remove it
-                if (job != null && (!job.containsKey(JobConverter.JOB_DURABILITY) || job.get(JobConverter.JOB_DURABILITY).toString().equals("false"))) {
-                    if (triggerDao.hasLastTrigger(job)) {
-                        jobDao.remove(job);
-                    }
-                }
-            } else {
-                log.debug("The trigger had no associated jobs");
-            }
-            //TODO: check if can .deleteOne(filter) here
-            triggerDao.remove(filter);
-
-            return true;
-        }
-
-        return false;
-    }
-
-    public boolean removeTriggers(List<TriggerKey> triggerKeys) throws JobPersistenceException {
-        for (TriggerKey key : triggerKeys) {
-            removeTrigger(key);
-        }
-        return false;
-    }
-
-    public boolean replaceTrigger(TriggerKey triggerKey, OperableTrigger newTrigger)
-            throws JobPersistenceException {
-        OperableTrigger trigger = retrieveTrigger(triggerKey);
-        if (trigger == null) {
-            return false;
-        }
-
-        if (!trigger.getJobKey().equals(newTrigger.getJobKey())) {
-            throw new JobPersistenceException("New trigger is not related to the same job as the old trigger.");
-        }
-
-        // Can't call remove trigger as if the job is not durable, it will remove the job too
-        Bson filter = toFilter(triggerKey);
-        if (triggerDao.exists(filter)) {
-            triggerDao.remove(filter);
-        }
-
+    private void copyOldJobDataMap(OperableTrigger newTrigger, OperableTrigger trigger) {
         // Copy across the job data map from the old trigger to the new one.
         newTrigger.getJobDataMap().putAll(trigger.getJobDataMap());
-
-        try {
-            storeTrigger(newTrigger, false);
-        } catch (JobPersistenceException jpe) {
-            storeTrigger(trigger, false);
-            throw jpe;
-        }
-        return true;
     }
 
-    public OperableTrigger retrieveTrigger(TriggerKey triggerKey) throws JobPersistenceException {
-        Document doc = triggerDao.findTrigger(Keys.toFilter(triggerKey));
-        if (doc == null) {
+    private TriggerFiredBundle createTriggerFiredBundle(OperableTrigger trigger)
+            throws JobPersistenceException {
+        Calendar cal = calendarDao.retrieveCalendar(trigger.getCalendarName());
+        if (expectedCalendarButNotFound(trigger, cal)) {
             return null;
         }
-        return triggerConverter.toTrigger(triggerKey, doc);
-    }
 
-    public void storeTrigger(OperableTrigger newTrigger, ObjectId jobId, boolean replaceExisting)
-            throws JobPersistenceException {
-        Document trigger = triggerConverter.toDocument(newTrigger, jobId);
-        if (replaceExisting) {
-            trigger.remove("_id");
-            triggerDao.replace(newTrigger.getKey(), trigger);
-        } else {
-            triggerDao.insert(trigger, newTrigger);
-        }
-    }
+        Date prevFireTime = trigger.getPreviousFireTime();
+        trigger.triggered(cal);
 
-    public List<OperableTrigger> getTriggersForJob(JobKey jobKey) throws JobPersistenceException {
-        final List<OperableTrigger> triggers = new ArrayList<OperableTrigger>();
-        final Document doc = jobDao.getJob(jobKey);
-        if (doc == null) {
-            return triggers;
-        }
-
-        for (Document item : triggerDao.findByJobId(doc.get("_id"))) {
-            triggers.add(triggerConverter.toTrigger(item));
-        }
-
-        return triggers;
-    }
-
-    public void storeTrigger(OperableTrigger newTrigger, boolean replaceExisting)
-            throws JobPersistenceException {
-        if (newTrigger.getJobKey() == null) {
-            throw new JobPersistenceException("Trigger must be associated with a job. Please specify a JobKey.");
-        }
-
-        Document doc = jobDao.getJob(Keys.toFilter(newTrigger.getJobKey()));
-        if (doc != null) {
-            storeTrigger(newTrigger, doc.getObjectId("_id"), replaceExisting);
-        } else {
-            throw new JobPersistenceException("Could not find job with key " + newTrigger.getJobKey());
-        }
+        return new TriggerFiredBundle(retrieveJob(trigger), trigger, cal,
+                false, new Date(), trigger.getPreviousFireTime(), prevFireTime,
+                trigger.getNextFireTime());
     }
 
     private boolean expectedCalendarButNotFound(OperableTrigger trigger, Calendar cal) {
         return trigger.getCalendarName() != null && cal == null;
     }
 
-    private void removeTriggerLock(OperableTrigger trigger) {
+    private boolean hasJobDetail(TriggerFiredBundle bundle) {
+        return (bundle != null) && (bundle.getJobDetail() != null);
+    }
+
+    private boolean isOrphan(Document job) {
+        return (job != null) && isNotDurable(job) && triggerDao.hasLastTrigger(job);
+    }
+
+    private boolean isNotDurable(Document job) {
+        return !job.containsKey(JobConverter.JOB_DURABILITY) ||
+                job.get(JobConverter.JOB_DURABILITY).toString().equals("false");
+    }
+
+    private boolean isTriggerDeletionRequested(CompletedExecutionInstruction triggerInstCode) {
+        return triggerInstCode == CompletedExecutionInstruction.DELETE_TRIGGER;
+    }
+
+    private void lockJob(JobDetail job) {
+        if (job.isConcurrentExectionDisallowed()) {
+            log.debug("Inserting lock for job {}", job.getKey());
+            Document lock = createJobLock(job, instanceId);
+            locksDao.insertLock(lock);
+        }
+    }
+
+    private void process(OperableTrigger trigger, CompletedExecutionInstruction executionInstruction)
+            throws JobPersistenceException {
+        // check for trigger deleted during execution...
+        OperableTrigger dbTrigger = retrieveTrigger(trigger.getKey());
+        if (dbTrigger != null) {
+            if (isTriggerDeletionRequested(executionInstruction)) {
+                if (trigger.getNextFireTime() == null) {
+                    // double check for possible reschedule within job
+                    // execution, which would cancel the need to delete...
+                    if (dbTrigger.getNextFireTime() == null) {
+                        removeTrigger(trigger.getKey());
+                    }
+                } else {
+                    removeTrigger(trigger.getKey());
+                    signaler.signalSchedulingChange(0L);
+                }
+            } else if (executionInstruction == CompletedExecutionInstruction.SET_TRIGGER_COMPLETE) {
+                // TODO: need to store state
+                signaler.signalSchedulingChange(0L);
+            } else if (executionInstruction == CompletedExecutionInstruction.SET_TRIGGER_ERROR) {
+                // TODO: need to store state
+                signaler.signalSchedulingChange(0L);
+            } else if (executionInstruction == CompletedExecutionInstruction.SET_ALL_JOB_TRIGGERS_ERROR) {
+                // TODO: need to store state
+                signaler.signalSchedulingChange(0L);
+            } else if (executionInstruction == CompletedExecutionInstruction.SET_ALL_JOB_TRIGGERS_COMPLETE) {
+                // TODO: need to store state
+                signaler.signalSchedulingChange(0L);
+            }
+        }
+    }
+
+    private void removeOldTrigger(TriggerKey triggerKey) {
+        // Can't call remove trigger as if the job is not durable, it will remove the job too
+        Bson filter = toFilter(triggerKey);
+        if (triggerDao.exists(filter)) {
+            triggerDao.remove(filter);
+        }
+    }
+
+    // If the removal of the Trigger results in an 'orphaned' Job that is not 'durable',
+    // then the job should be removed also.
+    private void removeOrphanedJob(Document trigger) {
+        if (trigger.containsKey(Constants.TRIGGER_JOB_ID)) {
+            // There is only 1 job per trigger so no need to look further.
+            Document job = jobDao.getById(trigger.get(Constants.TRIGGER_JOB_ID));
+            if (isOrphan(job)) {
+                jobDao.remove(job);
+            }
+        } else {
+            log.debug("The trigger had no associated jobs");
+        }
+    }
+
+    private JobDetail retrieveJob(OperableTrigger trigger) throws JobPersistenceException {
+        try {
+            return jobDao.retrieveJob(trigger.getJobKey());
+        } catch (JobPersistenceException e) {
+            unlock(trigger);
+            throw e;
+        }
+    }
+
+    private void storeNewTrigger(OperableTrigger newTrigger, OperableTrigger oldTrigger)
+            throws JobPersistenceException {
+        try {
+            storeTrigger(newTrigger, false);
+        } catch (JobPersistenceException jpe) {
+            storeTrigger(oldTrigger, false);
+            throw jpe;
+        }
+    }
+
+    private void unlock(JobDetail job) {
+        // Find the existing lock and if still present, and expired, then remove it.
+        Bson lock = createLockFilter(job);
+        Document existingLock = locksDao.findLock(lock);
+        if (existingLock != null) {
+            if (timeCalculator.isJobLockExpired(existingLock)) {
+                log.debug("Removing expired lock for job {}", job.getKey());
+                locksDao.remove(existingLock);
+            }
+        }
+    }
+
+    private void unlock(OperableTrigger trigger) {
         log.info("Removing trigger lock {}.{}", trigger.getKey(), instanceId);
         Bson lock = Keys.toFilter(trigger.getKey());
 
@@ -407,14 +453,5 @@ public class TriggerRunner {
 
         locksDao.remove(lock);
         log.info("Trigger lock {}.{} removed.", trigger.getKey(), instanceId);
-    }
-
-    private JobDetail retrieveJob(OperableTrigger trigger) throws JobPersistenceException {
-        try {
-            return jobDao.retrieveJob(trigger.getJobKey());
-        } catch (JobPersistenceException e) {
-            removeTriggerLock(trigger);
-            throw e;
-        }
     }
 }

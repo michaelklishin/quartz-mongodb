@@ -24,6 +24,15 @@ public class Keys {
                 Filters.eq(KEY_GROUP, job.getKey().getGroup()));
     }
 
+    public static Document createJobLock(JobDetail job, String instanceId) {
+        Document lock = new Document();
+        lock.put(KEY_NAME, "jobconcurrentlock:" + job.getKey().getName());
+        lock.put(KEY_GROUP, job.getKey().getGroup());
+        lock.put(Constants.LOCK_INSTANCE_ID, instanceId);
+        lock.put(Constants.LOCK_TIME, new Date());
+        return lock;
+    }
+
     public static Bson toFilter(Key<?> key) {
         return Filters.and(
                 Filters.eq(KEY_NAME, key.getName()),

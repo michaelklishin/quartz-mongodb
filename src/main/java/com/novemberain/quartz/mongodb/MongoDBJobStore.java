@@ -407,7 +407,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     @Override
     public void releaseAcquiredTrigger(OperableTrigger trigger) throws JobPersistenceException {
-        triggerRunner.releaseAcquired(trigger);
+        triggerRunner.releaseAcquiredTrigger(trigger);
     }
 
     @Override
