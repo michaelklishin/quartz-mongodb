@@ -231,83 +231,43 @@ public class TriggerRunner {
             OperableTrigger trigger = triggerConverter.toTrigger(triggerDoc);
 
             try {
-                if (trigger == null) {
+                if (cannotAcquire(triggers, trigger)) {
                     continue;
                 }
 
-                if (triggers.containsKey(trigger.getKey())) {
-                    log.debug("Skipping trigger {} as we have already acquired it.", trigger.getKey());
+                if (notAcquirableAfterMisfire(noLaterThanDate, trigger)) {
                     continue;
                 }
 
-                if (trigger.getNextFireTime() == null) {
-                    log.debug("Skipping trigger {} as it has no next fire time.", trigger.getKey());
-
-                    // No next fire time, so delete it
-                    removeTrigger(trigger.getKey());
-                    continue;
-                }
-
-                // deal with misfires
-                if (misfireHandler.applyMisfire(trigger)) {
-                    storeTrigger(trigger, true);
-
-                    log.debug("Misfire trigger {}.", trigger.getKey());
-
-                    Date nextFireTime = trigger.getNextFireTime();
-
-                    if (nextFireTime == null) {
-                        log.debug("Removing trigger {} as it has no next fire time after the misfire was applied.",
-                                trigger.getKey());
-
-                        // No next fire time, so delete it
-                        removeTrigger(trigger.getKey());
-                        continue;
-                    }
-
-                    // The trigger has misfired and was rescheduled, its firetime may be too far in the future
-                    // and we don't want to hang the quartz scheduler thread up on <code>sigLock.wait(timeUntilTrigger);</code>
-                    // so, check again that the trigger is due to fire
-                    if (nextFireTime.after(noLaterThanDate)) {
-                        log.debug("Skipping trigger {} as it misfired and was scheduled for {}.",
-                                trigger.getKey(), trigger.getNextFireTime());
-                        continue;
-                    }
-                }
-
-                log.info("Inserting lock for trigger {}", trigger.getKey());
-
-                Document lock = createTriggerDbLock(triggerDoc, instanceId);
-                locksDao.insertLock(lock);
+                lockTrigger(triggerDoc, trigger);
 
                 log.info("Acquired trigger {}", trigger.getKey());
                 triggers.put(trigger.getKey(), trigger);
-
             } catch (MongoWriteException e) {
                 // someone else acquired this lock. Move on.
                 log.info("Failed to acquire trigger {} due to a lock, reason: {}",
                         trigger.getKey(), e.getError());
 
-                Document filter = lockToBson(triggerDoc);
-                Document existingLock = locksDao.findLock(filter);
-                if (existingLock != null) {
-                    // support for trigger lock expirations
-                    if (timeCalculator.isTriggerLockExpired(existingLock)) {
-                        log.warn("Lock for trigger {} is expired - removing lock and retrying trigger acquisition",
-                                trigger.getKey());
-                        unlock(trigger);
-                        acquireNextTriggers(triggers, noLaterThanDate, maxCount - triggers.size());
-                    }
-                } else {
-                    log.warn("Error retrieving expired lock from the database. Maybe it was deleted");
-                    acquireNextTriggers(triggers, noLaterThanDate, maxCount - triggers.size());
-                }
+                unlockExpiredAndAcquireNext(triggers, noLaterThanDate, maxCount, triggerDoc, trigger);
             }
         }
     }
 
     private boolean acquiredEnough(Map<TriggerKey, OperableTrigger> triggers, int maxCount) {
         return maxCount <= triggers.size();
+    }
+
+    private boolean cannotAcquire(Map<TriggerKey, OperableTrigger> triggers, OperableTrigger trigger) {
+        if (trigger == null) {
+            return true;
+        }
+
+        if (triggers.containsKey(trigger.getKey())) {
+            log.debug("Skipping trigger {} as we have already acquired it.", trigger.getKey());
+            return true;
+        }
+
+        return removeTriggerWithoutNextFireTime(trigger);
     }
 
     private void copyOldJobDataMap(OperableTrigger newTrigger, OperableTrigger trigger) {
@@ -357,6 +317,35 @@ public class TriggerRunner {
             Document lock = createJobLock(job, instanceId);
             locksDao.insertLock(lock);
         }
+    }
+
+    private void lockTrigger(Document triggerDoc, OperableTrigger trigger) {
+        log.info("Inserting lock for trigger {}", trigger.getKey());
+        Document lock = createTriggerDbLock(triggerDoc, instanceId);
+        locksDao.insertLock(lock);
+    }
+
+    private boolean notAcquirableAfterMisfire(Date noLaterThanDate, OperableTrigger trigger)
+            throws JobPersistenceException {
+        if (misfireHandler.applyMisfire(trigger)) {
+            storeTrigger(trigger, true);
+
+            log.debug("Misfire trigger {}.", trigger.getKey());
+
+            if (removeTriggerWithoutNextFireTime(trigger)) {
+                return true;
+            }
+
+            // The trigger has misfired and was rescheduled, its firetime may be too far in the future
+            // and we don't want to hang the quartz scheduler thread up on <code>sigLock.wait(timeUntilTrigger);</code>
+            // so, check again that the trigger is due to fire
+            if (trigger.getNextFireTime().after(noLaterThanDate)) {
+                log.debug("Skipping trigger {} as it misfired and was scheduled for {}.",
+                        trigger.getKey(), trigger.getNextFireTime());
+                return true;
+            }
+        }
+        return false;
     }
 
     private void process(OperableTrigger trigger, CompletedExecutionInstruction executionInstruction)
@@ -413,6 +402,15 @@ public class TriggerRunner {
         }
     }
 
+    private boolean removeTriggerWithoutNextFireTime(OperableTrigger trigger) {
+        if (trigger.getNextFireTime() == null) {
+            log.debug("Removing trigger {} as it has no next fire time.", trigger.getKey());
+            removeTrigger(trigger.getKey());
+            return true;
+        }
+        return false;
+    }
+
     private JobDetail retrieveJob(OperableTrigger trigger) throws JobPersistenceException {
         try {
             return jobDao.retrieveJob(trigger.getJobKey());
@@ -453,5 +451,25 @@ public class TriggerRunner {
 
         locksDao.remove(lock);
         log.info("Trigger lock {}.{} removed.", trigger.getKey(), instanceId);
+    }
+
+    private void unlockExpiredAndAcquireNext(Map<TriggerKey, OperableTrigger> triggers,
+                                             Date noLaterThanDate, int maxCount,
+                                             Document triggerDoc, OperableTrigger trigger)
+            throws JobPersistenceException {
+        Document filter = lockToBson(triggerDoc);
+        Document existingLock = locksDao.findLock(filter);
+        if (existingLock != null) {
+            // support for trigger lock expirations
+            if (timeCalculator.isTriggerLockExpired(existingLock)) {
+                log.warn("Lock for trigger {} is expired - removing lock and retrying trigger acquisition",
+                        trigger.getKey());
+                unlock(trigger);
+                acquireNextTriggers(triggers, noLaterThanDate, maxCount - triggers.size());
+            }
+        } else {
+            log.warn("Error retrieving expired lock from the database. Maybe it was deleted");
+            acquireNextTriggers(triggers, noLaterThanDate, maxCount - triggers.size());
+        }
     }
 }
