@@ -305,7 +305,7 @@ public class TriggerRunner {
                 Document job = jobDao.getById(trigger.get(Constants.TRIGGER_JOB_ID));
                 // Remove the orphaned job if it's durable and has no other triggers associated with it,
                 // remove it
-                if (job != null && (!job.containsKey(Constants.JOB_DURABILITY) || job.get(Constants.JOB_DURABILITY).toString().equals("false"))) {
+                if (job != null && (!job.containsKey(JobConverter.JOB_DURABILITY) || job.get(JobConverter.JOB_DURABILITY).toString().equals("false"))) {
                     if (triggerDao.hasLastTrigger(job)) {
                         jobDao.remove(job);
                     }

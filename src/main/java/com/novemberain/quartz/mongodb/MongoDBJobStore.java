@@ -123,8 +123,8 @@ public class MongoDBJobStore implements JobStore, Constants {
 
         MongoDatabase db = mongoConnector.selectDatabase(dbName);
 
-        JobLoader jobLoader = new JobLoader(getClassLoaderHelper(loadHelper));
-        initializeCollections(db, jobLoader);
+        JobConverter jobConverter = new JobConverter(getClassLoaderHelper(loadHelper));
+        initializeCollections(db, jobConverter);
 
         ensureIndexes();
 
@@ -494,8 +494,8 @@ public class MongoDBJobStore implements JobStore, Constants {
         this.jobTimeoutMillis = jobTimeoutMillis;
     }
 
-    private void initializeCollections(MongoDatabase db, JobLoader jobLoader) {
-        jobDao = new JobDao(db.getCollection(collectionPrefix + "jobs"), queryHelper, jobLoader);
+    private void initializeCollections(MongoDatabase db, JobConverter jobConverter) {
+        jobDao = new JobDao(db.getCollection(collectionPrefix + "jobs"), queryHelper, jobConverter);
         triggerDao = new TriggerDao(db.getCollection(collectionPrefix + "triggers"), queryHelper);
         calendarDao = new CalendarDao(db.getCollection(collectionPrefix + "calendars"));
         locksDao = new LocksDao(db.getCollection(collectionPrefix + "locks"), instanceId);

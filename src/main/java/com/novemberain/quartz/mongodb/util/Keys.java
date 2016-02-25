@@ -38,19 +38,6 @@ public class Keys {
         return new TriggerKey(dbo.getString(KEY_NAME), dbo.getString(KEY_GROUP));
     }
 
-    public static Document convertToBson(JobDetail newJob, JobKey key) {
-        Document job = new Document();
-        job.put(KEY_NAME, key.getName());
-        job.put(KEY_GROUP, key.getGroup());
-        job.put(KEY_NAME, key.getName());
-        job.put(KEY_GROUP, key.getGroup());
-        job.put(Constants.JOB_DESCRIPTION, newJob.getDescription());
-        job.put(Constants.JOB_CLASS, newJob.getJobClass().getName());
-        job.put(Constants.JOB_DURABILITY, newJob.isDurable());
-        job.putAll(newJob.getJobDataMap());
-        return job;
-    }
-
     public static Document lockToBson(Document doc) {
         Document lock = new Document();
         lock.put(KEY_NAME, doc.get(KEY_NAME));

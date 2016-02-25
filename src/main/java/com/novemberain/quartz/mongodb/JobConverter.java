@@ -10,15 +10,30 @@ import java.io.IOException;
 import static com.novemberain.quartz.mongodb.util.Keys.KEY_GROUP;
 import static com.novemberain.quartz.mongodb.util.Keys.KEY_NAME;
 
-public class JobLoader {
+public class JobConverter {
+
+    public static final String JOB_DURABILITY = "durability";
+    private static final String JOB_CLASS = "jobClass";
+    private static final String JOB_DESCRIPTION = "jobDescription";
 
     private ClassLoadHelper loadHelper;
 
-    public JobLoader(ClassLoadHelper loadHelper) {
+    public JobConverter(ClassLoadHelper loadHelper) {
         this.loadHelper = loadHelper;
     }
 
-    public JobDetail loadJobDetail(Document doc) throws JobPersistenceException {
+    public Document toDocument(JobDetail newJob, JobKey key) {
+        Document job = new Document();
+        job.put(KEY_NAME, key.getName());
+        job.put(KEY_GROUP, key.getGroup());
+        job.put(JOB_DESCRIPTION, newJob.getDescription());
+        job.put(JOB_CLASS, newJob.getJobClass().getName());
+        job.put(JOB_DURABILITY, newJob.isDurable());
+        job.putAll(newJob.getJobDataMap());
+        return job;
+    }
+
+    public JobDetail toJobDetail(Document doc) throws JobPersistenceException {
         try {
             // Make it possible for subclasses to use custom class loaders.
             // When Quartz jobs are implemented as Clojure records, the only way to use
@@ -26,16 +41,16 @@ public class JobLoader {
             // clojure.lang.DynamicClassLoader instance.
             @SuppressWarnings("unchecked")
             Class<Job> jobClass = (Class<Job>) loadHelper.getClassLoader()
-                    .loadClass(doc.getString(Constants.JOB_CLASS));
+                    .loadClass(doc.getString(JOB_CLASS));
 
             JobBuilder builder = createJobBuilder(doc, jobClass);
             withDurability(doc, builder);
             JobDataMap jobData = createJobDataMap(doc);
             return builder.usingJobData(jobData).build();
         } catch (ClassNotFoundException e) {
-            throw new JobPersistenceException("Could not load job class " + doc.get(Constants.JOB_CLASS), e);
+            throw new JobPersistenceException("Could not load job class " + doc.get(JOB_CLASS), e);
         } catch (IOException e) {
-            throw new JobPersistenceException("Could not load job class " + doc.get(Constants.JOB_CLASS), e);
+            throw new JobPersistenceException("Could not load job class " + doc.get(JOB_CLASS), e);
         }
     }
 
@@ -49,9 +64,9 @@ public class JobLoader {
             for (String key : doc.keySet()) {
                 if (!key.equals(KEY_NAME)
                         && !key.equals(KEY_GROUP)
-                        && !key.equals(Constants.JOB_CLASS)
-                        && !key.equals(Constants.JOB_DESCRIPTION)
-                        && !key.equals(Constants.JOB_DURABILITY)
+                        && !key.equals(JOB_CLASS)
+                        && !key.equals(JOB_DESCRIPTION)
+                        && !key.equals(JOB_DURABILITY)
                         && !key.equals("_id")) {
                     jobData.put(key, doc.get(key));
                 }
@@ -63,14 +78,14 @@ public class JobLoader {
     }
 
     private void withDurability(Document doc, JobBuilder builder) throws JobPersistenceException {
-        Object jobDurability = doc.get(Constants.JOB_DURABILITY);
+        Object jobDurability = doc.get(JOB_DURABILITY);
         if (jobDurability != null) {
             if (jobDurability instanceof Boolean) {
                 builder.storeDurably((Boolean) jobDurability);
             } else if (jobDurability instanceof String) {
                 builder.storeDurably(Boolean.valueOf((String) jobDurability));
             } else {
-                throw new JobPersistenceException("Illegal value for " + Constants.JOB_DURABILITY + ", class "
+                throw new JobPersistenceException("Illegal value for " + JOB_DURABILITY + ", class "
                         + jobDurability.getClass() + " not supported");
             }
         }
@@ -79,6 +94,6 @@ public class JobLoader {
     private JobBuilder createJobBuilder(Document doc, Class<Job> jobClass) {
         return JobBuilder.newJob(jobClass)
                 .withIdentity(doc.getString(KEY_NAME), doc.getString(KEY_GROUP))
-                .withDescription(doc.getString(Constants.JOB_DESCRIPTION));
+                .withDescription(doc.getString(JOB_DESCRIPTION));
     }
 }

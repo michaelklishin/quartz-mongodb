@@ -5,7 +5,7 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.result.DeleteResult;
-import com.novemberain.quartz.mongodb.JobLoader;
+import com.novemberain.quartz.mongodb.JobConverter;
 import com.novemberain.quartz.mongodb.util.GroupHelper;
 import com.novemberain.quartz.mongodb.util.Keys;
 import com.novemberain.quartz.mongodb.util.QueryHelper;
@@ -28,14 +28,14 @@ public class JobDao {
     private final MongoCollection<Document> jobCollection;
     private final QueryHelper queryHelper;
     private final GroupHelper groupHelper;
-    private final JobLoader jobLoader;
+    private final JobConverter jobConverter;
 
     public JobDao(MongoCollection<Document> jobCollection,
-                  QueryHelper queryHelper, JobLoader jobLoader) {
+                  QueryHelper queryHelper, JobConverter jobConverter) {
         this.jobCollection = jobCollection;
         this.queryHelper = queryHelper;
         this.groupHelper = new GroupHelper(jobCollection, queryHelper);
-        this.jobLoader = jobLoader;
+        this.jobConverter = jobConverter;
     }
 
     public MongoCollection<Document> getCollection() {
@@ -105,14 +105,14 @@ public class JobDao {
             //Return null if job does not exist, per interface
             return null;
         }
-        return jobLoader.loadJobDetail(doc);
+        return jobConverter.toJobDetail(doc);
     }
 
     public ObjectId storeJobInMongo(JobDetail newJob, boolean replaceExisting) throws ObjectAlreadyExistsException {
         JobKey key = newJob.getKey();
 
         Bson keyDbo = toFilter(key);
-        Document job = Keys.convertToBson(newJob, key);
+        Document job = jobConverter.toDocument(newJob, key);
 
         Document object = getJob(keyDbo);
 
