@@ -9,6 +9,7 @@ import com.novemberain.quartz.mongodb.util.QueryHelper;
 import com.novemberain.quartz.mongodb.util.TriggerGroupHelper;
 import org.bson.types.ObjectId;
 import org.quartz.JobKey;
+import org.quartz.Trigger.TriggerState;
 import org.quartz.TriggerKey;
 import org.quartz.impl.matchers.GroupMatcher;
 
@@ -37,6 +38,10 @@ public class TriggerStateManager {
 
     public Set<String> getPausedTriggerGroups() {
         return pausedTriggerGroupsDao.getPausedGroups();
+    }
+
+    public TriggerState getState(TriggerKey triggerKey) {
+        return getTriggerState(triggerDao.getState(triggerKey));
     }
 
     public void pause(TriggerKey triggerKey) {
@@ -109,5 +114,38 @@ public class TriggerStateManager {
         pausedJobGroupsDao.unpauseGroups(groups);
 
         return groups;
+    }
+
+    private TriggerState getTriggerState(String value) {
+        if (value == null) {
+            return TriggerState.NONE;
+        }
+
+        if (value.equals(Constants.STATE_DELETED)) {
+            return TriggerState.NONE;
+        }
+
+        if (value.equals(Constants.STATE_COMPLETE)) {
+            return TriggerState.COMPLETE;
+        }
+
+        if (value.equals(Constants.STATE_PAUSED)) {
+            return TriggerState.PAUSED;
+        }
+
+        if (value.equals(Constants.STATE_PAUSED_BLOCKED)) {
+            return TriggerState.PAUSED;
+        }
+
+        if (value.equals(Constants.STATE_ERROR)) {
+            return TriggerState.ERROR;
+        }
+
+        if (value.equals(Constants.STATE_BLOCKED)) {
+            return TriggerState.BLOCKED;
+        }
+
+        // waiting or acquired
+        return TriggerState.NORMAL;
     }
 }

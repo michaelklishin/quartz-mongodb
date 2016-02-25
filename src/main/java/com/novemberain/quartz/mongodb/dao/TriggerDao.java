@@ -13,7 +13,6 @@ import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.bson.types.ObjectId;
 import org.quartz.ObjectAlreadyExistsException;
-import org.quartz.Trigger.TriggerState;
 import org.quartz.TriggerKey;
 import org.quartz.impl.matchers.GroupMatcher;
 import org.quartz.spi.OperableTrigger;
@@ -87,9 +86,9 @@ public class TriggerDao {
         return triggerCollection.distinct(KEY_GROUP, String.class).into(new ArrayList<String>());
     }
 
-    public TriggerState getState(TriggerKey triggerKey) {
+    public String getState(TriggerKey triggerKey) {
         Document doc = findTrigger(triggerKey);
-        return triggerStateForValue(doc.getString(Constants.TRIGGER_STATE));
+        return doc.getString(Constants.TRIGGER_STATE);
     }
 
     public Set<TriggerKey> getTriggerKeys(GroupMatcher<TriggerKey> matcher) {
@@ -195,39 +194,6 @@ public class TriggerDao {
 
     private long getCount(Bson query) {
         return triggerCollection.count(query);
-    }
-
-    private TriggerState triggerStateForValue(String ts) {
-        if (ts == null) {
-            return TriggerState.NONE;
-        }
-
-        if (ts.equals(Constants.STATE_DELETED)) {
-            return TriggerState.NONE;
-        }
-
-        if (ts.equals(Constants.STATE_COMPLETE)) {
-            return TriggerState.COMPLETE;
-        }
-
-        if (ts.equals(Constants.STATE_PAUSED)) {
-            return TriggerState.PAUSED;
-        }
-
-        if (ts.equals(Constants.STATE_PAUSED_BLOCKED)) {
-            return TriggerState.PAUSED;
-        }
-
-        if (ts.equals(Constants.STATE_ERROR)) {
-            return TriggerState.ERROR;
-        }
-
-        if (ts.equals(Constants.STATE_BLOCKED)) {
-            return TriggerState.BLOCKED;
-        }
-
-        // waiting or acquired
-        return TriggerState.NORMAL;
     }
 
     private Bson updateThatSetsTriggerStateTo(String state) {
