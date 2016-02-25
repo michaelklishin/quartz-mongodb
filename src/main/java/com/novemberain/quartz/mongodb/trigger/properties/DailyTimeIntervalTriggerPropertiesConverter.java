@@ -26,12 +26,12 @@ public class DailyTimeIntervalTriggerPropertiesConverter implements TriggerPrope
     public Document injectExtraPropertiesForInsert(OperableTrigger trigger, Document original) {
         DailyTimeIntervalTriggerImpl t = (DailyTimeIntervalTriggerImpl) trigger;
 
-        return new Document(original).
-                append(TRIGGER_REPEAT_INTERVAL_UNIT, t.getRepeatIntervalUnit().name()).
-                append(TRIGGER_REPEAT_INTERVAL, t.getRepeatInterval()).
-                append(TRIGGER_TIMES_TRIGGERED, t.getTimesTriggered()).
-                append(TRIGGER_START_TIME_OF_DAY, toDocument(t.getStartTimeOfDay())).
-                append(TRIGGER_END_TIME_OF_DAY, toDocument(t.getEndTimeOfDay()));
+        return new Document(original)
+                .append(TRIGGER_REPEAT_INTERVAL_UNIT, t.getRepeatIntervalUnit().name())
+                .append(TRIGGER_REPEAT_INTERVAL, t.getRepeatInterval())
+                .append(TRIGGER_TIMES_TRIGGERED, t.getTimesTriggered())
+                .append(TRIGGER_START_TIME_OF_DAY, toDocument(t.getStartTimeOfDay()))
+                .append(TRIGGER_END_TIME_OF_DAY, toDocument(t.getEndTimeOfDay()));
     }
 
     private Document toDocument(TimeOfDay tod) {
@@ -45,17 +45,17 @@ public class DailyTimeIntervalTriggerPropertiesConverter implements TriggerPrope
     public OperableTrigger setExtraPropertiesAfterInstantiation(OperableTrigger trigger, Document stored) {
         DailyTimeIntervalTriggerImpl t = (DailyTimeIntervalTriggerImpl) trigger;
 
-        Object interval_unit = stored.get(TRIGGER_REPEAT_INTERVAL_UNIT);
+        String interval_unit = stored.getString(TRIGGER_REPEAT_INTERVAL_UNIT);
         if (interval_unit != null) {
-            t.setRepeatIntervalUnit(DateBuilder.IntervalUnit.valueOf((String) interval_unit));
+            t.setRepeatIntervalUnit(DateBuilder.IntervalUnit.valueOf(interval_unit));
         }
-        Object repeatInterval = stored.get(TRIGGER_REPEAT_INTERVAL);
+        Integer repeatInterval = stored.getInteger(TRIGGER_REPEAT_INTERVAL);
         if (repeatInterval != null) {
-            t.setRepeatInterval((Integer) repeatInterval);
+            t.setRepeatInterval(repeatInterval);
         }
-        Object timesTriggered = stored.get(TRIGGER_TIMES_TRIGGERED);
+        Integer timesTriggered = stored.getInteger(TRIGGER_TIMES_TRIGGERED);
         if (timesTriggered != null) {
-            t.setTimesTriggered((Integer) timesTriggered);
+            t.setTimesTriggered(timesTriggered);
         }
 
         Document startTOD = (Document) stored.get(TRIGGER_START_TIME_OF_DAY);
@@ -70,7 +70,7 @@ public class DailyTimeIntervalTriggerPropertiesConverter implements TriggerPrope
         return t;
     }
 
-    private TimeOfDay fromDocument(Document endTOD) {
-        return new TimeOfDay((Integer) endTOD.get("hour"), (Integer) endTOD.get("minute"), (Integer) endTOD.get("second"));
+    private TimeOfDay fromDocument(Document tod) {
+        return new TimeOfDay(tod.getInteger("hour"), tod.getInteger("minute"), tod.getInteger("second"));
     }
 }

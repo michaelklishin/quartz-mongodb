@@ -25,27 +25,27 @@ public class CronTriggerPropertiesConverter implements TriggerPropertiesConverte
     public Document injectExtraPropertiesForInsert(OperableTrigger trigger, Document original) {
         CronTrigger t = (CronTrigger) trigger;
 
-        return new Document(original).
-                append(TRIGGER_CRON_EXPRESSION, t.getCronExpression()).
-                append(TRIGGER_TIMEZONE, t.getTimeZone().getID());
+        return new Document(original)
+                .append(TRIGGER_CRON_EXPRESSION, t.getCronExpression())
+                .append(TRIGGER_TIMEZONE, t.getTimeZone().getID());
     }
 
     @Override
     public OperableTrigger setExtraPropertiesAfterInstantiation(OperableTrigger trigger, Document stored) {
         CronTriggerImpl t = (CronTriggerImpl) trigger;
 
-        Object expression = stored.get(TRIGGER_CRON_EXPRESSION);
+        String expression = stored.getString(TRIGGER_CRON_EXPRESSION);
         if (expression != null) {
             try {
-                t.setCronExpression(new CronExpression((String) expression));
+                t.setCronExpression(new CronExpression(expression));
             } catch (ParseException e) {
                 // no good handling strategy and
                 // checked exceptions route sucks just as much.
             }
         }
-        Object tz = stored.get(TRIGGER_TIMEZONE);
+        String tz = stored.getString(TRIGGER_TIMEZONE);
         if (tz != null) {
-            t.setTimeZone(TimeZone.getTimeZone((String) tz));
+            t.setTimeZone(TimeZone.getTimeZone(tz));
         }
 
         return t;
