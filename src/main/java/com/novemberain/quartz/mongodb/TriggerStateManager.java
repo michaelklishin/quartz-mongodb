@@ -45,11 +45,11 @@ public class TriggerStateManager {
     }
 
     public void pause(TriggerKey triggerKey) {
-        triggerDao.pause(triggerKey);
+        triggerDao.setState(triggerKey, Constants.STATE_PAUSED);
     }
 
     public Collection<String> pause(GroupMatcher<TriggerKey> matcher) {
-        triggerDao.pauseMatching(matcher);
+        triggerDao.setStateInMatching(matcher, Constants.STATE_PAUSED);
 
         final GroupHelper groupHelper = new GroupHelper(triggerDao.getCollection(), queryHelper);
         final Set<String> set = groupHelper.groupsThatMatch(matcher);
@@ -60,7 +60,7 @@ public class TriggerStateManager {
 
     public void pauseAll() {
         final GroupHelper groupHelper = new GroupHelper(triggerDao.getCollection(), queryHelper);
-        triggerDao.pauseAll();
+        triggerDao.setStateInAll(Constants.STATE_PAUSED);
         pausedTriggerGroupsDao.pauseGroups(groupHelper.allGroups());
     }
 
@@ -68,26 +68,25 @@ public class TriggerStateManager {
         final ObjectId jobId = jobDao.getJob(jobKey).getObjectId("_id");
         final TriggerGroupHelper groupHelper = new TriggerGroupHelper(triggerDao.getCollection(), queryHelper);
         List<String> groups = groupHelper.groupsForJobId(jobId);
-        triggerDao.pauseByJobId(jobId);
+        triggerDao.setStateByJobId(jobId, Constants.STATE_PAUSED);
         pausedTriggerGroupsDao.pauseGroups(groups);
     }
 
     public Collection<String> pauseJobs(GroupMatcher<JobKey> groupMatcher) {
         final TriggerGroupHelper groupHelper = new TriggerGroupHelper(triggerDao.getCollection(), queryHelper);
         List<String> groups = groupHelper.groupsForJobIds(jobDao.idsOfMatching(groupMatcher));
-        triggerDao.pauseGroups(groups);
+        triggerDao.setStateInGroups(groups, Constants.STATE_PAUSED);
         pausedJobGroupsDao.pauseGroups(groups);
-
         return groups;
     }
 
     public void resume(TriggerKey triggerKey) {
         // TODO: port blocking behavior and misfired triggers handling from StdJDBCDelegate in Quartz
-        triggerDao.resume(triggerKey);
+        triggerDao.setState(triggerKey, Constants.STATE_WAITING);
     }
 
     public Collection<String> resume(GroupMatcher<TriggerKey> matcher) {
-        triggerDao.resumeMatching(matcher);
+        triggerDao.setStateInMatching(matcher, Constants.STATE_WAITING);
 
         final GroupHelper groupHelper = new GroupHelper(triggerDao.getCollection(), queryHelper);
         final Set<String> set = groupHelper.groupsThatMatch(matcher);
@@ -98,21 +97,20 @@ public class TriggerStateManager {
     public void resume(JobKey jobKey) {
         final ObjectId jobId = jobDao.getJob(jobKey).getObjectId("_id");
         // TODO: port blocking behavior and misfired triggers handling from StdJDBCDelegate in Quartz
-        triggerDao.resumeByJobId(jobId);
+        triggerDao.setStateByJobId(jobId, Constants.STATE_WAITING);
     }
 
     public void resumeAll() {
         final GroupHelper groupHelper = new GroupHelper(triggerDao.getCollection(), queryHelper);
-        triggerDao.resumeAll();
+        triggerDao.setStateInAll(Constants.STATE_WAITING);
         pausedTriggerGroupsDao.unpauseGroups(groupHelper.allGroups());
     }
 
     public Collection<String> resumeJobs(GroupMatcher<JobKey> groupMatcher) {
         final TriggerGroupHelper groupHelper = new TriggerGroupHelper(triggerDao.getCollection(), queryHelper);
         List<String> groups = groupHelper.groupsForJobIds(jobDao.idsOfMatching(groupMatcher));
-        triggerDao.resumeGroups(groups);
+        triggerDao.setStateInGroups(groups, Constants.STATE_WAITING);
         pausedJobGroupsDao.unpauseGroups(groups);
-
         return groups;
     }
 

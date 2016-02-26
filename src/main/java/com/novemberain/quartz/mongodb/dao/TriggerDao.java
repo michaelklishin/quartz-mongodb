@@ -55,6 +55,11 @@ public class TriggerDao {
         triggerCollection.deleteMany(new Document());
     }
 
+
+    public MongoCollection<Document> getCollection() {
+        return triggerCollection;
+    }
+
     public boolean exists(Bson filter) {
         return triggerCollection.count(filter) > 0;
     }
@@ -128,32 +133,6 @@ public class TriggerDao {
         }
     }
 
-    public void pause(TriggerKey triggerKey) {
-        triggerCollection.updateOne(Keys.toFilter(triggerKey),
-                updateThatSetsTriggerStateTo(Constants.STATE_PAUSED));
-    }
-
-    public void pauseAll() {
-        triggerCollection.updateMany(new Document(), updateThatSetsTriggerStateTo(Constants.STATE_PAUSED));
-    }
-
-    public void pauseByJobId(ObjectId jobId) {
-        triggerCollection.updateMany(new Document(Constants.TRIGGER_JOB_ID, jobId),
-                updateThatSetsTriggerStateTo(Constants.STATE_PAUSED));
-    }
-
-    public void pauseGroups(List<String> groups) {
-        triggerCollection.updateMany(queryHelper.inGroups(groups),
-                updateThatSetsTriggerStateTo(Constants.STATE_PAUSED));
-    }
-
-    public void pauseMatching(GroupMatcher<TriggerKey> matcher) {
-        triggerCollection.updateMany(
-                queryHelper.matchingKeysConditionFor(matcher),
-                updateThatSetsTriggerStateTo(Constants.STATE_PAUSED),
-                new UpdateOptions().upsert(false));
-    }
-
     public void remove(Bson filter) {
         triggerCollection.deleteMany(filter);
     }
@@ -166,41 +145,36 @@ public class TriggerDao {
         triggerCollection.replaceOne(toFilter(triggerKey), trigger);
     }
 
-    public void resume(TriggerKey triggerKey) {
-        triggerCollection.updateOne(Keys.toFilter(triggerKey),
-                updateThatSetsTriggerStateTo(Constants.STATE_WAITING));
+    public void setState(TriggerKey triggerKey, String state) {
+        triggerCollection.updateOne(
+                Keys.toFilter(triggerKey),
+                createTriggerStateUpdateDocument(state));
     }
 
-    public void resumeAll() {
-        triggerCollection.updateMany(new Document(),
-                updateThatSetsTriggerStateTo(Constants.STATE_WAITING));
+    public void setStateInAll(String state) {
+        setStates(new Document(), state);
     }
 
-    public void resumeByJobId(ObjectId jobId) {
-        triggerCollection.updateMany(new Document(Constants.TRIGGER_JOB_ID, jobId),
-                updateThatSetsTriggerStateTo(Constants.STATE_WAITING));
+    public void setStateByJobId(ObjectId jobId, String state) {
+        setStates(new Document(Constants.TRIGGER_JOB_ID, jobId), state);
     }
 
-    public void resumeGroups(List<String> groups) {
-        triggerCollection.updateMany(queryHelper.inGroups(groups),
-                updateThatSetsTriggerStateTo(Constants.STATE_WAITING));
+    public void setStateInGroups(List<String> groups, String state) {
+        setStates(queryHelper.inGroups(groups), state);
     }
 
-    public void resumeMatching(GroupMatcher<TriggerKey> matcher) {
-        triggerCollection.updateMany(
-                queryHelper.matchingKeysConditionFor(matcher),
-                updateThatSetsTriggerStateTo(Constants.STATE_WAITING),
-                new UpdateOptions().upsert(false));
-    }
-
-    public MongoCollection<Document> getCollection() {
-        return triggerCollection;
+    public void setStateInMatching(GroupMatcher<TriggerKey> matcher, String state) {
+        setStates(matcher, state);
     }
 
     private Bson createNextTriggerQuery(Date noLaterThanDate) {
         return Filters.and(
                 Filters.lte(Constants.TRIGGER_NEXT_FIRE_TIME, noLaterThanDate),
                 Filters.eq(Constants.TRIGGER_STATE, Constants.STATE_WAITING));
+    }
+
+    private Bson createTriggerStateUpdateDocument(String state) {
+        return new Document("$set", new Document(Constants.TRIGGER_STATE, state));
     }
 
     private FindIterable<Document> findByJobId(Object jobId) {
@@ -215,7 +189,14 @@ public class TriggerDao {
         return triggerCollection.count(query);
     }
 
-    private Bson updateThatSetsTriggerStateTo(String state) {
-        return new Document("$set", new Document(Constants.TRIGGER_STATE, state));
+    private void setStates(Bson filter, String state) {
+        triggerCollection.updateMany(filter, createTriggerStateUpdateDocument(state));
+    }
+
+    private void setStates(GroupMatcher<TriggerKey> matcher, String state) {
+        triggerCollection.updateMany(
+                queryHelper.matchingKeysConditionFor(matcher),
+                createTriggerStateUpdateDocument(state),
+                new UpdateOptions().upsert(false));
     }
 }
