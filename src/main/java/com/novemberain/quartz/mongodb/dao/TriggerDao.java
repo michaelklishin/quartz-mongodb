@@ -84,6 +84,14 @@ public class TriggerDao {
         return doc.getString(Constants.TRIGGER_STATE);
     }
 
+    public OperableTrigger getTrigger(TriggerKey triggerKey) throws JobPersistenceException {
+        Document doc = findTrigger(Keys.toFilter(triggerKey));
+        if (doc == null) {
+            return null;
+        }
+        return triggerConverter.toTrigger(triggerKey, doc);
+    }
+
     public List<OperableTrigger> getTriggersForJob(Document doc) throws JobPersistenceException {
         final List<OperableTrigger> triggers = new LinkedList<OperableTrigger>();
         if (doc != null) {
@@ -183,14 +191,6 @@ public class TriggerDao {
                 queryHelper.matchingKeysConditionFor(matcher),
                 updateThatSetsTriggerStateTo(Constants.STATE_WAITING),
                 new UpdateOptions().upsert(false));
-    }
-
-    public OperableTrigger retrieveTrigger(TriggerKey triggerKey) throws JobPersistenceException {
-        Document doc = findTrigger(Keys.toFilter(triggerKey));
-        if (doc == null) {
-            return null;
-        }
-        return triggerConverter.toTrigger(triggerKey, doc);
     }
 
     public MongoCollection<Document> getCollection() {

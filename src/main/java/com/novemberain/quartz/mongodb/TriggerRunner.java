@@ -165,7 +165,7 @@ public class TriggerRunner {
 
     public boolean replaceTrigger(TriggerKey triggerKey, OperableTrigger newTrigger)
             throws JobPersistenceException {
-        OperableTrigger oldTrigger = triggerDao.retrieveTrigger(triggerKey);
+        OperableTrigger oldTrigger = triggerDao.getTrigger(triggerKey);
         if (oldTrigger == null) {
             return false;
         }
@@ -337,7 +337,7 @@ public class TriggerRunner {
     private void process(OperableTrigger trigger, CompletedExecutionInstruction executionInstruction)
             throws JobPersistenceException {
         // check for trigger deleted during execution...
-        OperableTrigger dbTrigger = triggerDao.retrieveTrigger(trigger.getKey());
+        OperableTrigger dbTrigger = triggerDao.getTrigger(trigger.getKey());
         if (dbTrigger != null) {
             if (isTriggerDeletionRequested(executionInstruction)) {
                 if (trigger.getNextFireTime() == null) {

@@ -253,7 +253,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     @Override
     public OperableTrigger retrieveTrigger(TriggerKey triggerKey) throws JobPersistenceException {
-        return triggerDao.retrieveTrigger(triggerKey);
+        return triggerDao.getTrigger(triggerKey);
     }
 
     @Override
