@@ -20,20 +20,16 @@ import com.novemberain.quartz.mongodb.trigger.TriggerConverter;
 import com.novemberain.quartz.mongodb.util.*;
 import org.bson.Document;
 import org.bson.conversions.Bson;
-import org.bson.types.ObjectId;
 import org.quartz.Calendar;
 import org.quartz.*;
 import org.quartz.Trigger.CompletedExecutionInstruction;
 import org.quartz.Trigger.TriggerState;
 import org.quartz.impl.matchers.GroupMatcher;
 import org.quartz.spi.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
 public class MongoDBJobStore implements JobStore, Constants {
-    protected final Logger log = LoggerFactory.getLogger(getClass());
 
     @Deprecated
     private static MongoClient overriddenMongo;
@@ -49,6 +45,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     private MongoConnector mongoConnector;
     private TriggerStateManager triggerStateManager;
     private TriggerRunner triggerRunner;
+    private TriggerAndJobPersister persister;
 
     private MongoClient mongo;
     private String collectionPrefix = "quartz_";
@@ -140,10 +137,11 @@ public class MongoDBJobStore implements JobStore, Constants {
         TriggerTimeCalculator timeCalculator = new TriggerTimeCalculator(jobTimeoutMillis,
                 triggerTimeoutMillis);
 
+        persister = new TriggerAndJobPersister(triggerDao, jobDao, triggerConverter);
         triggerStateManager = new TriggerStateManager(triggerDao, jobDao,
                 pausedJobGroupsDao, pausedTriggerGroupsDao, queryHelper);
-        triggerRunner = new TriggerRunner(triggerDao, jobDao, locksDao, calendarDao, signaler,
-                instanceId, timeCalculator, misfireHandler, triggerConverter);
+        triggerRunner = new TriggerRunner(persister, triggerDao, jobDao, locksDao, calendarDao, signaler,
+                timeCalculator, misfireHandler, triggerConverter);
     }
 
     @Override
@@ -187,10 +185,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     @Override
     public void storeJobAndTrigger(JobDetail newJob, OperableTrigger newTrigger)
             throws JobPersistenceException {
-        ObjectId jobId = jobDao.storeJobInMongo(newJob, false);
-
-        log.debug("Storing job {} and trigger {}", newJob.getKey(), newTrigger.getKey());
-        triggerRunner.storeTrigger(newTrigger, jobId, false);
+        persister.storeJobAndTrigger(newJob, newTrigger);
     }
 
     @Override
@@ -233,22 +228,22 @@ public class MongoDBJobStore implements JobStore, Constants {
     @Override
     public void storeTrigger(OperableTrigger newTrigger, boolean replaceExisting)
             throws JobPersistenceException {
-        triggerRunner.storeTrigger(newTrigger, replaceExisting);
+        persister.storeTrigger(newTrigger, replaceExisting);
     }
 
     @Override
     public boolean removeTrigger(TriggerKey triggerKey) throws JobPersistenceException {
-        return triggerRunner.removeTrigger(triggerKey);
+        return persister.removeTrigger(triggerKey);
     }
 
     @Override
     public boolean removeTriggers(List<TriggerKey> triggerKeys) throws JobPersistenceException {
-        return triggerRunner.removeTriggers(triggerKeys);
+        return persister.removeTriggers(triggerKeys);
     }
 
     @Override
     public boolean replaceTrigger(TriggerKey triggerKey, OperableTrigger newTrigger) throws JobPersistenceException {
-        return triggerRunner.replaceTrigger(triggerKey, newTrigger);
+        return persister.replaceTrigger(triggerKey, newTrigger);
     }
 
     @Override
@@ -338,7 +333,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     @Override
     public List<OperableTrigger> getTriggersForJob(JobKey jobKey) throws JobPersistenceException {
-        return triggerRunner.getTriggersForJob(jobKey);
+        return persister.getTriggersForJob(jobKey);
     }
 
     @Override

@@ -6,13 +6,23 @@ import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.Projections;
 import com.mongodb.client.result.DeleteResult;
+import com.novemberain.quartz.mongodb.TriggerRunner;
 import com.novemberain.quartz.mongodb.util.Keys;
 import org.bson.Document;
 import org.bson.conversions.Bson;
+import org.quartz.JobDetail;
+import org.quartz.spi.OperableTrigger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static com.novemberain.quartz.mongodb.Constants.LOCK_INSTANCE_ID;
+import static com.novemberain.quartz.mongodb.util.Keys.createJobLock;
+import static com.novemberain.quartz.mongodb.util.Keys.createLockFilter;
+import static com.novemberain.quartz.mongodb.util.Keys.createTriggerDbLock;
 
 public class LocksDao {
+
+    private static final Logger log = LoggerFactory.getLogger(LocksDao.class);
 
     private final MongoCollection<Document> locksCollection;
     private final String instanceId;
@@ -47,16 +57,46 @@ public class LocksDao {
         return locksCollection.find(lock).first();
     }
 
-    public void insertLock(Document lock) {
-        // A lock needs to be written with FSYNCED to be 100% effective across multiple servers
-        locksCollection.withWriteConcern(WriteConcern.FSYNCED).insertOne(lock);
+    public void lockJob(JobDetail job) {
+        if (job.isConcurrentExectionDisallowed()) {
+            log.debug("Inserting lock for job {}", job.getKey());
+            Document lock = createJobLock(job, instanceId);
+            insertLock(lock);
+        }
     }
 
-    public DeleteResult remove(Bson filter) {
-        return locksCollection.deleteMany(filter);
+    public void lockTrigger(Document triggerDoc, OperableTrigger trigger) {
+        log.info("Inserting lock for trigger {}", trigger.getKey());
+        Document lock = createTriggerDbLock(triggerDoc, instanceId);
+        insertLock(lock);
     }
 
     public void remove(Document lock) {
         locksCollection.deleteMany(lock);
+    }
+
+    public void unlockTrigger(OperableTrigger trigger) {
+        log.info("Removing trigger lock {}.{}", trigger.getKey(), instanceId);
+        Bson lock = Keys.toFilter(trigger.getKey());
+
+        // Comment this out, as expired trigger locks should be deleted by any another instance
+        // lock.put(LOCK_INSTANCE_ID, instanceId);
+
+        remove(lock);
+        log.info("Trigger lock {}.{} removed.", trigger.getKey(), instanceId);
+    }
+
+    public void unlockJob(JobDetail job) {
+        log.debug("Removing lock for job {}", job.getKey());
+        remove(createLockFilter(job));
+    }
+
+    private void insertLock(Document lock) {
+        // A lock needs to be written with FSYNCED to be 100% effective across multiple servers
+        locksCollection.withWriteConcern(WriteConcern.FSYNCED).insertOne(lock);
+    }
+
+    private void remove(Bson filter) {
+        locksCollection.deleteMany(filter);
     }
 }

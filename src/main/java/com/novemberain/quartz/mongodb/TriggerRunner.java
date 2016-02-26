@@ -10,7 +10,6 @@ import com.novemberain.quartz.mongodb.trigger.TriggerConverter;
 import com.novemberain.quartz.mongodb.util.*;
 import org.bson.Document;
 import org.bson.conversions.Bson;
-import org.bson.types.ObjectId;
 import org.quartz.*;
 import org.quartz.Calendar;
 import org.quartz.Trigger.CompletedExecutionInstruction;
@@ -39,24 +38,24 @@ public class TriggerRunner {
 
     private MisfireHandler misfireHandler;
     private TriggerTimeCalculator timeCalculator;
+    private TriggerAndJobPersister persister;
     private TriggerDao triggerDao;
     private TriggerConverter triggerConverter;
     private JobDao jobDao;
     private LocksDao locksDao;
     private CalendarDao calendarDao;
     private SchedulerSignaler signaler;
-    private String instanceId;
 
-    public TriggerRunner(TriggerDao triggerDao, JobDao jobDao, LocksDao locksDao,
+    public TriggerRunner(TriggerAndJobPersister persister, TriggerDao triggerDao, JobDao jobDao, LocksDao locksDao,
                          CalendarDao calendarDao, SchedulerSignaler signaler,
-                         String instanceId, TriggerTimeCalculator timeCalculator,
+                         TriggerTimeCalculator timeCalculator,
                          MisfireHandler misfireHandler, TriggerConverter triggerConverter) {
+        this.persister = persister;
         this.triggerDao = triggerDao;
         this.jobDao = jobDao;
         this.locksDao = locksDao;
         this.calendarDao = calendarDao;
         this.signaler = signaler;
-        this.instanceId = instanceId;
         this.timeCalculator = timeCalculator;
         this.misfireHandler = misfireHandler;
         this.triggerConverter = triggerConverter;
@@ -83,14 +82,9 @@ public class TriggerRunner {
         return triggerList;
     }
 
-    public List<OperableTrigger> getTriggersForJob(JobKey jobKey) throws JobPersistenceException {
-        final Document doc = jobDao.getJob(jobKey);
-        return triggerDao.getTriggersForJob(doc);
-    }
-
     public void releaseAcquiredTrigger(OperableTrigger trigger) throws JobPersistenceException {
         try {
-            unlock(trigger);
+            locksDao.unlockTrigger(trigger);
         } catch (Exception e) {
             throw new JobPersistenceException(e.getLocalizedMessage(), e);
         }
@@ -107,12 +101,12 @@ public class TriggerRunner {
             if (hasJobDetail(bundle)) {
                 JobDetail job = bundle.getJobDetail();
                 try {
-                    lockJob(job);
+                    locksDao.lockJob(job);
                     results.add(new TriggerFiredResult(bundle));
-                    storeTrigger(trigger, true);
+                    persister.storeTrigger(trigger, true);
                 } catch (MongoWriteException dk) {
                     log.debug("Job disallows concurrent execution and is already running {}", job.getKey());
-                    unlock(trigger);
+                    locksDao.unlockTrigger(trigger);
                     unlock(job);
                 }
             }
@@ -134,76 +128,12 @@ public class TriggerRunner {
         }
 
         if (job.isConcurrentExectionDisallowed()) {
-            log.debug("Removing lock for job {}", job.getKey());
-            locksDao.remove(createLockFilter(job));
+            locksDao.unlockJob(job);
         }
 
         process(trigger, executionInstruction);
 
-        unlock(trigger);
-    }
-
-    public boolean removeTrigger(TriggerKey triggerKey) {
-        Bson filter = Keys.toFilter(triggerKey);
-        Document trigger = triggerDao.findTrigger(filter);
-        if (trigger != null) {
-            removeOrphanedJob(trigger);
-            //TODO: check if can .deleteOne(filter) here
-            triggerDao.remove(filter);
-            return true;
-        }
-        return false;
-    }
-
-    public boolean removeTriggers(List<TriggerKey> triggerKeys) throws JobPersistenceException {
-        //FIXME return boolean allFound = true when all removed
-        for (TriggerKey key : triggerKeys) {
-            removeTrigger(key);
-        }
-        return false;
-    }
-
-    public boolean replaceTrigger(TriggerKey triggerKey, OperableTrigger newTrigger)
-            throws JobPersistenceException {
-        OperableTrigger oldTrigger = triggerDao.getTrigger(triggerKey);
-        if (oldTrigger == null) {
-            return false;
-        }
-
-        if (!oldTrigger.getJobKey().equals(newTrigger.getJobKey())) {
-            throw new JobPersistenceException("New trigger is not related to the same job as the old trigger.");
-        }
-
-        removeOldTrigger(triggerKey);
-        copyOldJobDataMap(newTrigger, oldTrigger);
-        storeNewTrigger(newTrigger, oldTrigger);
-
-        return true;
-    }
-
-    public void storeTrigger(OperableTrigger newTrigger, ObjectId jobId, boolean replaceExisting)
-            throws JobPersistenceException {
-        Document trigger = triggerConverter.toDocument(newTrigger, jobId);
-        if (replaceExisting) {
-            trigger.remove("_id");
-            triggerDao.replace(newTrigger.getKey(), trigger);
-        } else {
-            triggerDao.insert(trigger, newTrigger);
-        }
-    }
-
-    public void storeTrigger(OperableTrigger newTrigger, boolean replaceExisting)
-            throws JobPersistenceException {
-        if (newTrigger.getJobKey() == null) {
-            throw new JobPersistenceException("Trigger must be associated with a job. Please specify a JobKey.");
-        }
-
-        Document doc = jobDao.getJob(Keys.toFilter(newTrigger.getJobKey()));
-        if (doc != null) {
-            storeTrigger(newTrigger, doc.getObjectId("_id"), replaceExisting);
-        } else {
-            throw new JobPersistenceException("Could not find job with key " + newTrigger.getJobKey());
-        }
+        locksDao.unlockTrigger(trigger);
     }
 
     private void acquireNextTriggers(Map<TriggerKey, OperableTrigger> triggers,
@@ -225,7 +155,7 @@ public class TriggerRunner {
                     continue;
                 }
 
-                lockTrigger(triggerDoc, trigger);
+                locksDao.lockTrigger(triggerDoc, trigger);
 
                 log.info("Acquired trigger {}", trigger.getKey());
                 triggers.put(trigger.getKey(), trigger);
@@ -253,12 +183,7 @@ public class TriggerRunner {
             return true;
         }
 
-        return removeTriggerWithoutNextFireTime(trigger);
-    }
-
-    private void copyOldJobDataMap(OperableTrigger newTrigger, OperableTrigger trigger) {
-        // Copy across the job data map from the old trigger to the new one.
-        newTrigger.getJobDataMap().putAll(trigger.getJobDataMap());
+        return persister.removeTriggerWithoutNextFireTime(trigger);
     }
 
     private TriggerFiredBundle createTriggerFiredBundle(OperableTrigger trigger)
@@ -284,41 +209,18 @@ public class TriggerRunner {
         return (bundle != null) && (bundle.getJobDetail() != null);
     }
 
-    private boolean isOrphan(Document job) {
-        return (job != null) && isNotDurable(job) && triggerDao.hasLastTrigger(job);
-    }
-
-    private boolean isNotDurable(Document job) {
-        return !job.containsKey(JobConverter.JOB_DURABILITY) ||
-                job.get(JobConverter.JOB_DURABILITY).toString().equals("false");
-    }
-
     private boolean isTriggerDeletionRequested(CompletedExecutionInstruction triggerInstCode) {
         return triggerInstCode == CompletedExecutionInstruction.DELETE_TRIGGER;
-    }
-
-    private void lockJob(JobDetail job) {
-        if (job.isConcurrentExectionDisallowed()) {
-            log.debug("Inserting lock for job {}", job.getKey());
-            Document lock = createJobLock(job, instanceId);
-            locksDao.insertLock(lock);
-        }
-    }
-
-    private void lockTrigger(Document triggerDoc, OperableTrigger trigger) {
-        log.info("Inserting lock for trigger {}", trigger.getKey());
-        Document lock = createTriggerDbLock(triggerDoc, instanceId);
-        locksDao.insertLock(lock);
     }
 
     private boolean notAcquirableAfterMisfire(Date noLaterThanDate, OperableTrigger trigger)
             throws JobPersistenceException {
         if (misfireHandler.applyMisfire(trigger)) {
-            storeTrigger(trigger, true);
+            persister.storeTrigger(trigger, true);
 
             log.debug("Misfire trigger {}.", trigger.getKey());
 
-            if (removeTriggerWithoutNextFireTime(trigger)) {
+            if (persister.removeTriggerWithoutNextFireTime(trigger)) {
                 return true;
             }
 
@@ -344,10 +246,10 @@ public class TriggerRunner {
                     // double check for possible reschedule within job
                     // execution, which would cancel the need to delete...
                     if (dbTrigger.getNextFireTime() == null) {
-                        removeTrigger(trigger.getKey());
+                        persister.removeTrigger(trigger.getKey());
                     }
                 } else {
-                    removeTrigger(trigger.getKey());
+                    persister.removeTrigger(trigger.getKey());
                     signaler.signalSchedulingChange(0L);
                 }
             } else if (executionInstruction == CompletedExecutionInstruction.SET_TRIGGER_COMPLETE) {
@@ -366,53 +268,12 @@ public class TriggerRunner {
         }
     }
 
-    private void removeOldTrigger(TriggerKey triggerKey) {
-        // Can't call remove trigger as if the job is not durable, it will remove the job too
-        Bson filter = toFilter(triggerKey);
-        if (triggerDao.exists(filter)) {
-            triggerDao.remove(filter);
-        }
-    }
-
-    // If the removal of the Trigger results in an 'orphaned' Job that is not 'durable',
-    // then the job should be removed also.
-    private void removeOrphanedJob(Document trigger) {
-        if (trigger.containsKey(Constants.TRIGGER_JOB_ID)) {
-            // There is only 1 job per trigger so no need to look further.
-            Document job = jobDao.getById(trigger.get(Constants.TRIGGER_JOB_ID));
-            if (isOrphan(job)) {
-                jobDao.remove(job);
-            }
-        } else {
-            log.debug("The trigger had no associated jobs");
-        }
-    }
-
-    private boolean removeTriggerWithoutNextFireTime(OperableTrigger trigger) {
-        if (trigger.getNextFireTime() == null) {
-            log.debug("Removing trigger {} as it has no next fire time.", trigger.getKey());
-            removeTrigger(trigger.getKey());
-            return true;
-        }
-        return false;
-    }
-
     private JobDetail retrieveJob(OperableTrigger trigger) throws JobPersistenceException {
         try {
             return jobDao.retrieveJob(trigger.getJobKey());
         } catch (JobPersistenceException e) {
-            unlock(trigger);
+            locksDao.unlockTrigger(trigger);
             throw e;
-        }
-    }
-
-    private void storeNewTrigger(OperableTrigger newTrigger, OperableTrigger oldTrigger)
-            throws JobPersistenceException {
-        try {
-            storeTrigger(newTrigger, false);
-        } catch (JobPersistenceException jpe) {
-            storeTrigger(oldTrigger, false);
-            throw jpe;
         }
     }
 
@@ -428,17 +289,6 @@ public class TriggerRunner {
         }
     }
 
-    private void unlock(OperableTrigger trigger) {
-        log.info("Removing trigger lock {}.{}", trigger.getKey(), instanceId);
-        Bson lock = Keys.toFilter(trigger.getKey());
-
-        // Comment this out, as expired trigger locks should be deleted by any another instance
-        // lock.put(LOCK_INSTANCE_ID, instanceId);
-
-        locksDao.remove(lock);
-        log.info("Trigger lock {}.{} removed.", trigger.getKey(), instanceId);
-    }
-
     private void unlockExpiredAndAcquireNext(Map<TriggerKey, OperableTrigger> triggers,
                                              Date noLaterThanDate, int maxCount,
                                              Document triggerDoc, OperableTrigger trigger)
@@ -450,7 +300,7 @@ public class TriggerRunner {
             if (timeCalculator.isTriggerLockExpired(existingLock)) {
                 log.warn("Lock for trigger {} is expired - removing lock and retrying trigger acquisition",
                         trigger.getKey());
-                unlock(trigger);
+                locksDao.unlockTrigger(trigger);
                 acquireNextTriggers(triggers, noLaterThanDate, maxCount - triggers.size());
             }
         } else {
