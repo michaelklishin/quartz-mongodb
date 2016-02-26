@@ -10,13 +10,13 @@ import org.quartz.spi.OperableTrigger;
 import java.text.ParseException;
 import java.util.TimeZone;
 
-public class CronTriggerPropertiesConverter implements TriggerPropertiesConverter {
+public class CronTriggerPropertiesConverter extends TriggerPropertiesConverter {
 
     private static final String TRIGGER_CRON_EXPRESSION = "cronExpression";
     private static final String TRIGGER_TIMEZONE = "timezone";
 
     @Override
-    public boolean canHandleTriggerType(OperableTrigger trigger) {
+    protected boolean canHandle(OperableTrigger trigger) {
         return ((trigger instanceof CronTriggerImpl)
                 && !((CronTriggerImpl) trigger).hasAdditionalProperties());
     }

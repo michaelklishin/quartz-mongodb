@@ -8,7 +8,7 @@ import org.quartz.impl.triggers.DailyTimeIntervalTriggerImpl;
 import org.quartz.spi.OperableTrigger;
 import org.quartz.DateBuilder;
 
-public class DailyTimeIntervalTriggerPropertiesConverter implements TriggerPropertiesConverter {
+public class DailyTimeIntervalTriggerPropertiesConverter extends TriggerPropertiesConverter {
 
     private static final String TRIGGER_REPEAT_INTERVAL_UNIT = "repeatIntervalUnit";
     private static final String TRIGGER_REPEAT_INTERVAL = "repeatInterval";
@@ -17,7 +17,7 @@ public class DailyTimeIntervalTriggerPropertiesConverter implements TriggerPrope
     private static final String TRIGGER_END_TIME_OF_DAY = "endTimeOfDay";
 
     @Override
-    public boolean canHandleTriggerType(OperableTrigger trigger) {
+    protected boolean canHandle(OperableTrigger trigger) {
         return ((trigger instanceof DailyTimeIntervalTrigger)
                 && !((DailyTimeIntervalTriggerImpl) trigger).hasAdditionalProperties());
     }

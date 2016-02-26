@@ -6,14 +6,14 @@ import org.quartz.SimpleTrigger;
 import org.quartz.impl.triggers.SimpleTriggerImpl;
 import org.quartz.spi.OperableTrigger;
 
-public class SimpleTriggerPropertiesConverter implements TriggerPropertiesConverter {
+public class SimpleTriggerPropertiesConverter extends TriggerPropertiesConverter {
 
     private static final String TRIGGER_REPEAT_COUNT = "repeatCount";
     private static final String TRIGGER_REPEAT_INTERVAL = "repeatInterval";
     private static final String TRIGGER_TIMES_TRIGGERED = "timesTriggered";
 
     @Override
-    public boolean canHandleTriggerType(OperableTrigger trigger) {
+    protected boolean canHandle(OperableTrigger trigger) {
         return ((trigger instanceof SimpleTriggerImpl)
                 && !((SimpleTriggerImpl) trigger).hasAdditionalProperties());
     }

@@ -2,10 +2,6 @@ package com.novemberain.quartz.mongodb.trigger;
 
 import com.novemberain.quartz.mongodb.Constants;
 import com.novemberain.quartz.mongodb.dao.JobDao;
-import com.novemberain.quartz.mongodb.trigger.properties.CalendarIntervalTriggerPropertiesConverter;
-import com.novemberain.quartz.mongodb.trigger.properties.CronTriggerPropertiesConverter;
-import com.novemberain.quartz.mongodb.trigger.properties.DailyTimeIntervalTriggerPropertiesConverter;
-import com.novemberain.quartz.mongodb.trigger.properties.SimpleTriggerPropertiesConverter;
 import com.novemberain.quartz.mongodb.util.*;
 import org.bson.Document;
 import org.bson.types.ObjectId;
@@ -18,8 +14,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
 
 import static com.novemberain.quartz.mongodb.util.Keys.KEY_GROUP;
 import static com.novemberain.quartz.mongodb.util.Keys.KEY_NAME;
@@ -38,12 +32,6 @@ public class TriggerConverter {
     private static final String TRIGGER_START_TIME = "startTime";
 
     private static final Logger log = LoggerFactory.getLogger(TriggerConverter.class);
-
-    private List<TriggerPropertiesConverter> propertiesConverters = Arrays.asList(
-            new SimpleTriggerPropertiesConverter(),
-            new CalendarIntervalTriggerPropertiesConverter(),
-            new CronTriggerPropertiesConverter(),
-            new DailyTimeIntervalTriggerPropertiesConverter());
 
     private JobDao jobDao;
 
@@ -64,7 +52,7 @@ public class TriggerConverter {
             }
         }
 
-        TriggerPropertiesConverter tpd = getPropertiesConverterFor(newTrigger);
+        TriggerPropertiesConverter tpd = TriggerPropertiesConverter.getConverterFor(newTrigger);
         trigger = tpd.injectExtraPropertiesForInsert(newTrigger, trigger);
         return trigger;
     }
@@ -73,7 +61,7 @@ public class TriggerConverter {
             throws JobPersistenceException {
         OperableTrigger trigger = createNewInstance(triggerDoc);
 
-        TriggerPropertiesConverter tpd = getPropertiesConverterFor(trigger);
+        TriggerPropertiesConverter tpd = TriggerPropertiesConverter.getConverterFor(trigger);
 
         loadCommonProperties(triggerKey, triggerDoc, trigger);
 
@@ -130,19 +118,6 @@ public class TriggerConverter {
         } catch (Exception e) {
             throw new JobPersistenceException("Could not instantiate trigger class " + triggerClassName);
         }
-    }
-
-    private TriggerPropertiesConverter getPropertiesConverterFor(OperableTrigger trigger) {
-        TriggerPropertiesConverter result = null;
-
-        for (TriggerPropertiesConverter d : propertiesConverters) {
-            if (d.canHandleTriggerType(trigger)) {
-                result = d;
-                break;
-            }
-        }
-
-        return result;
     }
 
     private ClassLoader getTriggerClassLoader() {

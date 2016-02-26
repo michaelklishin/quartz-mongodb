@@ -6,14 +6,14 @@ import org.quartz.DateBuilder.IntervalUnit;
 import org.quartz.impl.triggers.CalendarIntervalTriggerImpl;
 import org.quartz.spi.OperableTrigger;
 
-public class CalendarIntervalTriggerPropertiesConverter implements TriggerPropertiesConverter {
+public class CalendarIntervalTriggerPropertiesConverter extends TriggerPropertiesConverter {
 
     private static final String TRIGGER_REPEAT_INTERVAL_UNIT = "repeatIntervalUnit";
     private static final String TRIGGER_REPEAT_INTERVAL = "repeatInterval";
     private static final String TRIGGER_TIMES_TRIGGERED = "timesTriggered";
 
     @Override
-    public boolean canHandleTriggerType(OperableTrigger trigger) {
+    protected boolean canHandle(OperableTrigger trigger) {
         return ((trigger instanceof CalendarIntervalTriggerImpl)
                 && !((CalendarIntervalTriggerImpl) trigger).hasAdditionalProperties());
     }
