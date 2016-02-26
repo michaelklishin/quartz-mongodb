@@ -124,14 +124,21 @@ public class MongoDBJobStore implements JobStore, Constants {
         MongoDatabase db = mongoConnector.selectDatabase(dbName);
 
         JobConverter jobConverter = new JobConverter(getClassLoaderHelper(loadHelper));
-        initializeCollections(db, jobConverter);
+        jobDao = new JobDao(db.getCollection(collectionPrefix + "jobs"), queryHelper, jobConverter);
+
+        TriggerConverter triggerConverter = new TriggerConverter(jobDao);
+        triggerDao = new TriggerDao(db.getCollection(collectionPrefix + "triggers"), queryHelper, triggerConverter);
+
+        calendarDao = new CalendarDao(db.getCollection(collectionPrefix + "calendars"));
+        locksDao = new LocksDao(db.getCollection(collectionPrefix + "locks"), instanceId);
+        pausedJobGroupsDao = new PausedJobGroupsDao(db.getCollection(collectionPrefix + "paused_job_groups"));
+        pausedTriggerGroupsDao = new PausedTriggerGroupsDao(db.getCollection(collectionPrefix + "paused_trigger_groups"));
 
         ensureIndexes();
 
         MisfireHandler misfireHandler = new MisfireHandler(calendarDao, signaler, misfireThreshold);
         TriggerTimeCalculator timeCalculator = new TriggerTimeCalculator(jobTimeoutMillis,
                 triggerTimeoutMillis);
-        TriggerConverter triggerConverter = new TriggerConverter(jobDao);
 
         triggerStateManager = new TriggerStateManager(triggerDao, jobDao,
                 pausedJobGroupsDao, pausedTriggerGroupsDao, queryHelper);
@@ -246,7 +253,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     @Override
     public OperableTrigger retrieveTrigger(TriggerKey triggerKey) throws JobPersistenceException {
-        return triggerRunner.retrieveTrigger(triggerKey);
+        return triggerDao.retrieveTrigger(triggerKey);
     }
 
     @Override
@@ -492,16 +499,6 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     public void setJobTimeoutMillis(long jobTimeoutMillis) {
         this.jobTimeoutMillis = jobTimeoutMillis;
-    }
-
-    private void initializeCollections(MongoDatabase db, JobConverter jobConverter) {
-        jobDao = new JobDao(db.getCollection(collectionPrefix + "jobs"), queryHelper, jobConverter);
-        triggerDao = new TriggerDao(db.getCollection(collectionPrefix + "triggers"), queryHelper);
-        calendarDao = new CalendarDao(db.getCollection(collectionPrefix + "calendars"));
-        locksDao = new LocksDao(db.getCollection(collectionPrefix + "locks"), instanceId);
-
-        pausedJobGroupsDao = new PausedJobGroupsDao(db.getCollection(collectionPrefix + "paused_job_groups"));
-        pausedTriggerGroupsDao = new PausedTriggerGroupsDao(db.getCollection(collectionPrefix + "paused_trigger_groups"));
     }
 
     /**

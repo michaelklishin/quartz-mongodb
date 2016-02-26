@@ -7,11 +7,13 @@ import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.UpdateOptions;
 import com.novemberain.quartz.mongodb.Constants;
+import com.novemberain.quartz.mongodb.trigger.TriggerConverter;
 import com.novemberain.quartz.mongodb.util.Keys;
 import com.novemberain.quartz.mongodb.util.QueryHelper;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.bson.types.ObjectId;
+import org.quartz.JobPersistenceException;
 import org.quartz.ObjectAlreadyExistsException;
 import org.quartz.TriggerKey;
 import org.quartz.impl.matchers.GroupMatcher;
@@ -19,11 +21,7 @@ import org.quartz.spi.OperableTrigger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 import static com.mongodb.client.model.Sorts.ascending;
 import static com.novemberain.quartz.mongodb.util.Keys.KEY_GROUP;
@@ -35,10 +33,13 @@ public class TriggerDao {
 
     private MongoCollection<Document> triggerCollection;
     private QueryHelper queryHelper;
+    private TriggerConverter triggerConverter;
 
-    public TriggerDao(MongoCollection<Document> triggerCollection, QueryHelper queryHelper) {
+    public TriggerDao(MongoCollection<Document> triggerCollection, QueryHelper queryHelper,
+                      TriggerConverter triggerConverter) {
         this.triggerCollection = triggerCollection;
         this.queryHelper = queryHelper;
+        this.triggerConverter = triggerConverter;
     }
 
     public void createIndex() {
@@ -58,10 +59,6 @@ public class TriggerDao {
         return triggerCollection.count(filter) > 0;
     }
 
-    public FindIterable<Document> findByJobId(Object jobId) {
-        return triggerCollection.find(Filters.eq(Constants.TRIGGER_JOB_ID, jobId));
-    }
-
     public FindIterable<Document> findEligibleToRun(Date noLaterThanDate) {
         Bson query = createNextTriggerQuery(noLaterThanDate);
         if (log.isInfoEnabled()) {
@@ -72,10 +69,6 @@ public class TriggerDao {
 
     public Document findTrigger(Bson filter) {
         return triggerCollection.find(filter).first();
-    }
-
-    public Document findTrigger(TriggerKey key) {
-        return findTrigger(toFilter(key));
     }
 
     public int getCount() {
@@ -89,6 +82,16 @@ public class TriggerDao {
     public String getState(TriggerKey triggerKey) {
         Document doc = findTrigger(triggerKey);
         return doc.getString(Constants.TRIGGER_STATE);
+    }
+
+    public List<OperableTrigger> getTriggersForJob(Document doc) throws JobPersistenceException {
+        final List<OperableTrigger> triggers = new LinkedList<OperableTrigger>();
+        if (doc != null) {
+            for (Document item : findByJobId(doc.get("_id"))) {
+                triggers.add(triggerConverter.toTrigger(item));
+            }
+        }
+        return triggers;
     }
 
     public Set<TriggerKey> getTriggerKeys(GroupMatcher<TriggerKey> matcher) {
@@ -182,6 +185,14 @@ public class TriggerDao {
                 new UpdateOptions().upsert(false));
     }
 
+    public OperableTrigger retrieveTrigger(TriggerKey triggerKey) throws JobPersistenceException {
+        Document doc = findTrigger(Keys.toFilter(triggerKey));
+        if (doc == null) {
+            return null;
+        }
+        return triggerConverter.toTrigger(triggerKey, doc);
+    }
+
     public MongoCollection<Document> getCollection() {
         return triggerCollection;
     }
@@ -190,6 +201,14 @@ public class TriggerDao {
         return Filters.and(
                 Filters.lte(Constants.TRIGGER_NEXT_FIRE_TIME, noLaterThanDate),
                 Filters.eq(Constants.TRIGGER_STATE, Constants.STATE_WAITING));
+    }
+
+    private FindIterable<Document> findByJobId(Object jobId) {
+        return triggerCollection.find(Filters.eq(Constants.TRIGGER_JOB_ID, jobId));
+    }
+
+    private Document findTrigger(TriggerKey key) {
+        return findTrigger(toFilter(key));
     }
 
     private long getCount(Bson query) {

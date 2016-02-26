@@ -84,14 +84,8 @@ public class TriggerRunner {
     }
 
     public List<OperableTrigger> getTriggersForJob(JobKey jobKey) throws JobPersistenceException {
-        final List<OperableTrigger> triggers = new ArrayList<OperableTrigger>();
         final Document doc = jobDao.getJob(jobKey);
-        if (doc != null) {
-            for (Document item : triggerDao.findByJobId(doc.get("_id"))) {
-                triggers.add(triggerConverter.toTrigger(item));
-            }
-        }
-        return triggers;
+        return triggerDao.getTriggersForJob(doc);
     }
 
     public void releaseAcquiredTrigger(OperableTrigger trigger) throws JobPersistenceException {
@@ -171,7 +165,7 @@ public class TriggerRunner {
 
     public boolean replaceTrigger(TriggerKey triggerKey, OperableTrigger newTrigger)
             throws JobPersistenceException {
-        OperableTrigger oldTrigger = retrieveTrigger(triggerKey);
+        OperableTrigger oldTrigger = triggerDao.retrieveTrigger(triggerKey);
         if (oldTrigger == null) {
             return false;
         }
@@ -185,14 +179,6 @@ public class TriggerRunner {
         storeNewTrigger(newTrigger, oldTrigger);
 
         return true;
-    }
-
-    public OperableTrigger retrieveTrigger(TriggerKey triggerKey) throws JobPersistenceException {
-        Document doc = triggerDao.findTrigger(Keys.toFilter(triggerKey));
-        if (doc == null) {
-            return null;
-        }
-        return triggerConverter.toTrigger(triggerKey, doc);
     }
 
     public void storeTrigger(OperableTrigger newTrigger, ObjectId jobId, boolean replaceExisting)
@@ -351,7 +337,7 @@ public class TriggerRunner {
     private void process(OperableTrigger trigger, CompletedExecutionInstruction executionInstruction)
             throws JobPersistenceException {
         // check for trigger deleted during execution...
-        OperableTrigger dbTrigger = retrieveTrigger(trigger.getKey());
+        OperableTrigger dbTrigger = triggerDao.retrieveTrigger(trigger.getKey());
         if (dbTrigger != null) {
             if (isTriggerDeletionRequested(executionInstruction)) {
                 if (trigger.getNextFireTime() == null) {
