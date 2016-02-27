@@ -10,9 +10,7 @@ import com.novemberain.quartz.mongodb.trigger.TriggerConverter;
 import org.bson.Document;
 import org.quartz.*;
 import org.quartz.Calendar;
-import org.quartz.Trigger.CompletedExecutionInstruction;
 import org.quartz.spi.OperableTrigger;
-import org.quartz.spi.SchedulerSignaler;
 import org.quartz.spi.TriggerFiredBundle;
 import org.quartz.spi.TriggerFiredResult;
 import org.slf4j.Logger;
@@ -40,18 +38,15 @@ public class TriggerRunner {
     private JobDao jobDao;
     private LocksDao locksDao;
     private CalendarDao calendarDao;
-    private SchedulerSignaler signaler;
 
     public TriggerRunner(TriggerAndJobPersister persister, TriggerDao triggerDao, JobDao jobDao, LocksDao locksDao,
-                         CalendarDao calendarDao, SchedulerSignaler signaler,
-                         MisfireHandler misfireHandler, TriggerConverter triggerConverter,
-                         LockManager lockManager) {
+                         CalendarDao calendarDao, MisfireHandler misfireHandler,
+                         TriggerConverter triggerConverter, LockManager lockManager) {
         this.persister = persister;
         this.triggerDao = triggerDao;
         this.jobDao = jobDao;
         this.locksDao = locksDao;
         this.calendarDao = calendarDao;
-        this.signaler = signaler;
         this.misfireHandler = misfireHandler;
         this.triggerConverter = triggerConverter;
         this.lockManager = lockManager;
@@ -105,27 +100,6 @@ public class TriggerRunner {
 
         }
         return results;
-    }
-
-    public void triggeredJobComplete(OperableTrigger trigger, JobDetail job,
-                                     CompletedExecutionInstruction executionInstruction)
-            throws JobPersistenceException {
-        log.debug("Trigger completed {}", trigger.getKey());
-
-        if (job.isPersistJobDataAfterExecution()) {
-            if (job.getJobDataMap().isDirty()) {
-                log.debug("Job data map dirty, will store {}", job.getKey());
-                jobDao.storeJobInMongo(job, true);
-            }
-        }
-
-        if (job.isConcurrentExectionDisallowed()) {
-            locksDao.unlockJob(job);
-        }
-
-        process(trigger, executionInstruction);
-
-        locksDao.unlockTrigger(trigger);
     }
 
     private void acquireNextTriggers(Map<TriggerKey, OperableTrigger> triggers,
@@ -193,10 +167,6 @@ public class TriggerRunner {
         return (bundle != null) && (bundle.getJobDetail() != null);
     }
 
-    private boolean isTriggerDeletionRequested(CompletedExecutionInstruction triggerInstCode) {
-        return triggerInstCode == CompletedExecutionInstruction.DELETE_TRIGGER;
-    }
-
     private boolean notAcquirableAfterMisfire(Date noLaterThanDate, OperableTrigger trigger)
             throws JobPersistenceException {
         if (misfireHandler.applyMisfire(trigger)) {
@@ -218,38 +188,6 @@ public class TriggerRunner {
             }
         }
         return false;
-    }
-
-    private void process(OperableTrigger trigger, CompletedExecutionInstruction executionInstruction)
-            throws JobPersistenceException {
-        // check for trigger deleted during execution...
-        OperableTrigger dbTrigger = triggerDao.getTrigger(trigger.getKey());
-        if (dbTrigger != null) {
-            if (isTriggerDeletionRequested(executionInstruction)) {
-                if (trigger.getNextFireTime() == null) {
-                    // double check for possible reschedule within job
-                    // execution, which would cancel the need to delete...
-                    if (dbTrigger.getNextFireTime() == null) {
-                        persister.removeTrigger(trigger.getKey());
-                    }
-                } else {
-                    persister.removeTrigger(trigger.getKey());
-                    signaler.signalSchedulingChange(0L);
-                }
-            } else if (executionInstruction == CompletedExecutionInstruction.SET_TRIGGER_COMPLETE) {
-                // TODO: need to store state
-                signaler.signalSchedulingChange(0L);
-            } else if (executionInstruction == CompletedExecutionInstruction.SET_TRIGGER_ERROR) {
-                // TODO: need to store state
-                signaler.signalSchedulingChange(0L);
-            } else if (executionInstruction == CompletedExecutionInstruction.SET_ALL_JOB_TRIGGERS_ERROR) {
-                // TODO: need to store state
-                signaler.signalSchedulingChange(0L);
-            } else if (executionInstruction == CompletedExecutionInstruction.SET_ALL_JOB_TRIGGERS_COMPLETE) {
-                // TODO: need to store state
-                signaler.signalSchedulingChange(0L);
-            }
-        }
     }
 
     private JobDetail retrieveJob(OperableTrigger trigger) throws JobPersistenceException {

@@ -43,6 +43,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     }
 
     private MongoConnector mongoConnector;
+    private JobCompleteHandler jobCompleteHandler;
     private TriggerStateManager triggerStateManager;
     private TriggerRunner triggerRunner;
     private TriggerAndJobPersister persister;
@@ -137,12 +138,14 @@ public class MongoDBJobStore implements JobStore, Constants {
         TriggerTimeCalculator timeCalculator = new TriggerTimeCalculator(jobTimeoutMillis,
                 triggerTimeoutMillis);
 
+        jobCompleteHandler = new JobCompleteHandler(persister, signaler, jobDao, locksDao, triggerDao);
+
         LockManager lockManager = new LockManager(locksDao, timeCalculator);
 
         persister = new TriggerAndJobPersister(triggerDao, jobDao, triggerConverter);
         triggerStateManager = new TriggerStateManager(triggerDao, jobDao,
                 pausedJobGroupsDao, pausedTriggerGroupsDao, queryHelper);
-        triggerRunner = new TriggerRunner(persister, triggerDao, jobDao, locksDao, calendarDao, signaler,
+        triggerRunner = new TriggerRunner(persister, triggerDao, jobDao, locksDao, calendarDao,
                 misfireHandler, triggerConverter, lockManager);
     }
 
@@ -424,7 +427,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     public void triggeredJobComplete(OperableTrigger trigger, JobDetail job,
                                      CompletedExecutionInstruction triggerInstCode)
             throws JobPersistenceException {
-        triggerRunner.triggeredJobComplete(trigger, job, triggerInstCode);
+        jobCompleteHandler.jobComplete(trigger, job, triggerInstCode);
     }
 
     @Override
