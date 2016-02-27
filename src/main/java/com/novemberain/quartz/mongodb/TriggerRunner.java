@@ -7,7 +7,6 @@ import com.novemberain.quartz.mongodb.dao.LocksDao;
 import com.novemberain.quartz.mongodb.dao.TriggerDao;
 import com.novemberain.quartz.mongodb.trigger.MisfireHandler;
 import com.novemberain.quartz.mongodb.trigger.TriggerConverter;
-import com.novemberain.quartz.mongodb.util.*;
 import org.bson.Document;
 import org.quartz.*;
 import org.quartz.Calendar;
@@ -20,8 +19,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-
-import static com.novemberain.quartz.mongodb.util.Keys.*;
 
 public class TriggerRunner {
 
@@ -36,7 +33,6 @@ public class TriggerRunner {
     };
 
     private MisfireHandler misfireHandler;
-    private TriggerTimeCalculator timeCalculator;
     private TriggerAndJobPersister persister;
     private TriggerDao triggerDao;
     private TriggerConverter triggerConverter;
@@ -48,15 +44,14 @@ public class TriggerRunner {
 
     public TriggerRunner(TriggerAndJobPersister persister, TriggerDao triggerDao, JobDao jobDao, LocksDao locksDao,
                          CalendarDao calendarDao, SchedulerSignaler signaler,
-                         TriggerTimeCalculator timeCalculator, MisfireHandler misfireHandler,
-                         TriggerConverter triggerConverter, LockManager lockManager) {
+                         MisfireHandler misfireHandler, TriggerConverter triggerConverter,
+                         LockManager lockManager) {
         this.persister = persister;
         this.triggerDao = triggerDao;
         this.jobDao = jobDao;
         this.locksDao = locksDao;
         this.calendarDao = calendarDao;
         this.signaler = signaler;
-        this.timeCalculator = timeCalculator;
         this.misfireHandler = misfireHandler;
         this.triggerConverter = triggerConverter;
         this.lockManager = lockManager;
@@ -143,25 +138,17 @@ public class TriggerRunner {
 
             OperableTrigger trigger = triggerConverter.toTrigger(triggerDoc);
 
-            try {
-                if (cannotAcquire(triggers, trigger)) {
-                    continue;
-                }
+            if (cannotAcquire(triggers, trigger)) {
+                continue;
+            }
 
-                if (notAcquirableAfterMisfire(noLaterThanDate, trigger)) {
-                    continue;
-                }
+            if (notAcquirableAfterMisfire(noLaterThanDate, trigger)) {
+                continue;
+            }
 
-                locksDao.lockTrigger(triggerDoc, trigger);
-
+            if (lockManager.tryLockWithExpiredTakeover(triggerDoc, trigger)) {
                 log.info("Acquired trigger {}", trigger.getKey());
                 triggers.put(trigger.getKey(), trigger);
-            } catch (MongoWriteException e) {
-                // someone else acquired this lock. Move on.
-                log.info("Failed to acquire trigger {} due to a lock, reason: {}",
-                        trigger.getKey(), e.getError());
-
-                unlockExpiredAndAcquireNext(triggers, noLaterThanDate, maxCount, triggerDoc, trigger);
             }
         }
     }
@@ -271,26 +258,6 @@ public class TriggerRunner {
         } catch (JobPersistenceException e) {
             locksDao.unlockTrigger(trigger);
             throw e;
-        }
-    }
-
-    private void unlockExpiredAndAcquireNext(Map<TriggerKey, OperableTrigger> triggers,
-                                             Date noLaterThanDate, int maxCount,
-                                             Document triggerDoc, OperableTrigger trigger)
-            throws JobPersistenceException {
-        Document filter = lockToBson(triggerDoc);
-        Document existingLock = locksDao.findLock(filter);
-        if (existingLock != null) {
-            // support for trigger lock expirations
-            if (timeCalculator.isTriggerLockExpired(existingLock)) {
-                log.warn("Lock for trigger {} is expired - removing lock and retrying trigger acquisition",
-                        trigger.getKey());
-                locksDao.unlockTrigger(trigger);
-                acquireNextTriggers(triggers, noLaterThanDate, maxCount - triggers.size());
-            }
-        } else {
-            log.warn("Error retrieving expired lock from the database. Maybe it was deleted");
-            acquireNextTriggers(triggers, noLaterThanDate, maxCount - triggers.size());
         }
     }
 }
