@@ -137,11 +137,13 @@ public class MongoDBJobStore implements JobStore, Constants {
         TriggerTimeCalculator timeCalculator = new TriggerTimeCalculator(jobTimeoutMillis,
                 triggerTimeoutMillis);
 
+        LockManager lockManager = new LockManager(locksDao, timeCalculator);
+
         persister = new TriggerAndJobPersister(triggerDao, jobDao, triggerConverter);
         triggerStateManager = new TriggerStateManager(triggerDao, jobDao,
                 pausedJobGroupsDao, pausedTriggerGroupsDao, queryHelper);
         triggerRunner = new TriggerRunner(persister, triggerDao, jobDao, locksDao, calendarDao, signaler,
-                timeCalculator, misfireHandler, triggerConverter);
+                timeCalculator, misfireHandler, triggerConverter, lockManager);
     }
 
     @Override

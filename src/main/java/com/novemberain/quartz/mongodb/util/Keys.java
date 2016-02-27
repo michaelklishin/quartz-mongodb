@@ -20,17 +20,21 @@ public class Keys {
 
     public static Bson createLockFilter(JobDetail job) {
         return Filters.and(
-                Filters.eq(KEY_NAME, "jobconcurrentlock:" + job.getKey().getName()),
+                Filters.eq(KEY_NAME, getJobLockName(job)),
                 Filters.eq(KEY_GROUP, job.getKey().getGroup()));
     }
 
     public static Document createJobLock(JobDetail job, String instanceId) {
         Document lock = new Document();
-        lock.put(KEY_NAME, "jobconcurrentlock:" + job.getKey().getName());
+        lock.put(KEY_NAME, getJobLockName(job));
         lock.put(KEY_GROUP, job.getKey().getGroup());
         lock.put(Constants.LOCK_INSTANCE_ID, instanceId);
         lock.put(Constants.LOCK_TIME, new Date());
         return lock;
+    }
+
+    private static String getJobLockName(JobDetail job) {
+        return "jobconcurrentlock:" + job.getKey().getName();
     }
 
     public static Bson toFilter(Key<?> key) {

@@ -5,8 +5,6 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.Projections;
-import com.mongodb.client.result.DeleteResult;
-import com.novemberain.quartz.mongodb.TriggerRunner;
 import com.novemberain.quartz.mongodb.util.Keys;
 import org.bson.Document;
 import org.bson.conversions.Bson;
@@ -58,11 +56,9 @@ public class LocksDao {
     }
 
     public void lockJob(JobDetail job) {
-        if (job.isConcurrentExectionDisallowed()) {
-            log.debug("Inserting lock for job {}", job.getKey());
-            Document lock = createJobLock(job, instanceId);
-            insertLock(lock);
-        }
+        log.debug("Inserting lock for job {}", job.getKey());
+        Document lock = createJobLock(job, instanceId);
+        insertLock(lock);
     }
 
     public void lockTrigger(Document triggerDoc, OperableTrigger trigger) {

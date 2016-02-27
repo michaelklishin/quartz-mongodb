@@ -9,7 +9,6 @@ import com.novemberain.quartz.mongodb.trigger.MisfireHandler;
 import com.novemberain.quartz.mongodb.trigger.TriggerConverter;
 import com.novemberain.quartz.mongodb.util.*;
 import org.bson.Document;
-import org.bson.conversions.Bson;
 import org.quartz.*;
 import org.quartz.Calendar;
 import org.quartz.Trigger.CompletedExecutionInstruction;
@@ -41,6 +40,7 @@ public class TriggerRunner {
     private TriggerAndJobPersister persister;
     private TriggerDao triggerDao;
     private TriggerConverter triggerConverter;
+    private LockManager lockManager;
     private JobDao jobDao;
     private LocksDao locksDao;
     private CalendarDao calendarDao;
@@ -48,8 +48,8 @@ public class TriggerRunner {
 
     public TriggerRunner(TriggerAndJobPersister persister, TriggerDao triggerDao, JobDao jobDao, LocksDao locksDao,
                          CalendarDao calendarDao, SchedulerSignaler signaler,
-                         TriggerTimeCalculator timeCalculator,
-                         MisfireHandler misfireHandler, TriggerConverter triggerConverter) {
+                         TriggerTimeCalculator timeCalculator, MisfireHandler misfireHandler,
+                         TriggerConverter triggerConverter, LockManager lockManager) {
         this.persister = persister;
         this.triggerDao = triggerDao;
         this.jobDao = jobDao;
@@ -59,6 +59,7 @@ public class TriggerRunner {
         this.timeCalculator = timeCalculator;
         this.misfireHandler = misfireHandler;
         this.triggerConverter = triggerConverter;
+        this.lockManager = lockManager;
     }
 
     public List<OperableTrigger> acquireNext(long noLaterThan, int maxCount, long timeWindow)
@@ -83,11 +84,7 @@ public class TriggerRunner {
     }
 
     public void releaseAcquiredTrigger(OperableTrigger trigger) throws JobPersistenceException {
-        try {
-            locksDao.unlockTrigger(trigger);
-        } catch (Exception e) {
-            throw new JobPersistenceException(e.getLocalizedMessage(), e);
-        }
+        lockManager.unlockAcquiredTrigger(trigger);
     }
 
     public List<TriggerFiredResult> triggersFired(List<OperableTrigger> triggers) throws JobPersistenceException {
@@ -101,13 +98,13 @@ public class TriggerRunner {
             if (hasJobDetail(bundle)) {
                 JobDetail job = bundle.getJobDetail();
                 try {
-                    locksDao.lockJob(job);
+                    lockManager.lockJob(job);
                     results.add(new TriggerFiredResult(bundle));
                     persister.storeTrigger(trigger, true);
                 } catch (MongoWriteException dk) {
                     log.debug("Job disallows concurrent execution and is already running {}", job.getKey());
                     locksDao.unlockTrigger(trigger);
-                    unlock(job);
+                    lockManager.unlockExpired(job);
                 }
             }
 
@@ -274,18 +271,6 @@ public class TriggerRunner {
         } catch (JobPersistenceException e) {
             locksDao.unlockTrigger(trigger);
             throw e;
-        }
-    }
-
-    private void unlock(JobDetail job) {
-        // Find the existing lock and if still present, and expired, then remove it.
-        Bson lock = createLockFilter(job);
-        Document existingLock = locksDao.findLock(lock);
-        if (existingLock != null) {
-            if (timeCalculator.isJobLockExpired(existingLock)) {
-                log.debug("Removing expired lock for job {}", job.getKey());
-                locksDao.remove(existingLock);
-            }
         }
     }
 
