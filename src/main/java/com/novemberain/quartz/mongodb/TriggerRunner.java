@@ -73,10 +73,6 @@ public class TriggerRunner {
         return triggerList;
     }
 
-    public void releaseAcquiredTrigger(OperableTrigger trigger) throws JobPersistenceException {
-        lockManager.unlockAcquiredTrigger(trigger);
-    }
-
     public List<TriggerFiredResult> triggersFired(List<OperableTrigger> triggers) throws JobPersistenceException {
         List<TriggerFiredResult> results = new ArrayList<TriggerFiredResult>();
 

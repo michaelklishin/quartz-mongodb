@@ -44,6 +44,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     private MongoConnector mongoConnector;
     private JobCompleteHandler jobCompleteHandler;
+    private LockManager lockManager;
     private TriggerStateManager triggerStateManager;
     private TriggerRunner triggerRunner;
     private TriggerAndJobPersister persister;
@@ -140,7 +141,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
         jobCompleteHandler = new JobCompleteHandler(persister, signaler, jobDao, locksDao, triggerDao);
 
-        LockManager lockManager = new LockManager(locksDao, timeCalculator);
+        lockManager = new LockManager(locksDao, timeCalculator);
 
         persister = new TriggerAndJobPersister(triggerDao, jobDao, triggerConverter);
         triggerStateManager = new TriggerStateManager(triggerDao, jobDao,
@@ -414,7 +415,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     @Override
     public void releaseAcquiredTrigger(OperableTrigger trigger) throws JobPersistenceException {
-        triggerRunner.releaseAcquiredTrigger(trigger);
+        lockManager.unlockAcquiredTrigger(trigger);
     }
 
     @Override
