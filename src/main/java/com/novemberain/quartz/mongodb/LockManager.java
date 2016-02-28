@@ -45,13 +45,13 @@ public class LockManager {
      * @return true when successfully locked
      */
     public boolean tryLockWithExpiredTakeover(Document triggerDoc, OperableTrigger trigger) {
-        if (tryLock(triggerDoc, trigger)) {
+        if (tryLock(trigger)) {
             return true;
         }
 
         if (unlockExpired(trigger, triggerDoc)) {
             log.info("Retrying trigger acquisition: {}", trigger.getKey());
-            return tryLock(triggerDoc, trigger);
+            return tryLock(trigger);
         }
         return false;
     }
@@ -80,9 +80,9 @@ public class LockManager {
         }
     }
 
-    private boolean tryLock(Document triggerDoc, OperableTrigger trigger) {
+    private boolean tryLock(OperableTrigger trigger) {
         try {
-            locksDao.lockTrigger(triggerDoc, trigger);
+            locksDao.lockTrigger(trigger);
             return true;
         } catch (MongoWriteException e) {
             log.info("Failed to lock trigger {}, reason: {}", trigger.getKey(), e.getError());

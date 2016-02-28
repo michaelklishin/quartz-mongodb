@@ -58,8 +58,10 @@ public class Keys {
         return lock;
     }
 
-    public static Document createTriggerDbLock(Document doc, String instanceId) {
-        Document lock = lockToBson(doc);
+    public static Document createTriggerDbLock(TriggerKey triggerKey, String instanceId) {
+        Document lock = new Document();
+        lock.put(KEY_GROUP, triggerKey.getGroup());
+        lock.put(KEY_NAME, triggerKey.getName());
         lock.put(Constants.LOCK_INSTANCE_ID, instanceId);
         lock.put(Constants.LOCK_TIME, new Date());
         return lock;

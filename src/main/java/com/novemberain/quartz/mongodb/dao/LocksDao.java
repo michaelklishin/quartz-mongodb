@@ -61,9 +61,9 @@ public class LocksDao {
         insertLock(lock);
     }
 
-    public void lockTrigger(Document triggerDoc, OperableTrigger trigger) {
+    public void lockTrigger(OperableTrigger trigger) {
         log.info("Inserting lock for trigger {}", trigger.getKey());
-        Document lock = createTriggerDbLock(triggerDoc, instanceId);
+        Document lock = createTriggerDbLock(trigger.getKey(), instanceId);
         insertLock(lock);
     }
 

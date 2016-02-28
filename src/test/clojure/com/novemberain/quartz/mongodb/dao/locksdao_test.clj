@@ -21,10 +21,9 @@
 
 (deftest should-lock-trigger
   (let [dao (create-dao)
-        triggerDoc (Document. {Keys/KEY_NAME "n1" Keys/KEY_GROUP "g1"})
         trigger (t/build
                  (t/with-identity (t/key "n1" "g1")))]
-    (.lockTrigger dao triggerDoc trigger)
+    (.lockTrigger dao trigger)
     (let [locks (mongo/find-all :locks)]
       (is (= 1 (count locks)))
       (let [lock (first locks)]
