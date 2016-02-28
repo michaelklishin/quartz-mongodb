@@ -23,7 +23,7 @@ public class LocksDao {
     private static final Logger log = LoggerFactory.getLogger(LocksDao.class);
 
     private final MongoCollection<Document> locksCollection;
-    private final String instanceId;
+    public final String instanceId;
 
     public LocksDao(MongoCollection<Document> locksCollection, String instanceId) {
         this.locksCollection = locksCollection;
