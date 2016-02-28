@@ -59,18 +59,14 @@ public class TriggerRunner {
         log.debug("Finding up to {} triggers which have time less than {}",
                 maxCount, noLaterThanDate);
 
-        Map<TriggerKey, OperableTrigger> triggers = new HashMap<TriggerKey, OperableTrigger>();
-
-        acquireNextTriggers(triggers, noLaterThanDate, maxCount);
-
-        List<OperableTrigger> triggerList = new LinkedList<OperableTrigger>(triggers.values());
+        List<OperableTrigger> triggers = acquireNextTriggers(noLaterThanDate, maxCount);
 
         // Because we are handling a batch, we may have done multiple queries and while the result for each
         // query is in fire order, the result for the whole might not be, so sort them again
 
-        Collections.sort(triggerList, NEXT_FIRE_TIME_COMPARATOR);
+        Collections.sort(triggers, NEXT_FIRE_TIME_COMPARATOR);
 
-        return triggerList;
+        return triggers;
     }
 
     public List<TriggerFiredResult> triggersFired(List<OperableTrigger> triggers) throws JobPersistenceException {
@@ -98,9 +94,10 @@ public class TriggerRunner {
         return results;
     }
 
-    private void acquireNextTriggers(Map<TriggerKey, OperableTrigger> triggers,
-                                     Date noLaterThanDate, int maxCount)
+    private List<OperableTrigger> acquireNextTriggers(Date noLaterThanDate, int maxCount)
             throws JobPersistenceException {
+        Map<TriggerKey, OperableTrigger> triggers = new HashMap<TriggerKey, OperableTrigger>();
+
         for (Document triggerDoc : triggerDao.findEligibleToRun(noLaterThanDate)) {
             if (acquiredEnough(triggers, maxCount)) {
                 break;
@@ -121,6 +118,8 @@ public class TriggerRunner {
                 triggers.put(trigger.getKey(), trigger);
             }
         }
+
+        return new ArrayList<OperableTrigger>(triggers.values());
     }
 
     private boolean acquiredEnough(Map<TriggerKey, OperableTrigger> triggers, int maxCount) {
