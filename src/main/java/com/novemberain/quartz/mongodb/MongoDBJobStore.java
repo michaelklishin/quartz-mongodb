@@ -67,6 +67,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     private long misfireThreshold = 5000;
     private long triggerTimeoutMillis = 10 * 60 * 1000L;
     private long jobTimeoutMillis = 10 * 60 * 1000L;
+    private boolean clustered = false;
 
     // Options for the Mongo client.
     private Boolean mongoOptionSocketKeepAlive;
@@ -180,9 +181,16 @@ public class MongoDBJobStore implements JobStore, Constants {
         return 200;
     }
 
+    /**
+     * Set whether this instance is part of a cluster.
+     */
+    public void setIsClustered(boolean isClustered) {
+        this.clustered = isClustered;
+    }
+
     @Override
     public boolean isClustered() {
-        return false;
+        return clustered;
     }
 
     /**
