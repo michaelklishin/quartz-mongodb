@@ -4,6 +4,7 @@
             [clojurewerkz.quartzite.triggers :as t])
   (:import com.novemberain.quartz.mongodb.dao.LocksDao
            com.novemberain.quartz.mongodb.util.Keys
+           com.mongodb.MongoWriteException
            org.bson.Document))
 
 (use-fixtures :each mongo/purge-collections)
@@ -13,6 +14,11 @@
 (defn create-dao []
   (LocksDao. (mongo/get-locks-coll) instanceId))
 
+(defn- simple-trigger
+  [kname kgroup]
+  (t/build
+   (t/with-identity (t/key kname kgroup))))
+
 (deftest should-have-passed-collection-and-instanceId
   (let [col (mongo/get-locks-coll)
         dao (LocksDao. col instanceId)]
@@ -20,13 +26,23 @@
     (is (identical? col (.getCollection dao)))))
 
 (deftest should-lock-trigger
-  (let [dao (create-dao)
-        trigger (t/build
-                 (t/with-identity (t/key "n1" "g1")))]
-    (.lockTrigger dao trigger)
+  (.lockTrigger (create-dao) (simple-trigger "n1" "g1"))
+  (let [locks (mongo/find-all :locks)]
+    (is (= 1 (count locks)))
+    (let [lock (first locks)]
+      (is (= "n1" (get lock Keys/KEY_NAME)))
+      (is (= "g1" (get lock Keys/KEY_GROUP)))
+      (is (= instanceId (get lock "instanceId")))
+      (is (not= nil (get lock "time"))))))
+
+(deftest should-throw-exception-on-trigger-relock
+  "Trigger should be no possibility to lock a trigger again."
+  (let [dao (create-dao)]
+    (.lockTrigger dao (simple-trigger "n1" "g1"))
+    (is (thrown? MongoWriteException
+                 (.lockTrigger dao (simple-trigger "n1" "g1"))))
     (let [locks (mongo/find-all :locks)]
       (is (= 1 (count locks)))
       (let [lock (first locks)]
         (is (= "n1" (get lock Keys/KEY_NAME)))
-        (is (= "g1" (get lock Keys/KEY_GROUP)))
-        (is (= instanceId (get lock "instanceId")))))))
+        (is (= "g1" (get lock Keys/KEY_GROUP)))))))
