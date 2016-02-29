@@ -7,17 +7,18 @@
   []
   (doto (Properties.)
     (.setProperty "org.quartz.jobStore.class"
-                  "com.novemberain.quartz.mongodb.MongoDBJobStore")
+                  "com.novemberain.quartz.mongodb.DynamicMongoDBJobStore")
     (.setProperty "org.quartz.jobStore.mongoUri"
                   "mongodb://localhost:27017")
+    ;; Often check for triggers to speed up collisions:
+    (.setProperty "org.quartz.scheduler.idleWaitTime" "1000")
     (.setProperty "org.quartz.jobStore.dbName" "quartz_mongodb_test")
     (.setProperty "org.quartz.threadPool.threadCount" "1")
     (.setProperty "org.quartz.scheduler.skipUpdateCheck" "true")
-    ;; (.setProperty "org.quartz.plugin.triggHistory.class"
-    ;;               "org.quartz.plugins.history.LoggingTriggerHistoryPlugin")
-    ;; (.setProperty "org.quartz.plugin.jobHistory.class"
-    ;;               "org.quartz.plugins.history.LoggingJobHistoryPlugin")
-    ))
+    (.setProperty "org.quartz.plugin.triggHistory.class"
+                  "org.quartz.plugins.history.LoggingTriggerHistoryPlugin")
+    (.setProperty "org.quartz.plugin.jobHistory.class"
+                  "org.quartz.plugins.history.LoggingJobHistoryPlugin")))
 
 (defn create-clustered-props
   "Creates properties for clustered scheduler."
