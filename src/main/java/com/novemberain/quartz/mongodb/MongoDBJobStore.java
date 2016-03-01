@@ -56,9 +56,11 @@ public class MongoDBJobStore implements JobStore, Constants {
     private CalendarDao calendarDao;
     private JobDao jobDao;
     private LocksDao locksDao;
+    private SchedulerDao schedulerDao;
     private PausedJobGroupsDao pausedJobGroupsDao;
     private PausedTriggerGroupsDao pausedTriggerGroupsDao;
     private TriggerDao triggerDao;
+    private String schedulerName;
     private String instanceId;
     private String[] addresses;
     private String mongoUri;
@@ -68,6 +70,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     private long triggerTimeoutMillis = 10 * 60 * 1000L;
     private long jobTimeoutMillis = 10 * 60 * 1000L;
     private boolean clustered = false;
+    private long clusterCheckinIntervalMillis = 7500;
 
     // Options for the Mongo client.
     private Boolean mongoOptionSocketKeepAlive;
@@ -133,6 +136,8 @@ public class MongoDBJobStore implements JobStore, Constants {
         locksDao = new LocksDao(db.getCollection(collectionPrefix + "locks"), instanceId);
         pausedJobGroupsDao = new PausedJobGroupsDao(db.getCollection(collectionPrefix + "paused_job_groups"));
         pausedTriggerGroupsDao = new PausedTriggerGroupsDao(db.getCollection(collectionPrefix + "paused_trigger_groups"));
+        schedulerDao = new SchedulerDao(db.getCollection(collectionPrefix + "schedulers"),
+                schedulerName, instanceId, clusterCheckinIntervalMillis, Clock.SYSTEM_CLOCK);
 
         ensureIndexes();
 
@@ -192,6 +197,16 @@ public class MongoDBJobStore implements JobStore, Constants {
     @Override
     public boolean isClustered() {
         return clustered;
+    }
+
+    /**
+     * Set the frequency (in milliseconds) at which this instance "checks-in"
+     * with the other instances of the cluster.
+     *
+     * Affects the rate of detecting failed instances.
+     */
+    public void setClusterCheckinInterval(long clusterCheckinInterval) {
+        this.clusterCheckinIntervalMillis = clusterCheckinInterval;
     }
 
     /**
@@ -447,7 +462,8 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     @Override
     public void setInstanceName(String schedName) {
-        // No-op
+        // Used as part of cluster node identifier:
+        schedulerName = schedName;
     }
 
     @Override
@@ -531,6 +547,7 @@ public class MongoDBJobStore implements JobStore, Constants {
             triggerDao.createIndex();
             locksDao.createIndex();
             calendarDao.createIndex();
+            schedulerDao.createIndex();
 
             try {
                 // Drop the old indexes that were declared as name then group rather than group then name

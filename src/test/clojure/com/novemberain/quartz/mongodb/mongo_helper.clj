@@ -19,6 +19,7 @@
    :locks (.getCollection test-database "quartz_locks")
    :jobs (.getCollection test-database "quartz_jobs")
    :job-groups (.getCollection test-database "quartz_paused_job_groups")
+   :schedulers (.getCollection test-database "quartz_schedulers")
    :triggers (.getCollection test-database "quartz_triggers")
    :trigger-groups (.getCollection test-database "quartz_paused_trigger_groups")})
 
@@ -34,6 +35,7 @@
               (clear-coll :jobs)
               (clear-coll :locks)
               (clear-coll :calendars)
+              (clear-coll :schedulers)
               (clear-coll :trigger-groups)
               (clear-coll :job-groups))]
     (rfn) ; before test
@@ -41,10 +43,27 @@
     (rfn) ; after test
     ))
 
+(defn get-count
+  "Return number of elements in a collection."
+  [col-key]
+  (.count (col-key collections)))
+
 (defn get-locks-coll
   "Return locks collection as MongoCollection."
   []
   (:locks collections))
+
+(defn get-schedulers-coll
+  "Return schedulers collection as MongoCollection."
+  []
+  (:schedulers collections))
+
+(defn get-first
+  "Return the first document from given collection."
+  [col-key]
+  (-> (col-key collections)
+      (.find (Document.))
+      (.first)))
 
 (defn find-all
   "Return all documents from given collection."
