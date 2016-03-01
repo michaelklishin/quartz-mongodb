@@ -60,10 +60,11 @@
 
 (defn get-first
   "Return the first document from given collection."
-  [col-key]
-  (-> (col-key collections)
-      (.find (Document.))
-      (.first)))
+  ([col-key] (get-first col-key {}))
+  ([col-key amap]
+   (-> (col-key collections)
+       (.find (Document. amap))
+       (.first))))
 
 (defn find-all
   "Return all documents from given collection."
