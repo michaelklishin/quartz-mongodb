@@ -6,6 +6,7 @@ import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.Projections;
 import com.mongodb.client.model.UpdateOptions;
+import com.mongodb.client.result.DeleteResult;
 import com.mongodb.client.result.UpdateResult;
 import com.novemberain.quartz.mongodb.util.Clock;
 import org.bson.Document;
@@ -36,9 +37,7 @@ public class SchedulerDao {
         this.schedulerCollection = schedulerCollection;
         this.schedulerName = schedulerName;
         this.instanceId = instanceId;
-        this.schedulerFilter = Filters.and(
-                Filters.eq(SCHEDULER_NAME_FIELD, schedulerName),
-                Filters.eq(INSTANCE_ID_FIELD, instanceId));
+        this.schedulerFilter = createSchedulerFilter(schedulerName, instanceId);
         this.clusterCheckinIntervalMillis = clusterCheckinIntervalMillis;
         this.clock = clock;
     }
@@ -72,6 +71,26 @@ public class SchedulerDao {
                 .updateOne(schedulerFilter, update, new UpdateOptions().upsert(true));
 
         log.debug("Node {}:{} check-in result: {}", schedulerName, instanceId, result);
+    }
+
+    /**
+     * Remove selected scheduler instance entry from database.
+     *
+     * @param schedulerName    scheduler' name
+     * @param instanceId       instance id
+     */
+    public void remove(String schedulerName, String instanceId) {
+        log.info("Removing scheduler: {}:{}", schedulerName, instanceId);
+        DeleteResult result = schedulerCollection
+                .withWriteConcern(WriteConcern.FSYNCED)
+                .deleteOne(createSchedulerFilter(schedulerName, instanceId));
+        log.debug("Result of removing {}:{}: {}", schedulerName, instanceId, result);
+    }
+
+    private Bson createSchedulerFilter(String schedulerName, String instanceId) {
+        return Filters.and(
+                Filters.eq(SCHEDULER_NAME_FIELD, schedulerName),
+                Filters.eq(INSTANCE_ID_FIELD, instanceId));
     }
 
     private Document createUpdateClause(long lastCheckinTime) {

@@ -30,14 +30,6 @@
                   clusterCheckinIntervalMillis
                   clock)))
 
-(deftest should-have-passed-collection
-  (let [dao (create-dao)]
-    (is (identical? (mongo/get-schedulers-coll) (.getCollection dao)))
-    (is (= (.-schedulerName dao) schedulerName))
-    (is (= (.-instanceId dao) instanceId))
-    (is (= (.-clusterCheckinIntervalMillis dao) clusterCheckinIntervalMillis))
-    (is (identical? (.-clock dao) test-clock))))
-
 (defn- check-scheduler
   ([dao entry expectedTimeMillis]
    (check-scheduler dao entry instanceId expectedTimeMillis))
@@ -46,6 +38,14 @@
    (is (= (get entry "instanceId") expectedId))
    (is (= (get entry "checkinInterval") (.-clusterCheckinIntervalMillis dao)))
    (is (= (get entry "lastCheckinTime") expectedTimeMillis))))
+
+(deftest should-have-passed-collection
+  (let [dao (create-dao)]
+    (is (identical? (mongo/get-schedulers-coll) (.getCollection dao)))
+    (is (= (.-schedulerName dao) schedulerName))
+    (is (= (.-instanceId dao) instanceId))
+    (is (= (.-clusterCheckinIntervalMillis dao) clusterCheckinIntervalMillis))
+    (is (identical? (.-clock dao) test-clock))))
 
 ;; scheduler name, instance name, last checkin time, checkin interval
 ;; primary key: scheduler name, instance name
@@ -81,3 +81,18 @@
           entry2 (mongo/get-first :schedulers {"instanceId" id2})]
       (check-scheduler dao1 entry1 id1 @id1-counter)
       (check-scheduler dao2 entry2 id2 @id2-counter))))
+
+(deftest should-remove-selected-entry
+  (let [id1 "id1" id2 "id2"
+        dao (create-dao id1 test-clock)]
+    ;; Create entries for two scheduler instances:
+    (.checkIn dao)
+    (.checkIn (create-dao id2 test-clock))
+    (is (= (mongo/get-count :schedulers) 2))
+    ;; Remove the first one:
+    (.remove dao schedulerName id2)
+    (is (= (mongo/get-count :schedulers) 1))
+    (is (not (nil? (mongo/get-first :schedulers {"instanceId" id1}))))
+    ;; Remove the last one:
+    (.remove dao schedulerName id1)
+    (is (= (mongo/get-count :schedulers) 0))))
