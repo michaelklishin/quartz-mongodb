@@ -1,7 +1,7 @@
-(ns com.novemberain.quartz.mongodb.cluster.cluster-checkin-task-test
+(ns com.novemberain.quartz.mongodb.cluster.checkin-task-test
   (:use [clj-time.core :only [seconds from-now]])
   (:require [clojure.test :refer :all])
-  (:import com.novemberain.quartz.mongodb.cluster.ClusterCheckinTask
+  (:import com.novemberain.quartz.mongodb.cluster.CheckinTask
            com.novemberain.quartz.mongodb.dao.SchedulerDao))
 
 (defn- ^SchedulerDao create-scheduler-dao
@@ -12,7 +12,7 @@
 
 (defn- create-task
   [checkin-counter]
-  (ClusterCheckinTask. (create-scheduler-dao checkin-counter)))
+  (CheckinTask. (create-scheduler-dao checkin-counter)))
 
 (deftest should-store-scheduler-data-to-checkin
   (let [checkin-counter (atom 0)

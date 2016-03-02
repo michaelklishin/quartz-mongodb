@@ -7,13 +7,13 @@ import org.slf4j.LoggerFactory;
 /**
  * The responsibility of this class is to check-in inside Scheduler Cluster.
  */
-public class ClusterCheckinTask {
+public class CheckinTask {
 
-    private static final Logger log = LoggerFactory.getLogger(ClusterCheckinTask.class);
+    private static final Logger log = LoggerFactory.getLogger(CheckinTask.class);
 
     private SchedulerDao schedulerDao;
 
-    public ClusterCheckinTask(SchedulerDao schedulerDao) {
+    public CheckinTask(SchedulerDao schedulerDao) {
         this.schedulerDao = schedulerDao;
     }
 
