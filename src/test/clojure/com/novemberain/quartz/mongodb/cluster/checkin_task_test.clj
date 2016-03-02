@@ -1,5 +1,4 @@
 (ns com.novemberain.quartz.mongodb.cluster.checkin-task-test
-  (:use [clj-time.core :only [seconds from-now]])
   (:require [clojure.test :refer :all])
   (:import com.novemberain.quartz.mongodb.cluster.CheckinTask
            com.novemberain.quartz.mongodb.dao.SchedulerDao))

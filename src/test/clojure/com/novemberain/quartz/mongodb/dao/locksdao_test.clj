@@ -4,8 +4,7 @@
             [clojurewerkz.quartzite.triggers :as t])
   (:import com.novemberain.quartz.mongodb.dao.LocksDao
            com.novemberain.quartz.mongodb.util.Keys
-           com.mongodb.MongoWriteException
-           org.bson.Document))
+           com.mongodb.MongoWriteException))
 
 (use-fixtures :each mongo/purge-collections)
 

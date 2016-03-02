@@ -2,8 +2,7 @@
   (:require [clojure.test :refer :all]
             [com.novemberain.quartz.mongodb.mongo-helper :as mongo])
   (:import com.novemberain.quartz.mongodb.dao.SchedulerDao
-           com.novemberain.quartz.mongodb.util.Clock
-           org.bson.Document))
+           com.novemberain.quartz.mongodb.util.Clock))
 
 (use-fixtures :each mongo/purge-collections)
 
