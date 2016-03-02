@@ -58,7 +58,8 @@ public class SchedulerDao {
      */
     public void checkIn() {
         long lastCheckinTime = clock.millis();
-        log.info("Cluster checkin scheduler {}:{}, checkin time: {}, interval: {}",
+
+        log.debug("Saving node data: name='{}', id='{}', checkin time={}, interval={}",
                 schedulerName, instanceId, lastCheckinTime, clusterCheckinIntervalMillis);
 
         // If not found Mongo will create a new entry with content from filter and update.
@@ -70,7 +71,7 @@ public class SchedulerDao {
                 .withWriteConcern(WriteConcern.FSYNCED)
                 .updateOne(schedulerFilter, update, new UpdateOptions().upsert(true));
 
-        log.info("Node {}:{} check-in result: {}", schedulerName, instanceId, result);
+        log.debug("Node {}:{} check-in result: {}", schedulerName, instanceId, result);
     }
 
     private Document createUpdateClause(long lastCheckinTime) {
