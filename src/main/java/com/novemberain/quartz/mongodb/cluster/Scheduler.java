@@ -2,6 +2,7 @@ package com.novemberain.quartz.mongodb.cluster;
 
 public class Scheduler {
 
+    public static final long TIME_EPSILON = 7500L;
     private final String name;
     private final String instanceId;
     private final long lastCheckinTime;
@@ -28,5 +29,18 @@ public class Scheduler {
 
     public long getCheckinInterval() {
         return checkinInterval;
+    }
+
+    /**
+     * Return true if scheduler is defunct for given time.
+     * @param time    time to compare with
+     * @return
+     */
+    public boolean isDefunct(long time) {
+        return expectedCheckinTime() < time;
+    }
+
+    private long expectedCheckinTime() {
+        return lastCheckinTime + checkinInterval + TIME_EPSILON;
     }
 }
