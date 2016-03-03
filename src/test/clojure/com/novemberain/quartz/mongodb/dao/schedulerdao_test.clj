@@ -29,6 +29,13 @@
                   clusterCheckinIntervalMillis
                   clock)))
 
+(defn- add-entry
+  [id checkin-time]
+  (mongo/add-scheduler {SchedulerDao/SCHEDULER_NAME_FIELD "sn"
+                        SchedulerDao/INSTANCE_ID_FIELD id
+                        SchedulerDao/CHECKIN_INTERVAL_FIELD 100
+                        SchedulerDao/LAST_CHECKIN_TIME_FIELD checkin-time}))
+
 (defn- check-scheduler
   ([dao entry expectedTimeMillis]
    (check-scheduler dao entry instanceId expectedTimeMillis))
@@ -95,3 +102,22 @@
     ;; Remove the last one:
     (.remove dao schedulerName id1)
     (is (= (mongo/get-count :schedulers) 0))))
+
+(deftest should-return-empty-list-of-entries
+  (let [dao (create-dao)
+        schedulers (.getAllByCheckinTime dao)]
+    (is (and (not (nil? schedulers))
+             (empty? schedulers)))))
+
+(deftest should-return-entries-ordered-by-checkin-time
+  "Entities should be in ascending order by last checkin time."
+  (add-entry "i1" 3)
+  (add-entry "i2" 1)
+  (add-entry "i3" 2)
+  (let [dao (create-dao)
+        schedulers (.getAllByCheckinTime dao)]
+    (is (= (count schedulers) 3))
+    (is (= #{"sn"} (into #{} (map #(.getName %) schedulers))))
+    (is (= #{100} (into #{} (map #(.getCheckinInterval %) schedulers))))
+    (is (= '("i2" "i3" "i1") (map #(.getInstanceId %) schedulers)))
+    (is (= '(1 2 3) (map #(.getLastCheckinTime %) schedulers)))))

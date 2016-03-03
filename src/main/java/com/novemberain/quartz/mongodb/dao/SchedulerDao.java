@@ -1,27 +1,31 @@
 package com.novemberain.quartz.mongodb.dao;
 
+import com.mongodb.Block;
 import com.mongodb.WriteConcern;
 import com.mongodb.client.MongoCollection;
-import com.mongodb.client.model.Filters;
-import com.mongodb.client.model.IndexOptions;
-import com.mongodb.client.model.Projections;
-import com.mongodb.client.model.UpdateOptions;
+import com.mongodb.client.model.*;
 import com.mongodb.client.result.DeleteResult;
 import com.mongodb.client.result.UpdateResult;
+import com.novemberain.quartz.mongodb.cluster.Scheduler;
 import com.novemberain.quartz.mongodb.util.Clock;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.LinkedList;
+import java.util.List;
+
+import static com.mongodb.client.model.Sorts.ascending;
+
 public class SchedulerDao {
 
     private static final Logger log = LoggerFactory.getLogger(SchedulerDao.class);
 
-    private static final String SCHEDULER_NAME_FIELD = "schedulerName";
-    private static final String INSTANCE_ID_FIELD = "instanceId";
-    private static final String LAST_CHECKIN_TIME_FIELD = "lastCheckinTime";
-    private static final String CHECKIN_INTERVAL_FIELD = "checkinInterval";
+    public static final String SCHEDULER_NAME_FIELD = "schedulerName";
+    public static final String INSTANCE_ID_FIELD = "instanceId";
+    public static final String LAST_CHECKIN_TIME_FIELD = "lastCheckinTime";
+    public static final String CHECKIN_INTERVAL_FIELD = "checkinInterval";
 
     public final MongoCollection<Document> schedulerCollection;
 
@@ -74,6 +78,19 @@ public class SchedulerDao {
     }
 
     /**
+     * Return all schedulers ordered ascending by last check-in time.
+     * @return
+     */
+    public List<Scheduler> getAllByCheckinTime() {
+        final List<Scheduler> schedulers = new LinkedList<Scheduler>();
+        schedulerCollection
+                .find()
+                .sort(ascending(LAST_CHECKIN_TIME_FIELD))
+                .forEach(createResultConverter(schedulers));
+        return schedulers;
+    }
+
+    /**
      * Remove selected scheduler instance entry from database.
      *
      * @param schedulerName    scheduler' name
@@ -97,5 +114,22 @@ public class SchedulerDao {
         return new Document("$set", new Document()
                     .append(LAST_CHECKIN_TIME_FIELD, lastCheckinTime)
                     .append(CHECKIN_INTERVAL_FIELD, clusterCheckinIntervalMillis));
+    }
+
+    private Block<Document> createResultConverter(final List<Scheduler> schedulers) {
+        return new Block<Document>() {
+            @Override
+            public void apply(Document document) {
+                schedulers.add(toScheduler(document));
+            }
+        };
+    }
+
+    private Scheduler toScheduler(Document document) {
+        return new Scheduler(
+                document.getString(SCHEDULER_NAME_FIELD),
+                document.getString(INSTANCE_ID_FIELD),
+                document.getLong(LAST_CHECKIN_TIME_FIELD),
+                document.getLong(CHECKIN_INTERVAL_FIELD));
     }
 }

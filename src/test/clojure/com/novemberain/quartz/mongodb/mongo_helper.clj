@@ -43,6 +43,11 @@
     (rfn) ; after test
     ))
 
+(defn add-scheduler
+  "Adds a new scheduler entry created from given map."
+  [data-map]
+  (.insertOne (:schedulers collections) (Document. data-map)))
+
 (defn get-count
   "Return number of elements in a collection."
   [col-key]
