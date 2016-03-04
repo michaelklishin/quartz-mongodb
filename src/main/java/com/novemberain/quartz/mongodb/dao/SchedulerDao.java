@@ -93,15 +93,31 @@ public class SchedulerDao {
     /**
      * Remove selected scheduler instance entry from database.
      *
+     * The scheduler is selected based on its name, instanceId, and lastCheckinTime.
+     * If the last check-in time is different, then it is not removed, for it might
+     * have got back to live.
+     *
      * @param schedulerName    scheduler' name
      * @param instanceId       instance id
+     * @param lastCheckinTime  last time scheduler has checked in
      */
-    public void remove(String schedulerName, String instanceId) {
-        log.info("Removing scheduler: {}:{}", schedulerName, instanceId);
+    public void remove(String schedulerName, String instanceId, long lastCheckinTime) {
+        log.info("Removing scheduler: {},{},{}",
+                schedulerName, instanceId, lastCheckinTime);
         DeleteResult result = schedulerCollection
                 .withWriteConcern(WriteConcern.FSYNCED)
-                .deleteOne(createSchedulerFilter(schedulerName, instanceId));
-        log.debug("Result of removing {}:{}: {}", schedulerName, instanceId, result);
+                .deleteOne(createSchedulerFilter(
+                        schedulerName, instanceId, lastCheckinTime));
+
+        log.info("Result of removing scheduler ({},{},{}): {}",
+                schedulerName, instanceId, lastCheckinTime, result);
+    }
+
+    private Bson createSchedulerFilter(String schedulerName, String instanceId, long lastCheckinTime) {
+        return Filters.and(
+                Filters.eq(SCHEDULER_NAME_FIELD, schedulerName),
+                Filters.eq(INSTANCE_ID_FIELD, instanceId),
+                Filters.eq(LAST_CHECKIN_TIME_FIELD, lastCheckinTime));
     }
 
     private Bson createSchedulerFilter(String schedulerName, String instanceId) {

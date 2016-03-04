@@ -6,9 +6,9 @@
 
 (use-fixtures :each mongo/purge-collections)
 
-(defonce schedulerName "Test Scheduler")
+(defonce schedulerName "TestSched")
 
-(defonce instanceId "Test instance")
+(defonce instanceId "TestID")
 
 (defonce ^long clusterCheckinIntervalMillis 5000)
 
@@ -31,7 +31,7 @@
 
 (defn- add-entry
   [id checkin-time]
-  (mongo/add-scheduler {SchedulerDao/SCHEDULER_NAME_FIELD "sn"
+  (mongo/add-scheduler {SchedulerDao/SCHEDULER_NAME_FIELD schedulerName
                         SchedulerDao/INSTANCE_ID_FIELD id
                         SchedulerDao/CHECKIN_INTERVAL_FIELD 100
                         SchedulerDao/LAST_CHECKIN_TIME_FIELD checkin-time}))
@@ -89,18 +89,30 @@
       (check-scheduler dao2 entry2 id2 @id2-counter))))
 
 (deftest should-remove-selected-entry
-  (let [id1 "id1" id2 "id2"
+  (let [id1 "id1" id2 "id2" id3 "id3"
         dao (create-dao id1 test-clock)]
     ;; Create entries for two scheduler instances:
-    (.checkIn dao)
-    (.checkIn (create-dao id2 test-clock))
-    (is (= (mongo/get-count :schedulers) 2))
+    (add-entry id1 1)
+    (add-entry id2 2)
+    (add-entry id3 3)
+    (println (mongo/find-all :schedulers))
+    ;; Remove non-existing does nothing:
+    (.remove dao "x-name" "id1" 1)
+    (is (= (mongo/get-count :schedulers) 3))
+    (.remove dao schedulerName "x-id" 1)
+    (is (= (mongo/get-count :schedulers) 3))
+    (.remove dao schedulerName "id1" 4)
+    (is (= (mongo/get-count :schedulers) 3))
     ;; Remove the first one:
-    (.remove dao schedulerName id2)
-    (is (= (mongo/get-count :schedulers) 1))
-    (is (not (nil? (mongo/get-first :schedulers {"instanceId" id1}))))
+    (.remove dao schedulerName id2 2)
+    (is (= (map #(get % "instanceId") (mongo/find-all :schedulers))
+           ["id1" "id3"]))
+    ;; Remove the second one:
+    (.remove dao schedulerName id1 1)
+    (is (= (map #(get % "instanceId") (mongo/find-all :schedulers))
+           ["id3"]))
     ;; Remove the last one:
-    (.remove dao schedulerName id1)
+    (.remove dao schedulerName id3 3)
     (is (= (mongo/get-count :schedulers) 0))))
 
 (deftest should-return-empty-list-of-entries
@@ -117,7 +129,7 @@
   (let [dao (create-dao)
         schedulers (.getAllByCheckinTime dao)]
     (is (= (count schedulers) 3))
-    (is (= #{"sn"} (into #{} (map #(.getName %) schedulers))))
+    (is (= #{schedulerName} (into #{} (map #(.getName %) schedulers))))
     (is (= #{100} (into #{} (map #(.getCheckinInterval %) schedulers))))
     (is (= '("i2" "i3" "i1") (map #(.getInstanceId %) schedulers)))
     (is (= '(1 2 3) (map #(.getLastCheckinTime %) schedulers)))))
