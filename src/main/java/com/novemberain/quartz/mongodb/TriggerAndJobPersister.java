@@ -17,8 +17,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
-import static com.novemberain.quartz.mongodb.util.Keys.toFilter;
-
 public class TriggerAndJobPersister {
 
     private static final Logger log = LoggerFactory.getLogger(TriggerAndJobPersister.class);
@@ -123,10 +121,7 @@ public class TriggerAndJobPersister {
 
     private void removeOldTrigger(TriggerKey triggerKey) {
         // Can't call remove trigger as if the job is not durable, it will remove the job too
-        Bson filter = toFilter(triggerKey);
-        if (triggerDao.exists(filter)) {
-            triggerDao.remove(filter);
-        }
+        triggerDao.remove(triggerKey);
     }
 
     // If the removal of the Trigger results in an 'orphaned' Job that is not 'durable',

@@ -137,6 +137,10 @@ public class TriggerDao {
         triggerCollection.deleteMany(filter);
     }
 
+    public void remove(TriggerKey triggerKey) {
+        remove(toFilter(triggerKey));
+    }
+
     public void removeByJobId(Object id) {
         triggerCollection.deleteMany(Filters.eq(Constants.TRIGGER_JOB_ID, id));
     }
