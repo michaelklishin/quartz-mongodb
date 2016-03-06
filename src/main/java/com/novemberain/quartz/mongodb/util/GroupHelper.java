@@ -14,24 +14,31 @@ import java.util.Set;
 import static com.novemberain.quartz.mongodb.util.Keys.KEY_GROUP;
 
 public class GroupHelper {
-  protected MongoCollection<Document> collection;
-  protected QueryHelper queryHelper;
+    protected MongoCollection<Document> collection;
+    protected QueryHelper queryHelper;
 
-  public GroupHelper(MongoCollection<Document> collection, QueryHelper queryHelper) {
-    this.collection = collection;
-    this.queryHelper = queryHelper;
-  }
+    public GroupHelper(MongoCollection<Document> collection, QueryHelper queryHelper) {
+        this.collection = collection;
+        this.queryHelper = queryHelper;
+    }
 
-  public Set<String> groupsThatMatch(GroupMatcher<?> matcher) {
-    Bson filter = queryHelper.matchingKeysConditionFor(matcher);
-    return collection.distinct(KEY_GROUP, String.class).filter(filter).into(new HashSet<String>());
-  }
+    public Set<String> groupsThatMatch(GroupMatcher<?> matcher) {
+        Bson filter = queryHelper.matchingKeysConditionFor(matcher);
+        return collection
+                .distinct(KEY_GROUP, String.class)
+                .filter(filter)
+                .into(new HashSet<String>());
+    }
 
-  public List<Document> inGroupsThatMatch(GroupMatcher<?> matcher) {
-    return collection.find(Filters.in(KEY_GROUP, groupsThatMatch(matcher))).into(new LinkedList<Document>());
-  }
+    public List<Document> inGroupsThatMatch(GroupMatcher<?> matcher) {
+        return collection
+                .find(Filters.in(KEY_GROUP, groupsThatMatch(matcher)))
+                .into(new LinkedList<Document>());
+    }
 
-  public Set<String> allGroups() {
-    return collection.distinct(KEY_GROUP, String.class).into(new HashSet<String>());
-  }
+    public Set<String> allGroups() {
+        return collection
+                .distinct(KEY_GROUP, String.class)
+                .into(new HashSet<String>());
+    }
 }
