@@ -15,6 +15,7 @@ import org.bson.conversions.Bson;
 import org.bson.types.ObjectId;
 import org.quartz.JobPersistenceException;
 import org.quartz.ObjectAlreadyExistsException;
+import org.quartz.Trigger;
 import org.quartz.TriggerKey;
 import org.quartz.impl.matchers.GroupMatcher;
 import org.quartz.spi.OperableTrigger;
@@ -124,7 +125,7 @@ public class TriggerDao {
         return referencedTriggers.size() == 1;
     }
 
-    public void insert(Document trigger, OperableTrigger offendingTrigger)
+    public void insert(Document trigger, Trigger offendingTrigger)
             throws ObjectAlreadyExistsException {
         try {
             triggerCollection.insertOne(trigger);
