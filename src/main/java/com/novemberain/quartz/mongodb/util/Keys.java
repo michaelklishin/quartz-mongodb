@@ -5,7 +5,6 @@ import com.mongodb.client.model.Projections;
 import com.novemberain.quartz.mongodb.Constants;
 import org.bson.Document;
 import org.bson.conversions.Bson;
-import org.quartz.JobDetail;
 import org.quartz.JobKey;
 import org.quartz.TriggerKey;
 import org.quartz.utils.Key;
@@ -18,29 +17,26 @@ public class Keys {
     public static final String KEY_GROUP = "keyGroup";
     public static final Bson KEY_AND_GROUP_FIELDS = Projections.include(KEY_GROUP, KEY_NAME);
 
-    public static Bson createLockFilter(JobDetail job) {
-        return Filters.and(
-                Filters.eq(KEY_NAME, getJobLockName(job)),
-                Filters.eq(KEY_GROUP, job.getKey().getGroup()));
+    public static Bson createJobLockFilter(JobKey key) {
+        return createLockFilter(key, getJobLockName(key));
     }
 
-    public static Document createJobLock(JobDetail job, String instanceId) {
-        Document lock = new Document();
-        lock.put(KEY_NAME, getJobLockName(job));
-        lock.put(KEY_GROUP, job.getKey().getGroup());
-        lock.put(Constants.LOCK_INSTANCE_ID, instanceId);
-        lock.put(Constants.LOCK_TIME, new Date());
-        return lock;
+    public static Bson createTriggerLockFilter(TriggerKey triggerKey) {
+        return createLockFilter(triggerKey, triggerKey.getName());
     }
 
-    private static String getJobLockName(JobDetail job) {
-        return "jobconcurrentlock:" + job.getKey().getName();
+    public static Document createJobLock(JobKey jobKey, String instanceId) {
+        return createLock(instanceId, jobKey.getGroup(), getJobLockName(jobKey));
+    }
+
+    public static Document createTriggerLock(TriggerKey triggerKey, String instanceId) {
+        return createLock(instanceId, triggerKey.getGroup(), triggerKey.getName());
     }
 
     public static Bson toFilter(Key<?> key) {
         return Filters.and(
-                Filters.eq(KEY_NAME, key.getName()),
-                Filters.eq(KEY_GROUP, key.getGroup()));
+                Filters.eq(KEY_GROUP, key.getGroup()),
+                Filters.eq(KEY_NAME, key.getName()));
     }
 
     public static JobKey toJobKey(Document dbo) {
@@ -51,19 +47,22 @@ public class Keys {
         return new TriggerKey(dbo.getString(KEY_NAME), dbo.getString(KEY_GROUP));
     }
 
-    public static Document lockToBson(Document doc) {
+    private static Document createLock(String instanceId, String group, String name) {
         Document lock = new Document();
-        lock.put(KEY_NAME, doc.get(KEY_NAME));
-        lock.put(KEY_GROUP, doc.get(KEY_GROUP));
-        return lock;
-    }
-
-    public static Document createTriggerDbLock(TriggerKey triggerKey, String instanceId) {
-        Document lock = new Document();
-        lock.put(KEY_GROUP, triggerKey.getGroup());
-        lock.put(KEY_NAME, triggerKey.getName());
+        lock.put(KEY_GROUP, group);
+        lock.put(KEY_NAME, name);
         lock.put(Constants.LOCK_INSTANCE_ID, instanceId);
         lock.put(Constants.LOCK_TIME, new Date());
         return lock;
+    }
+
+    private static <T> Bson createLockFilter(Key<T> key, String name) {
+        return Filters.and(
+                Filters.eq(KEY_GROUP, key.getGroup()),
+                Filters.eq(KEY_NAME, name));
+    }
+
+    private static String getJobLockName(JobKey jobKey) {
+        return "jobconcurrentlock:" + jobKey.getName();
     }
 }

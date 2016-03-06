@@ -9,14 +9,16 @@ import com.novemberain.quartz.mongodb.util.Keys;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.quartz.JobDetail;
+import org.quartz.JobKey;
+import org.quartz.TriggerKey;
 import org.quartz.spi.OperableTrigger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static com.novemberain.quartz.mongodb.Constants.LOCK_INSTANCE_ID;
 import static com.novemberain.quartz.mongodb.util.Keys.createJobLock;
-import static com.novemberain.quartz.mongodb.util.Keys.createLockFilter;
-import static com.novemberain.quartz.mongodb.util.Keys.createTriggerDbLock;
+import static com.novemberain.quartz.mongodb.util.Keys.createJobLockFilter;
+import static com.novemberain.quartz.mongodb.util.Keys.createTriggerLock;
 
 public class LocksDao {
 
@@ -51,19 +53,25 @@ public class LocksDao {
         locksCollection.dropIndex("keyName_1_keyGroup_1");
     }
 
-    public Document findLock(Bson lock) {
-        return locksCollection.find(lock).first();
+    public Document findJobLock(JobKey job) {
+        Bson filter = createJobLockFilter(job);
+        return locksCollection.find(filter).first();
+    }
+
+    public Document findTriggerLock(TriggerKey trigger) {
+        Bson filter = Keys.createTriggerLockFilter(trigger);
+        return locksCollection.find(filter).first();
     }
 
     public void lockJob(JobDetail job) {
         log.debug("Inserting lock for job {}", job.getKey());
-        Document lock = createJobLock(job, instanceId);
+        Document lock = createJobLock(job.getKey(), instanceId);
         insertLock(lock);
     }
 
     public void lockTrigger(OperableTrigger trigger) {
         log.info("Inserting lock for trigger {}", trigger.getKey());
-        Document lock = createTriggerDbLock(trigger.getKey(), instanceId);
+        Document lock = createTriggerLock(trigger.getKey(), instanceId);
         insertLock(lock);
     }
 
@@ -84,7 +92,7 @@ public class LocksDao {
 
     public void unlockJob(JobDetail job) {
         log.debug("Removing lock for job {}", job.getKey());
-        remove(createLockFilter(job));
+        remove(createJobLockFilter(job.getKey()));
     }
 
     private void insertLock(Document lock) {

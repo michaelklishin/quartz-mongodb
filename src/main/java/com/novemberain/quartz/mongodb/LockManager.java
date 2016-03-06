@@ -4,15 +4,11 @@ import com.mongodb.MongoWriteException;
 import com.novemberain.quartz.mongodb.dao.LocksDao;
 import com.novemberain.quartz.mongodb.util.TriggerTimeCalculator;
 import org.bson.Document;
-import org.bson.conversions.Bson;
 import org.quartz.JobDetail;
 import org.quartz.JobPersistenceException;
 import org.quartz.spi.OperableTrigger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static com.novemberain.quartz.mongodb.util.Keys.createLockFilter;
-import static com.novemberain.quartz.mongodb.util.Keys.lockToBson;
 
 public class LockManager {
 
@@ -40,16 +36,15 @@ public class LockManager {
     /**
      * Try to lock the trigger with retry when found expired lock on it.
      *
-     * @param triggerDoc    to create trigger lock's filter
      * @param trigger       trigger to lock
      * @return true when successfully locked
      */
-    public boolean tryLockWithExpiredTakeover(Document triggerDoc, OperableTrigger trigger) {
+    public boolean tryLockWithExpiredTakeover(OperableTrigger trigger) {
         if (tryLock(trigger)) {
             return true;
         }
 
-        if (unlockExpired(trigger, triggerDoc)) {
+        if (unlockExpired(trigger)) {
             log.info("Retrying trigger acquisition: {}", trigger.getKey());
             return tryLock(trigger);
         }
@@ -70,8 +65,7 @@ public class LockManager {
      * @param job    job to potentially unlock
      */
     public void unlockExpired(JobDetail job) {
-        Bson lockFilter = createLockFilter(job);
-        Document existingLock = locksDao.findLock(lockFilter);
+        Document existingLock = locksDao.findJobLock(job.getKey());
         if (existingLock != null) {
             if (timeCalculator.isJobLockExpired(existingLock)) {
                 log.debug("Removing expired lock for job {}", job.getKey());
@@ -90,12 +84,10 @@ public class LockManager {
         return false;
     }
 
-    private boolean unlockExpired(OperableTrigger trigger, Document triggerDoc) {
-        //TODO triggerDoc is not needed here, because filter can be created from the trigger
-        Document triggerLock = lockToBson(triggerDoc);
-        Document existingLock = locksDao.findLock(triggerLock);
+    private boolean unlockExpired(OperableTrigger trigger) {
+        Document existingLock = locksDao.findTriggerLock(trigger.getKey());
         if (existingLock != null) {
-            // support for trigger lock expirations
+            // support for trigger lock expiration
             if (timeCalculator.isTriggerLockExpired(existingLock)) {
                 log.warn("Lock for trigger {} is expired - removing lock", trigger.getKey());
                 locksDao.unlockTrigger(trigger);
