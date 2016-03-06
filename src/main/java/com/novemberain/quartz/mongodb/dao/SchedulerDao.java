@@ -78,8 +78,9 @@ public class SchedulerDao {
     }
 
     /**
-     * Return all schedulers ordered ascending by last check-in time.
-     * @return
+     * Return all scheduler instances in ascending order by last check-in time.
+     *
+     * @return schedler instances ordered by last check-in time
      */
     public List<Scheduler> getAllByCheckinTime() {
         final List<Scheduler> schedulers = new LinkedList<Scheduler>();

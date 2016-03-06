@@ -15,6 +15,13 @@
 
 (def ^Clock test-clock (utils/inc-clock))
 
+(defn- add-entry
+  [id checkin-time]
+  (mongo/add-scheduler {SchedulerDao/SCHEDULER_NAME_FIELD schedulerName
+                        SchedulerDao/INSTANCE_ID_FIELD id
+                        SchedulerDao/CHECKIN_INTERVAL_FIELD 100
+                        SchedulerDao/LAST_CHECKIN_TIME_FIELD checkin-time}))
+
 (defn create-dao
   ([] (create-dao test-clock))
   ([clock] (create-dao instanceId clock))
@@ -23,13 +30,6 @@
                   schedulerName id
                   clusterCheckinIntervalMillis
                   clock)))
-
-(defn- add-entry
-  [id checkin-time]
-  (mongo/add-scheduler {SchedulerDao/SCHEDULER_NAME_FIELD schedulerName
-                        SchedulerDao/INSTANCE_ID_FIELD id
-                        SchedulerDao/CHECKIN_INTERVAL_FIELD 100
-                        SchedulerDao/LAST_CHECKIN_TIME_FIELD checkin-time}))
 
 (defn- check-scheduler
   ([dao entry expectedTimeMillis]
@@ -90,7 +90,6 @@
     (add-entry id1 1)
     (add-entry id2 2)
     (add-entry id3 3)
-    (println (mongo/find-all :schedulers))
     ;; Remove non-existing does nothing:
     (.remove dao "x-name" "id1" 1)
     (is (= (mongo/get-count :schedulers) 3))
