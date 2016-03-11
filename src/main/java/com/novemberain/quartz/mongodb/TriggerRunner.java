@@ -69,8 +69,9 @@ public class TriggerRunner {
         return triggers;
     }
 
-    public List<TriggerFiredResult> triggersFired(List<OperableTrigger> triggers) throws JobPersistenceException {
-        List<TriggerFiredResult> results = new ArrayList<TriggerFiredResult>();
+    public List<TriggerFiredResult> triggersFired(List<OperableTrigger> triggers)
+            throws JobPersistenceException {
+        List<TriggerFiredResult> results = new ArrayList<TriggerFiredResult>(triggers.size());
 
         for (OperableTrigger trigger : triggers) {
             log.debug("Fired trigger {}", trigger.getKey());
