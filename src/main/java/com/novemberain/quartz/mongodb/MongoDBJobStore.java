@@ -12,11 +12,6 @@ package com.novemberain.quartz.mongodb;
 import com.mongodb.*;
 
 import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoDatabase;
-import com.novemberain.quartz.mongodb.dao.*;
-import com.novemberain.quartz.mongodb.db.MongoConnector;
-import com.novemberain.quartz.mongodb.trigger.MisfireHandler;
-import com.novemberain.quartz.mongodb.trigger.TriggerConverter;
 import com.novemberain.quartz.mongodb.util.*;
 import org.bson.Document;
 import org.bson.conversions.Bson;
@@ -31,46 +26,32 @@ import java.util.*;
 
 public class MongoDBJobStore implements JobStore, Constants {
 
-    private MongoConnector mongoConnector;
-    private JobCompleteHandler jobCompleteHandler;
-    private LockManager lockManager;
-    private TriggerStateManager triggerStateManager;
-    private TriggerRunner triggerRunner;
-    private TriggerAndJobPersister persister;
+    private MongoStoreAssembler assembler = new MongoStoreAssembler();
 
-    private MongoClient mongo;
-    private String collectionPrefix = "quartz_";
-    private String dbName;
-    private String authDbName;
-    private CalendarDao calendarDao;
-    private JobDao jobDao;
-    private LocksDao locksDao;
-    private SchedulerDao schedulerDao;
-    private PausedJobGroupsDao pausedJobGroupsDao;
-    private PausedTriggerGroupsDao pausedTriggerGroupsDao;
-    private TriggerDao triggerDao;
-    private String schedulerName;
-    private String instanceId;
-    private String[] addresses;
-    private String mongoUri;
-    private String username;
-    private String password;
-    private long misfireThreshold = 5000;
-    private long triggerTimeoutMillis = 10 * 60 * 1000L;
-    private long jobTimeoutMillis = 10 * 60 * 1000L;
+    MongoClient mongo;
+    String collectionPrefix = "quartz_";
+    String dbName;
+    String authDbName;
+    String schedulerName;
+    String instanceId;
+    String[] addresses;
+    String mongoUri;
+    String username;
+    String password;
+    long misfireThreshold = 5000;
+    long triggerTimeoutMillis = 10 * 60 * 1000L;
+    long jobTimeoutMillis = 10 * 60 * 1000L;
     private boolean clustered = false;
-    private long clusterCheckinIntervalMillis = 7500;
+    long clusterCheckinIntervalMillis = 7500;
 
     // Options for the Mongo client.
-    private Boolean mongoOptionSocketKeepAlive;
-    private Integer mongoOptionMaxConnectionsPerHost;
-    private Integer mongoOptionConnectTimeoutMillis;
-    private Integer mongoOptionSocketTimeoutMillis; // read timeout
-    private Integer mongoOptionThreadsAllowedToBlockForConnectionMultiplier;
-    private Boolean mongoOptionEnableSSL;
-    private Boolean mongoOptionSslInvalidHostNameAllowed;
-
-    private QueryHelper queryHelper = new QueryHelper();
+    Boolean mongoOptionSocketKeepAlive;
+    Integer mongoOptionMaxConnectionsPerHost;
+    Integer mongoOptionConnectTimeoutMillis;
+    Integer mongoOptionSocketTimeoutMillis; // read timeout
+    Integer mongoOptionThreadsAllowedToBlockForConnectionMultiplier;
+    Boolean mongoOptionEnableSSL;
+    Boolean mongoOptionSslInvalidHostNameAllowed;
 
     public MongoDBJobStore() {
     }
@@ -97,52 +78,9 @@ public class MongoDBJobStore implements JobStore, Constants {
     @Override
     public void initialize(ClassLoadHelper loadHelper, SchedulerSignaler signaler)
             throws SchedulerConfigException {
-        mongoConnector = MongoConnector.builder()
-                .withClient(mongo)
-                .withUri(mongoUri)
-                .withCredentials(username, password)
-                .withAddresses(addresses)
-                .withDatabaseName(dbName)
-                .withAuthDatabaseName(authDbName)
-                .withMaxConnectionsPerHost(mongoOptionMaxConnectionsPerHost)
-                .withConnectTimeoutMillis(mongoOptionConnectTimeoutMillis)
-                .withSocketTimeoutMillis(mongoOptionSocketTimeoutMillis)
-                .withSocketKeepAlive(mongoOptionSocketKeepAlive)
-                .withThreadsAllowedToBlockForConnectionMultiplier(mongoOptionThreadsAllowedToBlockForConnectionMultiplier)
-                .withSSL(mongoOptionEnableSSL, mongoOptionSslInvalidHostNameAllowed)
-                .build();
-
-        MongoDatabase db = mongoConnector.selectDatabase(dbName);
-
-        JobConverter jobConverter = new JobConverter(getClassLoaderHelper(loadHelper));
-        jobDao = new JobDao(db.getCollection(collectionPrefix + "jobs"), queryHelper, jobConverter);
-
-        TriggerConverter triggerConverter = new TriggerConverter(jobDao);
-        triggerDao = new TriggerDao(db.getCollection(collectionPrefix + "triggers"), queryHelper, triggerConverter);
-
-        calendarDao = new CalendarDao(db.getCollection(collectionPrefix + "calendars"));
-        locksDao = new LocksDao(db.getCollection(collectionPrefix + "locks"), instanceId);
-        pausedJobGroupsDao = new PausedJobGroupsDao(db.getCollection(collectionPrefix + "paused_job_groups"));
-        pausedTriggerGroupsDao = new PausedTriggerGroupsDao(db.getCollection(collectionPrefix + "paused_trigger_groups"));
-        schedulerDao = new SchedulerDao(db.getCollection(collectionPrefix + "schedulers"),
-                schedulerName, instanceId, clusterCheckinIntervalMillis, Clock.SYSTEM_CLOCK);
+        assembler.build(this, loadHelper, signaler);
 
         ensureIndexes();
-
-        MisfireHandler misfireHandler = new MisfireHandler(calendarDao, signaler, misfireThreshold);
-        TriggerTimeCalculator timeCalculator = new TriggerTimeCalculator(jobTimeoutMillis,
-                triggerTimeoutMillis);
-
-        persister = new TriggerAndJobPersister(triggerDao, jobDao, triggerConverter);
-
-        jobCompleteHandler = new JobCompleteHandler(persister, signaler, jobDao, locksDao, triggerDao);
-
-        lockManager = new LockManager(locksDao, timeCalculator);
-
-        triggerStateManager = new TriggerStateManager(triggerDao, jobDao,
-                pausedJobGroupsDao, pausedTriggerGroupsDao, queryHelper);
-        triggerRunner = new TriggerRunner(persister, triggerDao, jobDao, locksDao, calendarDao,
-                misfireHandler, triggerConverter, lockManager);
     }
 
     @Override
@@ -161,7 +99,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     @Override
     public void shutdown() {
-        mongoConnector.shutdown();
+        assembler.mongoConnector.shutdown();
     }
 
     @Override
@@ -203,13 +141,13 @@ public class MongoDBJobStore implements JobStore, Constants {
     @Override
     public void storeJobAndTrigger(JobDetail newJob, OperableTrigger newTrigger)
             throws JobPersistenceException {
-        persister.storeJobAndTrigger(newJob, newTrigger);
+        assembler.persister.storeJobAndTrigger(newJob, newTrigger);
     }
 
     @Override
     public void storeJob(JobDetail newJob, boolean replaceExisting)
             throws JobPersistenceException {
-        jobDao.storeJobInMongo(newJob, replaceExisting);
+        assembler.jobDao.storeJobInMongo(newJob, replaceExisting);
     }
 
     @Override
@@ -221,10 +159,10 @@ public class MongoDBJobStore implements JobStore, Constants {
     @Override
     public boolean removeJob(JobKey jobKey) throws JobPersistenceException {
         Bson keyObject = Keys.toFilter(jobKey);
-        Document item = jobDao.getJob(keyObject);
+        Document item = assembler.jobDao.getJob(keyObject);
         if (item != null) {
-            jobDao.remove(keyObject);
-            triggerDao.removeByJobId(item.get("_id"));
+            assembler.jobDao.remove(keyObject);
+            assembler.triggerDao.removeByJobId(item.get("_id"));
             return true;
         }
         return false;
@@ -240,52 +178,52 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     @Override
     public JobDetail retrieveJob(JobKey jobKey) throws JobPersistenceException {
-        return jobDao.retrieveJob(jobKey);
+        return assembler.jobDao.retrieveJob(jobKey);
     }
 
     @Override
     public void storeTrigger(OperableTrigger newTrigger, boolean replaceExisting)
             throws JobPersistenceException {
-        persister.storeTrigger(newTrigger, replaceExisting);
+        assembler.persister.storeTrigger(newTrigger, replaceExisting);
     }
 
     @Override
     public boolean removeTrigger(TriggerKey triggerKey) throws JobPersistenceException {
-        return persister.removeTrigger(triggerKey);
+        return assembler.persister.removeTrigger(triggerKey);
     }
 
     @Override
     public boolean removeTriggers(List<TriggerKey> triggerKeys) throws JobPersistenceException {
-        return persister.removeTriggers(triggerKeys);
+        return assembler.persister.removeTriggers(triggerKeys);
     }
 
     @Override
     public boolean replaceTrigger(TriggerKey triggerKey, OperableTrigger newTrigger) throws JobPersistenceException {
-        return persister.replaceTrigger(triggerKey, newTrigger);
+        return assembler.persister.replaceTrigger(triggerKey, newTrigger);
     }
 
     @Override
     public OperableTrigger retrieveTrigger(TriggerKey triggerKey) throws JobPersistenceException {
-        return triggerDao.getTrigger(triggerKey);
+        return assembler.triggerDao.getTrigger(triggerKey);
     }
 
     @Override
     public boolean checkExists(JobKey jobKey) throws JobPersistenceException {
-        return jobDao.exists(jobKey);
+        return assembler.jobDao.exists(jobKey);
     }
 
     @Override
     public boolean checkExists(TriggerKey triggerKey) throws JobPersistenceException {
-        return triggerDao.exists(Keys.toFilter(triggerKey));
+        return assembler.triggerDao.exists(Keys.toFilter(triggerKey));
     }
 
     @Override
     public void clearAllSchedulingData() throws JobPersistenceException {
-        jobDao.clear();
-        triggerDao.clear();
-        calendarDao.clear();
-        pausedJobGroupsDao.remove();
-        pausedTriggerGroupsDao.remove();
+        assembler.jobDao.clear();
+        assembler.triggerDao.clear();
+        assembler.calendarDao.clear();
+        assembler.pausedJobGroupsDao.remove();
+        assembler.pausedTriggerGroupsDao.remove();
     }
 
     @Override
@@ -296,52 +234,52 @@ public class MongoDBJobStore implements JobStore, Constants {
             throw new UnsupportedOperationException("Updating triggers is not supported.");
         }
 
-        calendarDao.store(name, calendar);
+        assembler.calendarDao.store(name, calendar);
     }
 
     @Override
     public boolean removeCalendar(String calName) throws JobPersistenceException {
-        return calendarDao.remove(calName);
+        return assembler.calendarDao.remove(calName);
     }
 
     @Override
     public Calendar retrieveCalendar(String calName) throws JobPersistenceException {
-        return calendarDao.retrieveCalendar(calName);
+        return assembler.calendarDao.retrieveCalendar(calName);
     }
 
     @Override
     public int getNumberOfJobs() throws JobPersistenceException {
-        return jobDao.getCount();
+        return assembler.jobDao.getCount();
     }
 
     @Override
     public int getNumberOfTriggers() throws JobPersistenceException {
-        return triggerDao.getCount();
+        return assembler.triggerDao.getCount();
     }
 
     @Override
     public int getNumberOfCalendars() throws JobPersistenceException {
-        return calendarDao.getCount();
+        return assembler.calendarDao.getCount();
     }
 
     @Override
     public Set<JobKey> getJobKeys(GroupMatcher<JobKey> matcher) throws JobPersistenceException {
-        return jobDao.getJobKeys(matcher);
+        return assembler.jobDao.getJobKeys(matcher);
     }
 
     @Override
     public Set<TriggerKey> getTriggerKeys(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
-        return triggerDao.getTriggerKeys(matcher);
+        return assembler.triggerDao.getTriggerKeys(matcher);
     }
 
     @Override
     public List<String> getJobGroupNames() throws JobPersistenceException {
-        return jobDao.getGroupNames();
+        return assembler.jobDao.getGroupNames();
     }
 
     @Override
     public List<String> getTriggerGroupNames() throws JobPersistenceException {
-        return triggerDao.getGroupNames();
+        return assembler.triggerDao.getGroupNames();
     }
 
     @Override
@@ -351,96 +289,96 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     @Override
     public List<OperableTrigger> getTriggersForJob(JobKey jobKey) throws JobPersistenceException {
-        return persister.getTriggersForJob(jobKey);
+        return assembler.persister.getTriggersForJob(jobKey);
     }
 
     @Override
     public TriggerState getTriggerState(TriggerKey triggerKey) throws JobPersistenceException {
-        return triggerStateManager.getState(triggerKey);
+        return assembler.triggerStateManager.getState(triggerKey);
     }
 
     @Override
     public void pauseTrigger(TriggerKey triggerKey) throws JobPersistenceException {
-        triggerStateManager.pause(triggerKey);
+        assembler.triggerStateManager.pause(triggerKey);
     }
 
     @Override
     public Collection<String> pauseTriggers(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
-        return triggerStateManager.pause(matcher);
+        return assembler.triggerStateManager.pause(matcher);
     }
 
     @Override
     public void resumeTrigger(TriggerKey triggerKey) throws JobPersistenceException {
-        triggerStateManager.resume(triggerKey);
+        assembler.triggerStateManager.resume(triggerKey);
     }
 
     @Override
     public Collection<String> resumeTriggers(GroupMatcher<TriggerKey> matcher) throws JobPersistenceException {
-        return triggerStateManager.resume(matcher);
+        return assembler.triggerStateManager.resume(matcher);
     }
 
     @Override
     public Set<String> getPausedTriggerGroups() throws JobPersistenceException {
-        return triggerStateManager.getPausedTriggerGroups();
+        return assembler.triggerStateManager.getPausedTriggerGroups();
     }
 
     // only for tests
     public Set<String> getPausedJobGroups() throws JobPersistenceException {
-        return pausedJobGroupsDao.getPausedGroups();
+        return assembler.pausedJobGroupsDao.getPausedGroups();
     }
 
     @Override
     public void pauseAll() throws JobPersistenceException {
-        triggerStateManager.pauseAll();
+        assembler.triggerStateManager.pauseAll();
     }
 
     @Override
     public void resumeAll() throws JobPersistenceException {
-        triggerStateManager.resumeAll();
+        assembler.triggerStateManager.resumeAll();
     }
 
     @Override
     public void pauseJob(JobKey jobKey) throws JobPersistenceException {
-        triggerStateManager.pauseJob(jobKey);
+        assembler.triggerStateManager.pauseJob(jobKey);
     }
 
     @Override
     public Collection<String> pauseJobs(GroupMatcher<JobKey> groupMatcher) throws JobPersistenceException {
-        return triggerStateManager.pauseJobs(groupMatcher);
+        return assembler.triggerStateManager.pauseJobs(groupMatcher);
     }
 
     @Override
     public void resumeJob(JobKey jobKey) throws JobPersistenceException {
-        triggerStateManager.resume(jobKey);
+        assembler.triggerStateManager.resume(jobKey);
     }
 
     @Override
     public Collection<String> resumeJobs(GroupMatcher<JobKey> groupMatcher) throws JobPersistenceException {
-        return triggerStateManager.resumeJobs(groupMatcher);
+        return assembler.triggerStateManager.resumeJobs(groupMatcher);
     }
 
     @Override
     public List<OperableTrigger> acquireNextTriggers(long noLaterThan, int maxCount, long timeWindow)
             throws JobPersistenceException {
-        return triggerRunner.acquireNext(noLaterThan, maxCount, timeWindow);
+        return assembler.triggerRunner.acquireNext(noLaterThan, maxCount, timeWindow);
     }
 
     @Override
     public void releaseAcquiredTrigger(OperableTrigger trigger) throws JobPersistenceException {
-        lockManager.unlockAcquiredTrigger(trigger);
+        assembler.lockManager.unlockAcquiredTrigger(trigger);
     }
 
     @Override
     public List<TriggerFiredResult> triggersFired(List<OperableTrigger> triggers)
             throws JobPersistenceException {
-        return triggerRunner.triggersFired(triggers);
+        return assembler.triggerRunner.triggersFired(triggers);
     }
 
     @Override
     public void triggeredJobComplete(OperableTrigger trigger, JobDetail job,
                                      CompletedExecutionInstruction triggerInstCode)
             throws JobPersistenceException {
-        jobCompleteHandler.jobComplete(trigger, job, triggerInstCode);
+        assembler.jobCompleteHandler.jobComplete(trigger, job, triggerInstCode);
     }
 
     @Override
@@ -464,19 +402,19 @@ public class MongoDBJobStore implements JobStore, Constants {
     }
 
     public MongoCollection<Document> getJobCollection() {
-        return jobDao.getCollection();
+        return assembler.jobDao.getCollection();
     }
 
     public MongoCollection<Document> getTriggerCollection() {
-        return triggerDao.getCollection();
+        return assembler.triggerDao.getCollection();
     }
 
     public MongoCollection<Document> getCalendarCollection() {
-        return calendarDao.getCollection();
+        return assembler.calendarDao.getCollection();
     }
 
     public MongoCollection<Document> getLocksCollection() {
-        return locksDao.getCollection();
+        return assembler.locksDao.getCollection();
     }
 
     public String getDbName() {
@@ -531,17 +469,17 @@ public class MongoDBJobStore implements JobStore, Constants {
        * indexes are removed after we have "ensured" the new ones.
        */
 
-            jobDao.createIndex();
-            triggerDao.createIndex();
-            locksDao.createIndex();
-            calendarDao.createIndex();
-            schedulerDao.createIndex();
+            assembler.jobDao.createIndex();
+            assembler.triggerDao.createIndex();
+            assembler.locksDao.createIndex();
+            assembler.calendarDao.createIndex();
+            assembler.schedulerDao.createIndex();
 
             try {
                 // Drop the old indexes that were declared as name then group rather than group then name
-                jobDao.dropIndex();
-                triggerDao.dropIndex();
-                locksDao.dropIndex();
+                assembler.jobDao.dropIndex();
+                assembler.triggerDao.dropIndex();
+                assembler.locksDao.dropIndex();
             } catch (MongoCommandException cfe) {
                 // Ignore, the old indexes have already been removed
             }
