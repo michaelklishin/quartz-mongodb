@@ -49,7 +49,6 @@
     (is (identical? (.-clock dao) test-clock))))
 
 ;; scheduler name, instance name, last checkin time, checkin interval
-;; primary key: scheduler name, instance name
 (deftest should-add-new-entry-to-collection
   (let [counter (atom 0)
         dao (create-dao (utils/inc-clock counter))]
