@@ -31,17 +31,6 @@ import java.util.*;
 
 public class MongoDBJobStore implements JobStore, Constants {
 
-    @Deprecated
-    private static MongoClient overriddenMongo;
-
-    /**
-     * @deprecated use {@link #MongoDBJobStore(MongoClient)}
-     */
-    @Deprecated
-    public static void overrideMongo(MongoClient mongo) {
-        overriddenMongo = mongo;
-    }
-
     private MongoConnector mongoConnector;
     private JobCompleteHandler jobCompleteHandler;
     private LockManager lockManager;
@@ -110,7 +99,6 @@ public class MongoDBJobStore implements JobStore, Constants {
             throws SchedulerConfigException {
         mongoConnector = MongoConnector.builder()
                 .withClient(mongo)
-                .withOverriddenMongo(overriddenMongo)
                 .withUri(mongoUri)
                 .withCredentials(username, password)
                 .withAddresses(addresses)

@@ -41,7 +41,6 @@ public class MongoConnector {
         private String username;
         private String password;
         private String[] addresses;
-        private MongoClient overriddenMongo;
         private String dbName;
         private String authDbName;
 
@@ -52,11 +51,6 @@ public class MongoConnector {
 
         public MongoConnectorBuilder withClient(MongoClient mongo) {
             connector.mongo = mongo;
-            return this;
-        }
-
-        public MongoConnectorBuilder withOverriddenMongo(MongoClient overriddenMongo) {
-            this.overriddenMongo = overriddenMongo;
             return this;
         }
 
@@ -87,11 +81,7 @@ public class MongoConnector {
         }
 
         private void initializeMongo() throws SchedulerConfigException {
-            if (overriddenMongo != null) {
-                connector.mongo = overriddenMongo;
-            } else {
-                connector.mongo = connectToMongoDB();
-            }
+            connector.mongo = connectToMongoDB();
             if (connector.mongo == null) {
                 throw new SchedulerConfigException("Could not connect to MongoDB! Please check that quartz-mongodb configuration is correct.");
             }
