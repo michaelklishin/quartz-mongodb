@@ -1,5 +1,6 @@
 package com.novemberain.quartz.mongodb;
 
+import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.novemberain.quartz.mongodb.dao.*;
 import com.novemberain.quartz.mongodb.db.MongoConnector;
@@ -8,6 +9,7 @@ import com.novemberain.quartz.mongodb.trigger.TriggerConverter;
 import com.novemberain.quartz.mongodb.util.Clock;
 import com.novemberain.quartz.mongodb.util.QueryHelper;
 import com.novemberain.quartz.mongodb.util.TriggerTimeCalculator;
+import org.bson.Document;
 import org.quartz.SchedulerConfigException;
 import org.quartz.spi.ClassLoadHelper;
 import org.quartz.spi.SchedulerSignaler;
@@ -29,10 +31,66 @@ public class MongoStoreAssembler {
     public PausedTriggerGroupsDao pausedTriggerGroupsDao;
     public TriggerDao triggerDao;
 
+    private MongoDatabase db;
     private QueryHelper queryHelper = new QueryHelper();
+    private TriggerConverter triggerConverter;
 
-    public void build(MongoDBJobStore jobStore, ClassLoadHelper loadHelper, SchedulerSignaler signaler) throws SchedulerConfigException {
-        mongoConnector = MongoConnector.builder()
+    public void build(MongoDBJobStore jobStore, ClassLoadHelper loadHelper, SchedulerSignaler signaler)
+            throws SchedulerConfigException {
+        mongoConnector = createMongoConnector(jobStore);
+
+        db = mongoConnector.selectDatabase(jobStore.dbName);
+
+        jobDao = createJobDao(jobStore, loadHelper);
+
+        triggerConverter = new TriggerConverter(jobDao);
+
+        triggerDao = createTriggerDao(jobStore);
+        calendarDao = createCalendarDao(jobStore);
+        locksDao = createLocksDao(jobStore);
+        pausedJobGroupsDao = createPausedJobGroupsDao(jobStore);
+        pausedTriggerGroupsDao = createPausedTriggerGroupsDao(jobStore);
+        schedulerDao = createSchedulerDao(jobStore);
+
+        persister = createTriggerAndJobPersister();
+
+        jobCompleteHandler = createJobCompleteHandler(signaler);
+
+        lockManager = createLockManager(jobStore);
+
+        triggerStateManager = createTriggerStateManager();
+        triggerRunner = createTriggerRunner(jobStore, signaler);
+    }
+
+    private CalendarDao createCalendarDao(MongoDBJobStore jobStore) {
+        return new CalendarDao(getCollection(jobStore, "calendars"));
+    }
+
+    private JobDao createJobDao(MongoDBJobStore jobStore, ClassLoadHelper loadHelper) {
+        JobConverter jobConverter = new JobConverter(jobStore.getClassLoaderHelper(loadHelper));
+        return new JobDao(getCollection(jobStore, "jobs"), queryHelper, jobConverter);
+    }
+
+    private JobCompleteHandler createJobCompleteHandler(SchedulerSignaler signaler) {
+        return new JobCompleteHandler(persister, signaler, jobDao, locksDao, triggerDao);
+    }
+
+    private LocksDao createLocksDao(MongoDBJobStore jobStore) {
+        return new LocksDao(getCollection(jobStore, "locks"), jobStore.instanceId);
+    }
+
+    private LockManager createLockManager(MongoDBJobStore jobStore) {
+        TriggerTimeCalculator timeCalculator = new TriggerTimeCalculator(
+                jobStore.jobTimeoutMillis, jobStore.triggerTimeoutMillis);
+        return new LockManager(locksDao, timeCalculator);
+    }
+
+    private MisfireHandler createMisfireHandler(MongoDBJobStore jobStore, SchedulerSignaler signaler) {
+        return new MisfireHandler(calendarDao, signaler, jobStore.misfireThreshold);
+    }
+
+    private MongoConnector createMongoConnector(MongoDBJobStore jobStore) throws SchedulerConfigException {
+        return MongoConnector.builder()
                 .withClient(jobStore.mongo)
                 .withUri(jobStore.mongoUri)
                 .withCredentials(jobStore.username, jobStore.password)
@@ -47,36 +105,42 @@ public class MongoStoreAssembler {
                         jobStore.mongoOptionThreadsAllowedToBlockForConnectionMultiplier)
                 .withSSL(jobStore.mongoOptionEnableSSL, jobStore.mongoOptionSslInvalidHostNameAllowed)
                 .build();
+    }
 
-        MongoDatabase db = mongoConnector.selectDatabase(jobStore.dbName);
+    private PausedJobGroupsDao createPausedJobGroupsDao(MongoDBJobStore jobStore) {
+        return new PausedJobGroupsDao(getCollection(jobStore, "paused_job_groups"));
+    }
 
-        JobConverter jobConverter = new JobConverter(jobStore.getClassLoaderHelper(loadHelper));
-        jobDao = new JobDao(db.getCollection(jobStore.collectionPrefix + "jobs"), queryHelper, jobConverter);
+    private PausedTriggerGroupsDao createPausedTriggerGroupsDao(MongoDBJobStore jobStore) {
+        return new PausedTriggerGroupsDao(getCollection(jobStore, "paused_trigger_groups"));
+    }
 
-        TriggerConverter triggerConverter = new TriggerConverter(jobDao);
-        triggerDao = new TriggerDao(db.getCollection(jobStore.collectionPrefix + "triggers"), queryHelper, triggerConverter);
-
-        calendarDao = new CalendarDao(db.getCollection(jobStore.collectionPrefix + "calendars"));
-        locksDao = new LocksDao(db.getCollection(jobStore.collectionPrefix + "locks"), jobStore.instanceId);
-        pausedJobGroupsDao = new PausedJobGroupsDao(db.getCollection(jobStore.collectionPrefix + "paused_job_groups"));
-        pausedTriggerGroupsDao = new PausedTriggerGroupsDao(db.getCollection(jobStore.collectionPrefix + "paused_trigger_groups"));
-        schedulerDao = new SchedulerDao(db.getCollection(jobStore.collectionPrefix + "schedulers"),
+    private SchedulerDao createSchedulerDao(MongoDBJobStore jobStore) {
+        return new SchedulerDao(getCollection(jobStore, "schedulers"),
                 jobStore.schedulerName, jobStore.instanceId, jobStore.clusterCheckinIntervalMillis,
                 Clock.SYSTEM_CLOCK);
+    }
 
-        MisfireHandler misfireHandler = new MisfireHandler(calendarDao, signaler, jobStore.misfireThreshold);
-        TriggerTimeCalculator timeCalculator = new TriggerTimeCalculator(jobStore.jobTimeoutMillis,
-                jobStore.triggerTimeoutMillis);
+    private TriggerAndJobPersister createTriggerAndJobPersister() {
+        return new TriggerAndJobPersister(triggerDao, jobDao, triggerConverter);
+    }
 
-        persister = new TriggerAndJobPersister(triggerDao, jobDao, triggerConverter);
+    private TriggerDao createTriggerDao(MongoDBJobStore jobStore) {
+        return new TriggerDao(getCollection(jobStore, "triggers"), queryHelper, triggerConverter);
+    }
 
-        jobCompleteHandler = new JobCompleteHandler(persister, signaler, jobDao, locksDao, triggerDao);
-
-        lockManager = new LockManager(locksDao, timeCalculator);
-
-        triggerStateManager = new TriggerStateManager(triggerDao, jobDao,
-                pausedJobGroupsDao, pausedTriggerGroupsDao, queryHelper);
-        triggerRunner = new TriggerRunner(persister, triggerDao, jobDao, locksDao, calendarDao,
+    private TriggerRunner createTriggerRunner(MongoDBJobStore jobStore, SchedulerSignaler signaler) {
+        MisfireHandler misfireHandler = createMisfireHandler(jobStore, signaler);
+        return new TriggerRunner(persister, triggerDao, jobDao, locksDao, calendarDao,
                 misfireHandler, triggerConverter, lockManager);
+    }
+
+    private TriggerStateManager createTriggerStateManager() {
+        return new TriggerStateManager(triggerDao, jobDao,
+                pausedJobGroupsDao, pausedTriggerGroupsDao, queryHelper);
+    }
+
+    private MongoCollection<Document> getCollection(MongoDBJobStore jobStore, String name) {
+        return db.getCollection(jobStore.collectionPrefix + name);
     }
 }
