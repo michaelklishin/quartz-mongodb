@@ -36,6 +36,24 @@ public class TriggerAndJobPersister {
         return triggerDao.getTriggersForJob(doc);
     }
 
+    public boolean removeJob(JobKey jobKey) {
+        Bson keyObject = Keys.toFilter(jobKey);
+        Document item = jobDao.getJob(keyObject);
+        if (item != null) {
+            jobDao.remove(keyObject);
+            triggerDao.removeByJobId(item.get("_id"));
+            return true;
+        }
+        return false;
+    }
+
+    public boolean removeJobs(List<JobKey> jobKeys) throws JobPersistenceException {
+        for (JobKey key : jobKeys) {
+            removeJob(key);
+        }
+        return false;
+    }
+
     public boolean removeTrigger(TriggerKey triggerKey) {
         Bson filter = Keys.toFilter(triggerKey);
         Document trigger = triggerDao.findTrigger(filter);

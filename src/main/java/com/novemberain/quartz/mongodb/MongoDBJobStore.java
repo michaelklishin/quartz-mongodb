@@ -14,7 +14,6 @@ import com.mongodb.*;
 import com.mongodb.client.MongoCollection;
 import com.novemberain.quartz.mongodb.util.*;
 import org.bson.Document;
-import org.bson.conversions.Bson;
 import org.quartz.Calendar;
 import org.quartz.*;
 import org.quartz.Trigger.CompletedExecutionInstruction;
@@ -158,22 +157,12 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     @Override
     public boolean removeJob(JobKey jobKey) throws JobPersistenceException {
-        Bson keyObject = Keys.toFilter(jobKey);
-        Document item = assembler.jobDao.getJob(keyObject);
-        if (item != null) {
-            assembler.jobDao.remove(keyObject);
-            assembler.triggerDao.removeByJobId(item.get("_id"));
-            return true;
-        }
-        return false;
+        return assembler.persister.removeJob(jobKey);
     }
 
     @Override
     public boolean removeJobs(List<JobKey> jobKeys) throws JobPersistenceException {
-        for (JobKey key : jobKeys) {
-            removeJob(key);
-        }
-        return false;
+        return assembler.persister.removeJobs(jobKeys);
     }
 
     @Override
