@@ -1,10 +1,13 @@
 package com.novemberain.quartz.mongodb.dao;
 
+import com.mongodb.MongoException;
 import com.mongodb.WriteConcern;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.Projections;
+import com.mongodb.client.result.UpdateResult;
+import com.novemberain.quartz.mongodb.util.Clock;
 import com.novemberain.quartz.mongodb.util.Keys;
 import org.bson.Document;
 import org.bson.conversions.Bson;
@@ -14,6 +17,8 @@ import org.quartz.TriggerKey;
 import org.quartz.spi.OperableTrigger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Date;
 
 import static com.novemberain.quartz.mongodb.Constants.LOCK_INSTANCE_ID;
 import static com.novemberain.quartz.mongodb.util.Keys.createJobLock;
@@ -25,10 +30,12 @@ public class LocksDao {
     private static final Logger log = LoggerFactory.getLogger(LocksDao.class);
 
     private final MongoCollection<Document> locksCollection;
+    private Clock clock;
     public final String instanceId;
 
-    public LocksDao(MongoCollection<Document> locksCollection, String instanceId) {
+    public LocksDao(MongoCollection<Document> locksCollection, Clock clock, String instanceId) {
         this.locksCollection = locksCollection;
+        this.clock = clock;
         this.instanceId = instanceId;
     }
 
@@ -65,14 +72,46 @@ public class LocksDao {
 
     public void lockJob(JobDetail job) {
         log.debug("Inserting lock for job {}", job.getKey());
-        Document lock = createJobLock(job.getKey(), instanceId);
+        Document lock = createJobLock(job.getKey(), instanceId, clock.now());
         insertLock(lock);
     }
 
     public void lockTrigger(OperableTrigger trigger) {
         log.info("Inserting lock for trigger {}", trigger.getKey());
-        Document lock = createTriggerLock(trigger.getKey(), instanceId);
+        Document lock = createTriggerLock(trigger.getKey(), instanceId, clock.now());
         insertLock(lock);
+    }
+
+    /**
+     * Lock given trigger iff its <b>lockTime</b> haven't changed.
+     *
+     * <p>Update is performed using "Update document if current" pattern
+     * to update iff document in DB hasn't changed - haven't been relocked
+     * by other scheduler.</p>
+     *
+     * @param key         identifies trigger lock
+     * @param lockTime    expected current lockTime
+     * @return false when not found or caught an exception
+     */
+    public boolean relock(TriggerKey key, Date lockTime) {
+        UpdateResult updateResult;
+        try {
+            updateResult = locksCollection.withWriteConcern(WriteConcern.FSYNCED)
+                    .updateOne(
+                            Keys.createRelockFilter(key, lockTime),
+                            Keys.createLockUpdateDocument(instanceId, clock.now()));
+        } catch (MongoException e) {
+            log.error("Relock failed because: " + e.getMessage(), e);
+            return false;
+        }
+
+        if (updateResult.getModifiedCount() == 1) {
+            log.info("Scheduler {} relocked the trigger: {}", instanceId, key);
+            return true;
+        }
+        log.info("Scheduler {} couldn't relock the trigger {} with lock time: {}",
+                instanceId, key, lockTime.getTime());
+        return false;
     }
 
     public void remove(Document lock) {

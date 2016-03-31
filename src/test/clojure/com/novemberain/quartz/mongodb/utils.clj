@@ -6,10 +6,12 @@
   ([] (const-clock 0))
   ([currentTimeMillis]
    (proxy [Clock] []
-     (millis [] currentTimeMillis))))
+     (millis [] currentTimeMillis)
+     (now [] (java.util.Date. currentTimeMillis)))))
 
 (defn ^Clock inc-clock
   ([] (inc-clock (atom 0)))
   ([counter]
    (proxy [Clock] []
-     (millis [] (swap! counter inc)))))
+     (millis [] (swap! counter inc))
+     (now [] (java.util.Date. (swap! counter inc))))))

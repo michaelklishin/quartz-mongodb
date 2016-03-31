@@ -76,7 +76,7 @@ public class MongoStoreAssembler {
     }
 
     private LocksDao createLocksDao(MongoDBJobStore jobStore) {
-        return new LocksDao(getCollection(jobStore, "locks"), jobStore.instanceId);
+        return new LocksDao(getCollection(jobStore, "locks"), Clock.SYSTEM_CLOCK, jobStore.instanceId);
     }
 
     private LockManager createLockManager(MongoDBJobStore jobStore) {
