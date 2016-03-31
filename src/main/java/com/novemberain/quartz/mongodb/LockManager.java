@@ -40,15 +40,7 @@ public class LockManager {
      * @return true when successfully locked
      */
     public boolean tryLockWithExpiredTakeover(OperableTrigger trigger) {
-        if (tryLock(trigger)) {
-            return true;
-        }
-
-        if (unlockExpired(trigger)) {
-            log.info("Retrying trigger acquisition: {}", trigger.getKey());
-            return tryLock(trigger);
-        }
-        return false;
+        return tryLock(trigger) || relockExpired(trigger);
     }
 
     public void unlockAcquiredTrigger(OperableTrigger trigger) throws JobPersistenceException {
@@ -84,18 +76,20 @@ public class LockManager {
         return false;
     }
 
-    private boolean unlockExpired(OperableTrigger trigger) {
+    private boolean relockExpired(OperableTrigger trigger) {
         Document existingLock = locksDao.findTriggerLock(trigger.getKey());
-        if (existingLock != null) {
-            // support for trigger lock expiration
-            if (timeCalculator.isTriggerLockExpired(existingLock)) {
-                log.warn("Lock for trigger {} is expired - removing lock", trigger.getKey());
-                locksDao.unlockTrigger(trigger);
-            }
-            return true;
+        if (existingLock != null && timeCalculator.isTriggerLockExpired(existingLock)) {
+            // When a scheduler is defunct then its triggers become expired
+            // after sometime and can be recovered by other schedulers.
+            // To check that a trigger is owned by a defunct scheduler we evaluate
+            // its LOCK_TIME and try to reassign it to this scheduler.
+            // Relock may not be successful when some other scheduler has done
+            // it first.
+            log.info("Trigger {} is expired - re-locking", trigger.getKey());
+            return locksDao.relock(trigger.getKey(), existingLock.getDate(Constants.LOCK_TIME));
         } else {
             log.warn("Error retrieving expired lock from the database. Maybe it was deleted");
-            return false;
         }
+        return false;
     }
 }
