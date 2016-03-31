@@ -81,7 +81,7 @@ public class MongoStoreAssembler {
 
     private LockManager createLockManager(MongoDBJobStore jobStore) {
         TriggerTimeCalculator timeCalculator = new TriggerTimeCalculator(
-                jobStore.jobTimeoutMillis, jobStore.triggerTimeoutMillis);
+                Clock.SYSTEM_CLOCK, jobStore.jobTimeoutMillis, jobStore.triggerTimeoutMillis);
         return new LockManager(locksDao, timeCalculator);
     }
 

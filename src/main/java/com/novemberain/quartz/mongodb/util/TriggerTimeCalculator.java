@@ -7,10 +7,12 @@ import java.util.Date;
 
 public class TriggerTimeCalculator {
 
+    private Clock clock;
     private long jobTimeoutMillis;
     private long triggerTimeoutMillis;
 
-    public TriggerTimeCalculator(long jobTimeoutMillis, long triggerTimeoutMillis) {
+    public TriggerTimeCalculator(Clock clock, long jobTimeoutMillis, long triggerTimeoutMillis) {
+        this.clock = clock;
         this.jobTimeoutMillis = jobTimeoutMillis;
         this.triggerTimeoutMillis = triggerTimeoutMillis;
     }
@@ -25,7 +27,7 @@ public class TriggerTimeCalculator {
 
     private boolean isLockExpired(Document lock, long timeoutMillis) {
         Date lockTime = lock.getDate(Constants.LOCK_TIME);
-        long elapsedTime = System.currentTimeMillis() - lockTime.getTime();
+        long elapsedTime = clock.millis() - lockTime.getTime();
         return (elapsedTime > timeoutMillis);
     }
 }
