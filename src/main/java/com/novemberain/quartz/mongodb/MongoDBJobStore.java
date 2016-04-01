@@ -79,6 +79,10 @@ public class MongoDBJobStore implements JobStore, Constants {
             throws SchedulerConfigException {
         assembler.build(this, loadHelper, signaler);
 
+        if (isClustered()) {
+            assembler.checkinExecutor.start();
+        }
+
         ensureIndexes();
     }
 
@@ -98,6 +102,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     @Override
     public void shutdown() {
+        assembler.checkinExecutor.shutdown();
         assembler.mongoConnector.shutdown();
     }
 

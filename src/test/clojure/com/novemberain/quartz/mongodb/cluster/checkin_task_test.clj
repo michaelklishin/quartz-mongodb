@@ -16,7 +16,7 @@
 (deftest should-store-scheduler-data-to-checkin
   (let [checkin-counter (atom 0)
         checkinTask (create-task checkin-counter)]
-    (.checkIn checkinTask)
+    (.run checkinTask)
     (is (= @checkin-counter 1))
-    (.checkIn checkinTask)
+    (.run checkinTask)
     (is (= @checkin-counter 2))))

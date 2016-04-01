@@ -2,6 +2,8 @@ package com.novemberain.quartz.mongodb;
 
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
+import com.novemberain.quartz.mongodb.cluster.CheckinExecutor;
+import com.novemberain.quartz.mongodb.cluster.CheckinTask;
 import com.novemberain.quartz.mongodb.dao.*;
 import com.novemberain.quartz.mongodb.db.MongoConnector;
 import com.novemberain.quartz.mongodb.trigger.MisfireHandler;
@@ -30,6 +32,8 @@ public class MongoStoreAssembler {
     public PausedJobGroupsDao pausedJobGroupsDao;
     public PausedTriggerGroupsDao pausedTriggerGroupsDao;
     public TriggerDao triggerDao;
+
+    public CheckinExecutor checkinExecutor;
 
     private MongoDatabase db;
     private QueryHelper queryHelper = new QueryHelper();
@@ -60,6 +64,13 @@ public class MongoStoreAssembler {
 
         triggerStateManager = createTriggerStateManager();
         triggerRunner = createTriggerRunner(jobStore, signaler);
+
+        checkinExecutor = createCheckinExecutor(jobStore);
+    }
+
+    private CheckinExecutor createCheckinExecutor(MongoDBJobStore jobStore) {
+        return new CheckinExecutor(new CheckinTask(schedulerDao),
+                jobStore.clusterCheckinIntervalMillis, jobStore.instanceId);
     }
 
     private CalendarDao createCalendarDao(MongoDBJobStore jobStore) {
