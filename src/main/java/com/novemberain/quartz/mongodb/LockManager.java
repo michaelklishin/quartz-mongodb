@@ -15,11 +15,11 @@ public class LockManager {
     private static final Logger log = LoggerFactory.getLogger(LockManager.class);
 
     private LocksDao locksDao;
-    private ExpiryCalculator timeCalculator;
+    private ExpiryCalculator expiryCalculator;
 
-    public LockManager(LocksDao locksDao, ExpiryCalculator timeCalculator) {
+    public LockManager(LocksDao locksDao, ExpiryCalculator expiryCalculator) {
         this.locksDao = locksDao;
-        this.timeCalculator = timeCalculator;
+        this.expiryCalculator = expiryCalculator;
     }
 
     /**
@@ -59,7 +59,7 @@ public class LockManager {
     public void unlockExpired(JobDetail job) {
         Document existingLock = locksDao.findJobLock(job.getKey());
         if (existingLock != null) {
-            if (timeCalculator.isJobLockExpired(existingLock)) {
+            if (expiryCalculator.isJobLockExpired(existingLock)) {
                 log.debug("Removing expired lock for job {}", job.getKey());
                 locksDao.remove(existingLock);
             }
@@ -78,7 +78,7 @@ public class LockManager {
 
     private boolean relockExpired(OperableTrigger trigger) {
         Document existingLock = locksDao.findTriggerLock(trigger.getKey());
-        if (existingLock != null && timeCalculator.isTriggerLockExpired(existingLock)) {
+        if (existingLock != null && expiryCalculator.isTriggerLockExpired(existingLock)) {
             // When a scheduler is defunct then its triggers become expired
             // after sometime and can be recovered by other schedulers.
             // To check that a trigger is owned by a defunct scheduler we evaluate
