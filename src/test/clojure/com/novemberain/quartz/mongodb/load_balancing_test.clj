@@ -1,4 +1,4 @@
-(ns com.novemberain.quartz.mongodb.clustering-test
+(ns com.novemberain.quartz.mongodb.load-balancing-test
   (:use [clj-time.core :only [seconds from-now]])
   (:require [clojure.test :refer :all]
             [com.novemberain.quartz.mongodb.mongo-helper :as mongo]
