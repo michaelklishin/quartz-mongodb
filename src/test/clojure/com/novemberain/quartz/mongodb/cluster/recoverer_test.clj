@@ -17,10 +17,10 @@
     (getAllByCheckinTime []
       [(create-scheduler "id1" lastCheckinTime1)
        (create-scheduler "id2" lastCheckinTime2)])
-    (remove [name instanceId lastCheckinTime]
-      (swap! removals conj {:name name
-                            :instance-id instanceId
-                            :last-checkin-time lastCheckinTime}))))
+    (remove [instanceId lastCheckinTime]
+      (swap! removals conj {:instance-id instanceId
+                            :last-checkin-time lastCheckinTime})
+      true)))
 
 (deftest should-not-remove-active-schedulers
   (let [removals (atom [])
@@ -37,6 +37,5 @@
         recoverer (Recoverer. scheduler-dao clock)]
     (.recover recoverer)
     (is (= (count @removals) 1))
-    (is (= (-> @removals first :name) "name"))
     (is (= (-> @removals first :instance-id) "id1"))
     (is (= (-> @removals first :last-checkin-time) 1))))

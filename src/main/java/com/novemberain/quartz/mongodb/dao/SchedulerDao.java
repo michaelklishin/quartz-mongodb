@@ -96,13 +96,14 @@ public class SchedulerDao {
      *
      * The scheduler is selected based on its name, instanceId, and lastCheckinTime.
      * If the last check-in time is different, then it is not removed, for it might
-     * have got back to live.
+     * have gotten back to live.
      *
-     * @param schedulerName    scheduler' name
      * @param instanceId       instance id
      * @param lastCheckinTime  last time scheduler has checked in
+     *
+     * @return when removed successfully
      */
-    public void remove(String schedulerName, String instanceId, long lastCheckinTime) {
+    public boolean remove(String instanceId, long lastCheckinTime) {
         log.info("Removing scheduler: {},{},{}",
                 schedulerName, instanceId, lastCheckinTime);
         DeleteResult result = schedulerCollection
@@ -112,6 +113,7 @@ public class SchedulerDao {
 
         log.info("Result of removing scheduler ({},{},{}): {}",
                 schedulerName, instanceId, lastCheckinTime, result);
+        return result.getDeletedCount() == 1;
     }
 
     private Bson createSchedulerFilter(String schedulerName, String instanceId, long lastCheckinTime) {

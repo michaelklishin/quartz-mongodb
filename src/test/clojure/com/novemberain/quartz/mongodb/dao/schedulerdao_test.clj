@@ -90,22 +90,20 @@
     (add-entry id2 2)
     (add-entry id3 3)
     ;; Remove non-existing does nothing:
-    (.remove dao "x-name" "id1" 1)
+    (is (false? (.remove dao "x-id" 1)))
     (is (= (mongo/get-count :schedulers) 3))
-    (.remove dao schedulerName "x-id" 1)
-    (is (= (mongo/get-count :schedulers) 3))
-    (.remove dao schedulerName "id1" 4)
+    (is (false? (.remove dao "id1" 4)))
     (is (= (mongo/get-count :schedulers) 3))
     ;; Remove the first one:
-    (.remove dao schedulerName id2 2)
+    (is (true? (.remove dao id2 2)))
     (is (= (map #(get % "instanceId") (mongo/find-all :schedulers))
            ["id1" "id3"]))
     ;; Remove the second one:
-    (.remove dao schedulerName id1 1)
+    (is (true? (.remove dao id1 1)))
     (is (= (map #(get % "instanceId") (mongo/find-all :schedulers))
            ["id3"]))
     ;; Remove the last one:
-    (.remove dao schedulerName id3 3)
+    (is (true? (.remove dao id3 3)))
     (is (= (mongo/get-count :schedulers) 0))))
 
 (deftest should-return-empty-list-of-entries

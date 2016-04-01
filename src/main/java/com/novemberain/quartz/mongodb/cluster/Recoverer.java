@@ -40,8 +40,7 @@ public class Recoverer {
 
     private void remove(Scheduler defunct) {
         // Remove so other instances won't try to recover it anymore:
-        schedulerDao.remove(defunct.getName(), defunct.getInstanceId(),
-                defunct.getLastCheckinTime());
+        schedulerDao.remove(defunct.getInstanceId(), defunct.getLastCheckinTime());
     }
 
     private void takeoverTriggerLocks(Scheduler scheduler) {
