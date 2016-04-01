@@ -5,13 +5,13 @@ import org.bson.Document;
 
 import java.util.Date;
 
-public class TriggerTimeCalculator {
+public class ExpiryCalculator {
 
     private Clock clock;
     private long jobTimeoutMillis;
     private long triggerTimeoutMillis;
 
-    public TriggerTimeCalculator(Clock clock, long jobTimeoutMillis, long triggerTimeoutMillis) {
+    public ExpiryCalculator(Clock clock, long jobTimeoutMillis, long triggerTimeoutMillis) {
         this.clock = clock;
         this.jobTimeoutMillis = jobTimeoutMillis;
         this.triggerTimeoutMillis = triggerTimeoutMillis;

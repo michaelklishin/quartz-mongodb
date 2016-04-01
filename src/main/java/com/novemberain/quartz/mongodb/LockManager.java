@@ -2,7 +2,7 @@ package com.novemberain.quartz.mongodb;
 
 import com.mongodb.MongoWriteException;
 import com.novemberain.quartz.mongodb.dao.LocksDao;
-import com.novemberain.quartz.mongodb.util.TriggerTimeCalculator;
+import com.novemberain.quartz.mongodb.util.ExpiryCalculator;
 import org.bson.Document;
 import org.quartz.JobDetail;
 import org.quartz.JobPersistenceException;
@@ -15,9 +15,9 @@ public class LockManager {
     private static final Logger log = LoggerFactory.getLogger(LockManager.class);
 
     private LocksDao locksDao;
-    private TriggerTimeCalculator timeCalculator;
+    private ExpiryCalculator timeCalculator;
 
-    public LockManager(LocksDao locksDao, TriggerTimeCalculator timeCalculator) {
+    public LockManager(LocksDao locksDao, ExpiryCalculator timeCalculator) {
         this.locksDao = locksDao;
         this.timeCalculator = timeCalculator;
     }

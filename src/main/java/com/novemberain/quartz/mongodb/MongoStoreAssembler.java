@@ -8,7 +8,7 @@ import com.novemberain.quartz.mongodb.trigger.MisfireHandler;
 import com.novemberain.quartz.mongodb.trigger.TriggerConverter;
 import com.novemberain.quartz.mongodb.util.Clock;
 import com.novemberain.quartz.mongodb.util.QueryHelper;
-import com.novemberain.quartz.mongodb.util.TriggerTimeCalculator;
+import com.novemberain.quartz.mongodb.util.ExpiryCalculator;
 import org.bson.Document;
 import org.quartz.SchedulerConfigException;
 import org.quartz.spi.ClassLoadHelper;
@@ -80,7 +80,7 @@ public class MongoStoreAssembler {
     }
 
     private LockManager createLockManager(MongoDBJobStore jobStore) {
-        TriggerTimeCalculator timeCalculator = new TriggerTimeCalculator(
+        ExpiryCalculator timeCalculator = new ExpiryCalculator(
                 Clock.SYSTEM_CLOCK, jobStore.jobTimeoutMillis, jobStore.triggerTimeoutMillis);
         return new LockManager(locksDao, timeCalculator);
     }
