@@ -45,6 +45,13 @@ public class Keys {
                 Filters.eq(KEY_NAME, key.getName()));
     }
 
+    public static Bson toFilter(Key<?> key, String instanceId) {
+        return Filters.and(
+                Filters.eq(KEY_GROUP, key.getGroup()),
+                Filters.eq(KEY_NAME, key.getName()),
+                Filters.eq(Constants.LOCK_INSTANCE_ID, instanceId));
+    }
+
     public static JobKey toJobKey(Document dbo) {
         return new JobKey(dbo.getString(KEY_NAME), dbo.getString(KEY_GROUP));
     }

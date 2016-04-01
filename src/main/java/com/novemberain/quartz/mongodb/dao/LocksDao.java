@@ -118,14 +118,14 @@ public class LocksDao {
         locksCollection.deleteMany(lock);
     }
 
+    /**
+     * Unlock the trigger if it still belongs to the current scheduler.
+     *
+     * @param trigger    to unlock
+     */
     public void unlockTrigger(OperableTrigger trigger) {
         log.info("Removing trigger lock {}.{}", trigger.getKey(), instanceId);
-        Bson lock = Keys.toFilter(trigger.getKey());
-
-        // Comment this out, as expired trigger locks should be deleted by any another instance
-        // lock.put(LOCK_INSTANCE_ID, instanceId);
-
-        remove(lock);
+        remove(Keys.toFilter(trigger.getKey(), instanceId));
         log.info("Trigger lock {}.{} removed.", trigger.getKey(), instanceId);
     }
 
