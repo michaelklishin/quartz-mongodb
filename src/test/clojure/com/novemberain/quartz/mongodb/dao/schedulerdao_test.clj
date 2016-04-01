@@ -57,6 +57,16 @@
     (is (= (mongo/get-count :schedulers) 1))
     (check-scheduler dao (mongo/get-first :schedulers) @counter)))
 
+(deftest should-find-scheduler-instance
+  (add-entry "id1" 42)
+  (let [dao (create-dao)]
+    (is (nil? (.findInstance dao "xxx")))
+    (let [scheduler (.findInstance dao "id1")]
+      (is (= schedulerName (.getName scheduler)))
+      (is (= 100 (.getCheckinInterval scheduler)))
+      (is (= "id1" (.getInstanceId scheduler)))
+      (is (= 42 (.getLastCheckinTime scheduler))))))
+
 (deftest should-update-checkin-time
   (let [counter (atom 0)
         dao (create-dao (utils/inc-clock counter))]

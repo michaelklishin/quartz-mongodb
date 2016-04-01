@@ -78,6 +78,26 @@ public class SchedulerDao {
     }
 
     /**
+     * @return Scheduler or null when not found
+     */
+    public Scheduler findInstance(String instanceId) {
+        log.debug("Finding scheduler instance: {}", instanceId);
+        Document doc = schedulerCollection
+                .find(createSchedulerFilter(schedulerName, instanceId))
+                .first();
+
+        Scheduler scheduler = null;
+        if (doc != null) {
+            scheduler = toScheduler(doc);
+            log.debug("Returning scheduler instance '{}' with last checkin time: {}",
+                    scheduler.getInstanceId(), scheduler.getLastCheckinTime());
+        } else {
+            log.info("Scheduler instance '{}' not found.");
+        }
+        return scheduler;
+    }
+
+    /**
      * Return all scheduler instances in ascending order by last check-in time.
      *
      * @return schedler instances ordered by last check-in time
