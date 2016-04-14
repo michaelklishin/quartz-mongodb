@@ -611,7 +611,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
         Document lock = createTriggerDbLock(triggerDoc, instanceId);
         // A lock needs to be written with FSYNCED to be 100% effective across multiple servers
-        locksCollection.withWriteConcern(WriteConcern.FSYNCED).insertOne(lock);
+        locksCollection.withWriteConcern(WriteConcern.JOURNALED).insertOne(lock);
         
         log.info("Acquired trigger {}", trigger.getKey());
         triggers.put(trigger.getKey(), trigger);
@@ -682,7 +682,7 @@ public class MongoDBJobStore implements JobStore, Constants {
             lock.put(LOCK_INSTANCE_ID, instanceId);
             lock.put(LOCK_TIME, new Date());
             // A lock needs to be written with FSYNCED to be 100% effective across multiple servers
-            locksCollection.withWriteConcern(WriteConcern.FSYNCED).insertOne(lock);
+            locksCollection.withWriteConcern(WriteConcern.JOURNALED).insertOne(lock);
           }
           
           results.add(new TriggerFiredResult(bundle));
@@ -906,7 +906,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
   private MongoClientOptions createOptions() {
     MongoClientOptions.Builder optionsBuilder = MongoClientOptions.builder();
-    optionsBuilder.writeConcern(WriteConcern.SAFE);
+    optionsBuilder.writeConcern(WriteConcern.ACKNOWLEDGED);
 
     if (mongoOptionMaxConnectionsPerHost != null) optionsBuilder.connectionsPerHost(mongoOptionMaxConnectionsPerHost);
     if (mongoOptionConnectTimeoutMillis != null) optionsBuilder.connectTimeout(mongoOptionConnectTimeoutMillis);

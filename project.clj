@@ -3,7 +3,7 @@
   :min-lein-version "2.4.2"
   :license {:name "Apache License 2.0"}
   :dependencies [[org.quartz-scheduler/quartz   "2.1.7"]
-                 [org.mongodb/mongo-java-driver "3.0.2"]
+                 [org.mongodb/mongo-java-driver "3.2.2"]
                  [joda-time/joda-time           "2.8.2"]
                  [commons-codec/commons-codec   "1.10"]]
   :java-source-paths ["src/main/java"]
@@ -11,7 +11,7 @@
   :test-selectors {:all     (constantly true)
                    :focus   :focus
                    :default (constantly true)}
-  :javac-options     ["-target" "1.6" "-source" "1.6" "-Xlint:deprecation"]
+  :javac-options     ["-target" "1.7" "-source" "1.7" "-Xlint:deprecation"]
   :profiles {:dev {:resource-paths ["src/test/resources"]
                    :dependencies [[org.clojure/clojure       "1.7.0"]
                                   [clojurewerkz/quartzite    "1.3.0"]
