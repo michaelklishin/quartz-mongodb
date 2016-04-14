@@ -97,7 +97,7 @@ public class LocksDao {
     public boolean relock(TriggerKey key, Date lockTime) {
         UpdateResult updateResult;
         try {
-            updateResult = locksCollection.withWriteConcern(WriteConcern.FSYNCED)
+            updateResult = locksCollection.withWriteConcern(WriteConcern.JOURNALED)
                     .updateOne(
                             Keys.createRelockFilter(key, lockTime),
                             Keys.createLockUpdateDocument(instanceId, clock.now()));
@@ -137,7 +137,7 @@ public class LocksDao {
 
     private void insertLock(Document lock) {
         // A lock needs to be written with FSYNCED to be 100% effective across multiple servers
-        locksCollection.withWriteConcern(WriteConcern.FSYNCED).insertOne(lock);
+        locksCollection.withWriteConcern(WriteConcern.JOURNALED).insertOne(lock);
     }
 
     private void remove(Bson filter) {

@@ -111,7 +111,7 @@ public class MongoConnector {
         }
 
         private MongoClientOptions createOptions() {
-            optionsBuilder.writeConcern(WriteConcern.SAFE);
+            optionsBuilder.writeConcern(WriteConcern.ACKNOWLEDGED);
 
             return optionsBuilder.build();
         }

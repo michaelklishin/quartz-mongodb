@@ -71,7 +71,7 @@ public class SchedulerDao {
         // An entry needs to be written with FSYNCED to be 100% effective across multiple servers
         UpdateResult result = schedulerCollection
                 //TODO shouldn't be WriteConcern.REPLICA_ACKNOWLEDGED?
-                .withWriteConcern(WriteConcern.FSYNCED)
+                .withWriteConcern(WriteConcern.JOURNALED)
                 .updateOne(schedulerFilter, update, new UpdateOptions().upsert(true));
 
         log.debug("Node {}:{} check-in result: {}", schedulerName, instanceId, result);
@@ -127,7 +127,7 @@ public class SchedulerDao {
         log.info("Removing scheduler: {},{},{}",
                 schedulerName, instanceId, lastCheckinTime);
         DeleteResult result = schedulerCollection
-                .withWriteConcern(WriteConcern.FSYNCED)
+                .withWriteConcern(WriteConcern.JOURNALED)
                 .deleteOne(createSchedulerFilter(
                         schedulerName, instanceId, lastCheckinTime));
 
