@@ -6,6 +6,7 @@ import com.novemberain.quartz.mongodb.util.ExpiryCalculator;
 import org.bson.Document;
 import org.quartz.JobDetail;
 import org.quartz.JobPersistenceException;
+import org.quartz.TriggerKey;
 import org.quartz.spi.OperableTrigger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,11 +37,11 @@ public class LockManager {
     /**
      * Try to lock the trigger with retry when found expired lock on it.
      *
-     * @param trigger       trigger to lock
+     * @param key       trigger to lock
      * @return true when successfully locked
      */
-    public boolean tryLockWithExpiredTakeover(OperableTrigger trigger) {
-        return tryLock(trigger) || relockExpired(trigger);
+    public boolean tryLockWithExpiredTakeover(TriggerKey key) {
+        return tryLock(key) || relockExpired(key);
     }
 
     public void unlockAcquiredTrigger(OperableTrigger trigger) throws JobPersistenceException {
@@ -66,18 +67,18 @@ public class LockManager {
         }
     }
 
-    private boolean tryLock(OperableTrigger trigger) {
+    private boolean tryLock(TriggerKey key) {
         try {
-            locksDao.lockTrigger(trigger);
+            locksDao.lockTrigger(key);
             return true;
         } catch (MongoWriteException e) {
-            log.info("Failed to lock trigger {}, reason: {}", trigger.getKey(), e.getError());
+            log.info("Failed to lock trigger {}, reason: {}", key, e.getError());
         }
         return false;
     }
 
-    private boolean relockExpired(OperableTrigger trigger) {
-        Document existingLock = locksDao.findTriggerLock(trigger.getKey());
+    private boolean relockExpired(TriggerKey key) {
+        Document existingLock = locksDao.findTriggerLock(key);
         if (existingLock != null && expiryCalculator.isTriggerLockExpired(existingLock)) {
             // When a scheduler is defunct then its triggers become expired
             // after sometime and can be recovered by other schedulers.
@@ -85,8 +86,8 @@ public class LockManager {
             // its LOCK_TIME and try to reassign it to this scheduler.
             // Relock may not be successful when some other scheduler has done
             // it first.
-            log.info("Trigger {} is expired - re-locking", trigger.getKey());
-            return locksDao.relock(trigger.getKey(), existingLock.getDate(Constants.LOCK_TIME));
+            log.info("Trigger {} is expired - re-locking", key);
+            return locksDao.relock(key, existingLock.getDate(Constants.LOCK_TIME));
         } else {
             log.warn("Error retrieving expired lock from the database. Maybe it was deleted");
         }

@@ -21,11 +21,6 @@
   ([clock id]
    (LocksDao. (mongo/get-locks-coll) clock id)))
 
-(defn- simple-trigger
-  [kname kgroup]
-  (t/build
-   (t/with-identity (t/key kname kgroup))))
-
 (defn- assert-lock
   ([lock instance-id time]
    (assert-lock lock "n1" "g1" instance-id time))
@@ -45,7 +40,7 @@
 (deftest should-lock-trigger
   (let [clock (utils/inc-clock)
         dao (create-dao clock)]
-    (.lockTrigger dao (simple-trigger "n1" "g1"))
+    (.lockTrigger dao (t/key "n1" "g1"))
     (let [locks (mongo/find-all :locks)]
       (is (= 1 (count locks)))
       (assert-lock (first locks) instanceId 1))))
@@ -53,9 +48,9 @@
 (deftest should-throw-exception-when-locking-trigger-again
   "Trigger should be no possibility to lock a trigger again."
   (let [dao (create-dao)]
-    (.lockTrigger dao (simple-trigger "n1" "g1"))
+    (.lockTrigger dao (t/key "n1" "g1"))
     (is (thrown? MongoWriteException
-                 (.lockTrigger dao (simple-trigger "n1" "g1"))))
+                 (.lockTrigger dao (t/key "n1" "g1"))))
     (let [locks (mongo/find-all :locks)]
       (is (= 1 (count locks)))
       (let [lock (first locks)]
@@ -69,7 +64,7 @@
 
     ;; Lock using other scheduler in time "1":
     (.lockTrigger (create-dao clock other-id)
-                  (simple-trigger "n1" "g1"))
+                  (t/key "n1" "g1"))
     (let [locks (mongo/find-all :locks)
           lock (first locks)]
       (is (= (count locks) 1))
@@ -96,7 +91,7 @@
         other-dao (create-dao clock other-id)]
 
     ;; Lock using other scheduler in time "1":
-    (.lockTrigger other-dao (simple-trigger "n1" "g1"))
+    (.lockTrigger other-dao (t/key "n1" "g1"))
 
     ;; Update the lock with new time "2:
     (is (true? (.relock other-dao tkey (Date. @counter))))

@@ -114,7 +114,7 @@ public class TriggerRunner {
                 continue;
             }
 
-            if (lockManager.tryLockWithExpiredTakeover(trigger)) {
+            if (lockManager.tryLockWithExpiredTakeover(trigger.getKey())) {
                 log.info("Acquired trigger {}", trigger.getKey());
                 triggers.put(trigger.getKey(), trigger);
             }
