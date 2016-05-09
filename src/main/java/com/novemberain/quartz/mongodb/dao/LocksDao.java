@@ -3,7 +3,6 @@ package com.novemberain.quartz.mongodb.dao;
 import com.mongodb.MongoException;
 import com.mongodb.WriteConcern;
 import com.mongodb.client.MongoCollection;
-import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.Projections;
 import com.mongodb.client.result.UpdateResult;
@@ -50,10 +49,6 @@ public class LocksDao {
 
         // Need this to stop table scan when removing all locks
         locksCollection.createIndex(Projections.include(LOCK_INSTANCE_ID));
-
-        // remove all locks for this instance on startup
-        locksCollection.deleteMany(Filters.eq(LOCK_INSTANCE_ID, instanceId));
-
     }
 
     public void dropIndex() {

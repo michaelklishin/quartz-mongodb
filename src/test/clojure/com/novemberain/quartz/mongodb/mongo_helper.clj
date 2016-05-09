@@ -48,6 +48,16 @@
   [data-map]
   (.insertOne (:schedulers collections) (Document. data-map)))
 
+(defn add-job
+  "Adds a new Job entry created from given map."
+  [data-map]
+  (.insertOne (:jobs collections) (Document. data-map)))
+
+(defn add-trigger
+  "Adds a new Trigger entry created from given map."
+  [data-map]
+  (.insertOne (:triggers collections) (Document. data-map)))
+
 (defn get-count
   "Return number of elements in a collection."
   [col-key]

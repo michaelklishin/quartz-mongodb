@@ -25,8 +25,8 @@
   [^String instanceName]
   (doto (create-props)
     (.setProperty "org.quartz.jobStore.isClustered" "true")
-    (.setProperty "org.quartz.scheduler.instanceId" "AUTO")
-    (.setProperty "org.quartz.scheduler.instanceName" instanceName)))
+    (.setProperty "org.quartz.scheduler.instanceId" instanceName)
+    (.setProperty "org.quartz.scheduler.instanceName" "test cluster")))
 
 (defn create-scheduler
   "Create a new Scheduler with the following properties."
