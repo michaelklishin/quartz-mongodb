@@ -15,6 +15,7 @@ public class JobConverter {
     public static final String JOB_DURABILITY = "durability";
     private static final String JOB_CLASS = "jobClass";
     private static final String JOB_DESCRIPTION = "jobDescription";
+    private static final String JOB_REQUESTS_RECOVERY = "requestsRecovery";
 
     private ClassLoadHelper loadHelper;
 
@@ -29,6 +30,7 @@ public class JobConverter {
         job.put(JOB_DESCRIPTION, newJob.getDescription());
         job.put(JOB_CLASS, newJob.getJobClass().getName());
         job.put(JOB_DURABILITY, newJob.isDurable());
+        job.put(JOB_REQUESTS_RECOVERY, newJob.requestsRecovery());
         job.putAll(newJob.getJobDataMap());
         return job;
     }
@@ -45,6 +47,7 @@ public class JobConverter {
 
             JobBuilder builder = createJobBuilder(doc, jobClass);
             withDurability(doc, builder);
+            withRequestsRecovery(doc, builder);
             JobDataMap jobData = createJobDataMap(doc);
             return builder.usingJobData(jobData).build();
         } catch (ClassNotFoundException e) {
@@ -67,6 +70,7 @@ public class JobConverter {
                         && !key.equals(JOB_CLASS)
                         && !key.equals(JOB_DESCRIPTION)
                         && !key.equals(JOB_DURABILITY)
+                        && !key.equals(JOB_REQUESTS_RECOVERY)
                         && !key.equals("_id")) {
                     jobData.put(key, doc.get(key));
                 }
@@ -88,6 +92,12 @@ public class JobConverter {
                 throw new JobPersistenceException("Illegal value for " + JOB_DURABILITY + ", class "
                         + jobDurability.getClass() + " not supported");
             }
+        }
+    }
+
+    private void withRequestsRecovery(Document doc, JobBuilder builder) {
+        if (doc.getBoolean(JOB_REQUESTS_RECOVERY, false)) {
+            builder.requestRecovery(true);
         }
     }
 
