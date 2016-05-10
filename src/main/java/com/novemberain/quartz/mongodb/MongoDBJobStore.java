@@ -465,7 +465,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
             assembler.jobDao.createIndex();
             assembler.triggerDao.createIndex();
-            assembler.locksDao.createIndex();
+            assembler.locksDao.createIndex(isClustered());
             assembler.calendarDao.createIndex();
             assembler.schedulerDao.createIndex();
 

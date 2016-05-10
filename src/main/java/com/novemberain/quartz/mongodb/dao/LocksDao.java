@@ -3,6 +3,7 @@ package com.novemberain.quartz.mongodb.dao;
 import com.mongodb.MongoException;
 import com.mongodb.WriteConcern;
 import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.Projections;
 import com.mongodb.client.result.UpdateResult;
@@ -42,13 +43,18 @@ public class LocksDao {
         return locksCollection;
     }
 
-    public void createIndex() {
+    public void createIndex(boolean clustered) {
         locksCollection.createIndex(
                 Keys.KEY_AND_GROUP_FIELDS,
                 new IndexOptions().unique(true));
 
-        // Need this to stop table scan when removing all locks
-        locksCollection.createIndex(Projections.include(LOCK_INSTANCE_ID));
+        if (!clustered) {
+            // Need this to stop table scan when removing all locks
+            locksCollection.createIndex(Projections.include(LOCK_INSTANCE_ID));
+
+            // remove all locks for this instance on startup
+            locksCollection.deleteMany(Filters.eq(LOCK_INSTANCE_ID, instanceId));
+        }
     }
 
     public void dropIndex() {
