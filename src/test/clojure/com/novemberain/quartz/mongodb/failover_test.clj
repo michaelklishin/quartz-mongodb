@@ -10,6 +10,7 @@
   (:import java.util.Date
            [java.util.concurrent CountDownLatch TimeUnit]
            org.bson.types.ObjectId
+           com.novemberain.quartz.mongodb.Constants
            com.novemberain.quartz.mongodb.util.Keys))
 
 (use-fixtures :each mongo/purge-collections)
@@ -64,11 +65,17 @@
                       "repeatInterval" (int 2),
                       "timesTriggered" (int 1)}))
 
+(defn insert-trigger-lock []
+  (mongo/add-lock {Keys/KEY_GROUP "g1",
+                   Keys/KEY_NAME "t1",
+                   Constants/LOCK_INSTANCE_ID "dead-node",
+                   Constants/LOCK_TIME (Date. 1462820481910)}))
 
 (deftest should-reexecute-trigger-from-failed-execution
   (insert-scheduler)
   (insert-job)
   (insert-trigger)
+  (insert-trigger-lock)
   (let [cluster (quartz/create-cluster "single-node")]
     (.await singleJobCounter 5000 TimeUnit/SECONDS)
     (is (= 0 (.getCount singleJobCounter))

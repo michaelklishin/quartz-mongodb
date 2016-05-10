@@ -53,6 +53,11 @@
   [data-map]
   (.insertOne (:jobs collections) (Document. data-map)))
 
+(defn add-lock
+  "Adds a new Lock entry created from given map."
+  [data-map]
+  (.insertOne (:locks collections) (Document. data-map)))
+
 (defn add-trigger
   "Adds a new Trigger entry created from given map."
   [data-map]
