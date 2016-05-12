@@ -6,6 +6,7 @@
   (:import com.novemberain.quartz.mongodb.dao.LocksDao
            com.novemberain.quartz.mongodb.util.Clock
            com.novemberain.quartz.mongodb.util.Keys
+           com.novemberain.quartz.mongodb.util.Keys$LockType
            com.mongodb.MongoWriteException
            java.util.Date))
 
@@ -25,6 +26,7 @@
   ([lock instance-id time]
    (assert-lock lock "n1" "g1" instance-id time))
   ([lock key group instance-id time]
+   (is (= (get lock Keys/LOCK_TYPE (.name Keys$LockType/t))))
    (is (= (get lock Keys/KEY_NAME) key))
    (is (= (get lock Keys/KEY_GROUP) group))
    (is (= (get lock "instanceId") instance-id))

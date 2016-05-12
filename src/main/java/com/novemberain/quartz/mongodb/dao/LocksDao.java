@@ -21,9 +21,7 @@ import org.slf4j.LoggerFactory;
 import java.util.Date;
 
 import static com.novemberain.quartz.mongodb.Constants.LOCK_INSTANCE_ID;
-import static com.novemberain.quartz.mongodb.util.Keys.createJobLock;
-import static com.novemberain.quartz.mongodb.util.Keys.createJobLockFilter;
-import static com.novemberain.quartz.mongodb.util.Keys.createTriggerLock;
+import static com.novemberain.quartz.mongodb.util.Keys.*;
 
 public class LocksDao {
 
@@ -45,7 +43,7 @@ public class LocksDao {
 
     public void createIndex(boolean clustered) {
         locksCollection.createIndex(
-                Keys.KEY_AND_GROUP_FIELDS,
+                Projections.include(KEY_GROUP, KEY_NAME, LOCK_TYPE),
                 new IndexOptions().unique(true));
 
         if (!clustered) {
@@ -59,6 +57,7 @@ public class LocksDao {
 
     public void dropIndex() {
         locksCollection.dropIndex("keyName_1_keyGroup_1");
+        locksCollection.dropIndex(KEY_AND_GROUP_FIELDS);
     }
 
     public Document findJobLock(JobKey job) {

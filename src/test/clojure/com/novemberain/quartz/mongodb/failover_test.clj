@@ -12,7 +12,8 @@
            java.util.concurrent.atomic.AtomicInteger
            org.bson.types.ObjectId
            com.novemberain.quartz.mongodb.Constants
-           com.novemberain.quartz.mongodb.util.Keys))
+           com.novemberain.quartz.mongodb.util.Keys
+           com.novemberain.quartz.mongodb.util.Keys$LockType))
 
 (use-fixtures :each mongo/purge-collections)
 
@@ -71,9 +72,10 @@
 
 (defn insert-trigger-lock
   [instance-id]
-  (mongo/add-lock {Keys/KEY_GROUP "g1",
-                   Keys/KEY_NAME "t1",
-                   Constants/LOCK_INSTANCE_ID instance-id,
+  (mongo/add-lock {Keys/LOCK_TYPE (.name Keys$LockType/t)
+                   Keys/KEY_GROUP "g1"
+                   Keys/KEY_NAME "t1"
+                   Constants/LOCK_INSTANCE_ID instance-id
                    Constants/LOCK_TIME (Date. 1462820481910)}))
 
 (def ^CountDownLatch job2-run-signaler (CountDownLatch. 1))
