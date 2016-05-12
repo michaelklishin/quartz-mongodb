@@ -42,7 +42,7 @@ public class DailyTimeIntervalTriggerPropertiesConverter extends TriggerProperti
     }
 
     @Override
-    public OperableTrigger setExtraPropertiesAfterInstantiation(OperableTrigger trigger, Document stored) {
+    public void setExtraPropertiesAfterInstantiation(OperableTrigger trigger, Document stored) {
         DailyTimeIntervalTriggerImpl t = (DailyTimeIntervalTriggerImpl) trigger;
 
         String interval_unit = stored.getString(TRIGGER_REPEAT_INTERVAL_UNIT);
@@ -66,8 +66,6 @@ public class DailyTimeIntervalTriggerPropertiesConverter extends TriggerProperti
         if (endTOD != null) {
             t.setEndTimeOfDay(fromDocument(endTOD));
         }
-
-        return t;
     }
 
     private TimeOfDay fromDocument(Document tod) {

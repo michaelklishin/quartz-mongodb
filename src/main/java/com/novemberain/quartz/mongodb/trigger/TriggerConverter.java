@@ -69,7 +69,7 @@ public class TriggerConverter {
 
         loadStartAndEndTimes(triggerDoc, trigger);
 
-        trigger = tpd.setExtraPropertiesAfterInstantiation(trigger, triggerDoc);
+        tpd.setExtraPropertiesAfterInstantiation(trigger, triggerDoc);
 
         Document job = jobDao.getById(triggerDoc.get(Constants.TRIGGER_JOB_ID));
         if (job != null) {

@@ -31,7 +31,7 @@ public class CronTriggerPropertiesConverter extends TriggerPropertiesConverter {
     }
 
     @Override
-    public OperableTrigger setExtraPropertiesAfterInstantiation(OperableTrigger trigger, Document stored) {
+    public void setExtraPropertiesAfterInstantiation(OperableTrigger trigger, Document stored) {
         CronTriggerImpl t = (CronTriggerImpl) trigger;
 
         String expression = stored.getString(TRIGGER_CRON_EXPRESSION);
@@ -47,7 +47,5 @@ public class CronTriggerPropertiesConverter extends TriggerPropertiesConverter {
         if (tz != null) {
             t.setTimeZone(TimeZone.getTimeZone(tz));
         }
-
-        return t;
     }
 }

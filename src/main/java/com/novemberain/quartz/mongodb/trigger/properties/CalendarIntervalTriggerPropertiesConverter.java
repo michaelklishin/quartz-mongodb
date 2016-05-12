@@ -29,7 +29,7 @@ public class CalendarIntervalTriggerPropertiesConverter extends TriggerPropertie
     }
 
     @Override
-    public OperableTrigger setExtraPropertiesAfterInstantiation(OperableTrigger trigger, Document stored) {
+    public void setExtraPropertiesAfterInstantiation(OperableTrigger trigger, Document stored) {
         CalendarIntervalTriggerImpl t = (CalendarIntervalTriggerImpl) trigger;
 
         String repeatIntervalUnit = stored.getString(TRIGGER_REPEAT_INTERVAL_UNIT);
@@ -44,7 +44,5 @@ public class CalendarIntervalTriggerPropertiesConverter extends TriggerPropertie
         if (timesTriggered != null) {
             t.setTimesTriggered(timesTriggered);
         }
-
-        return t;
     }
 }

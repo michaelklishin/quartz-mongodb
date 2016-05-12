@@ -29,7 +29,7 @@ public class SimpleTriggerPropertiesConverter extends TriggerPropertiesConverter
     }
 
     @Override
-    public OperableTrigger setExtraPropertiesAfterInstantiation(OperableTrigger trigger, Document stored) {
+    public void setExtraPropertiesAfterInstantiation(OperableTrigger trigger, Document stored) {
         SimpleTriggerImpl t = (SimpleTriggerImpl) trigger;
 
         Integer repeatCount = stored.getInteger(TRIGGER_REPEAT_COUNT);
@@ -44,7 +44,5 @@ public class SimpleTriggerPropertiesConverter extends TriggerPropertiesConverter
         if (timesTriggered != null) {
             t.setTimesTriggered(timesTriggered);
         }
-
-        return t;
     }
 }

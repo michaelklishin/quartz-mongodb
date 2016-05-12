@@ -39,5 +39,5 @@ public abstract class TriggerPropertiesConverter {
 
     public abstract Document injectExtraPropertiesForInsert(OperableTrigger trigger, Document original);
 
-    public abstract OperableTrigger setExtraPropertiesAfterInstantiation(OperableTrigger trigger, Document stored);
+    public abstract void setExtraPropertiesAfterInstantiation(OperableTrigger trigger, Document stored);
 }
