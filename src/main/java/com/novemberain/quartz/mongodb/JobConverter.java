@@ -15,7 +15,7 @@ public class JobConverter {
     public static final String JOB_DURABILITY = "durability";
     private static final String JOB_CLASS = "jobClass";
     private static final String JOB_DESCRIPTION = "jobDescription";
-    private static final String JOB_REQUESTS_RECOVERY = "requestsRecovery";
+    public static final String JOB_REQUESTS_RECOVERY = "requestsRecovery";
 
     private ClassLoadHelper loadHelper;
 

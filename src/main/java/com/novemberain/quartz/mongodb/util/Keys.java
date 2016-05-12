@@ -29,6 +29,16 @@ public class Keys {
         return createLockFilter(LockType.t, triggerKey);
     }
 
+    public static Bson createTriggersLocksFilter(String instanceId) {
+        return Filters.and(
+                Filters.eq(Constants.LOCK_INSTANCE_ID, instanceId),
+                Filters.eq(LOCK_TYPE, LockType.t.name()));
+    }
+
+    public static Bson createLockRefreshFilter(String instanceId) {
+        return Filters.eq(Constants.LOCK_INSTANCE_ID, instanceId);
+    }
+
     public static Bson createRelockFilter(TriggerKey key, Date lockTime) {
         return Filters.and(
                 createTriggerLockFilter(key),

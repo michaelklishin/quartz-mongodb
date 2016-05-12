@@ -8,17 +8,19 @@ import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.Projections;
 import com.mongodb.client.result.UpdateResult;
 import com.novemberain.quartz.mongodb.util.Clock;
-import com.novemberain.quartz.mongodb.util.Keys;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.quartz.JobDetail;
 import org.quartz.JobKey;
+import org.quartz.JobPersistenceException;
 import org.quartz.TriggerKey;
 import org.quartz.spi.OperableTrigger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Date;
+import java.util.LinkedList;
+import java.util.List;
 
 import static com.novemberain.quartz.mongodb.Constants.LOCK_INSTANCE_ID;
 import static com.novemberain.quartz.mongodb.util.Keys.*;
@@ -66,8 +68,17 @@ public class LocksDao {
     }
 
     public Document findTriggerLock(TriggerKey trigger) {
-        Bson filter = Keys.createTriggerLockFilter(trigger);
+        Bson filter = createTriggerLockFilter(trigger);
         return locksCollection.find(filter).first();
+    }
+
+    public List<TriggerKey> findOwnTriggersLocks() {
+        final List<TriggerKey> keys = new LinkedList<>();
+        final Bson filter = createTriggersLocksFilter(instanceId);
+        for (Document doc : locksCollection.find(filter)) {
+            keys.add(toTriggerKey(doc));
+        }
+        return keys;
     }
 
     public void lockJob(JobDetail job) {
@@ -98,8 +109,8 @@ public class LocksDao {
         try {
             updateResult = locksCollection.withWriteConcern(WriteConcern.JOURNALED)
                     .updateOne(
-                            Keys.createRelockFilter(key, lockTime),
-                            Keys.createLockUpdateDocument(instanceId, clock.now()));
+                            createRelockFilter(key, lockTime),
+                            createLockUpdateDocument(instanceId, clock.now()));
         } catch (MongoException e) {
             log.error("Relock failed because: " + e.getMessage(), e);
             return false;
@@ -114,6 +125,30 @@ public class LocksDao {
         return false;
     }
 
+    /**
+     * Reset lock time on all own locks.
+     *
+     * @throws JobPersistenceException in case of errors from Mongo
+     */
+    public void updateOwnLocks() throws JobPersistenceException {
+        UpdateResult updateResult;
+        try {
+            updateResult = locksCollection.withWriteConcern(WriteConcern.JOURNALED)
+                    .updateMany(
+                            createLockRefreshFilter(instanceId),
+                            createLockUpdateDocument(instanceId, clock.now()));
+        } catch (MongoException e) {
+            log.error("Lock refresh failed because: " + e.getMessage(), e);
+            throw new JobPersistenceException("Lock refresh for scheduler: " + instanceId, e);
+        }
+
+        if (updateResult.getModifiedCount() > 0) {
+            log.info("Scheduler {} refreshed locking times.", instanceId);
+        } else {
+            log.info("Scheduler {} couldn't refresh locking times", instanceId);
+        }
+    }
+
     public void remove(Document lock) {
         locksCollection.deleteMany(lock);
     }
@@ -125,7 +160,7 @@ public class LocksDao {
      */
     public void unlockTrigger(OperableTrigger trigger) {
         log.info("Removing trigger lock {}.{}", trigger.getKey(), instanceId);
-        remove(Keys.toFilter(trigger.getKey(), instanceId));
+        remove(toFilter(trigger.getKey(), instanceId));
         log.info("Trigger lock {}.{} removed.", trigger.getKey(), instanceId);
     }
 

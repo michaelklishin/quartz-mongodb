@@ -4,6 +4,7 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.novemberain.quartz.mongodb.cluster.CheckinExecutor;
 import com.novemberain.quartz.mongodb.cluster.CheckinTask;
+import com.novemberain.quartz.mongodb.cluster.TriggerRecoverer;
 import com.novemberain.quartz.mongodb.dao.*;
 import com.novemberain.quartz.mongodb.db.MongoConnector;
 import com.novemberain.quartz.mongodb.trigger.MisfireHandler;
@@ -33,6 +34,7 @@ public class MongoStoreAssembler {
     public PausedTriggerGroupsDao pausedTriggerGroupsDao;
     public TriggerDao triggerDao;
 
+    public TriggerRecoverer triggerRecoverer;
     public CheckinExecutor checkinExecutor;
 
     private MongoDatabase db;
@@ -64,6 +66,8 @@ public class MongoStoreAssembler {
 
         triggerStateManager = createTriggerStateManager();
         triggerRunner = createTriggerRunner(jobStore, signaler);
+
+        triggerRecoverer = new TriggerRecoverer(locksDao, persister, lockManager, triggerDao, jobDao);
 
         checkinExecutor = createCheckinExecutor(jobStore);
     }

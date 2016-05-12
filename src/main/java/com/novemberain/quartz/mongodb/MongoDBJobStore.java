@@ -80,6 +80,11 @@ public class MongoDBJobStore implements JobStore, Constants {
         assembler.build(this, loadHelper, signaler);
 
         if (isClustered()) {
+            try {
+                assembler.triggerRecoverer.recover();
+            } catch (JobPersistenceException e) {
+                throw new SchedulerConfigException("Cannot recover triggers", e);
+            }
             assembler.checkinExecutor.start();
         }
 
