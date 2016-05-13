@@ -110,7 +110,7 @@ public class TriggerRunner {
                 continue;
             }
 
-            if (notAcquirableAfterMisfire(noLaterThanDate, trigger)) {
+            if (!prepareForFire(noLaterThanDate, trigger)) {
                 continue;
             }
 
@@ -121,6 +121,19 @@ public class TriggerRunner {
         }
 
         return new ArrayList<OperableTrigger>(triggers.values());
+    }
+
+    private boolean prepareForFire(Date noLaterThanDate, OperableTrigger trigger)
+            throws JobPersistenceException {
+        //TODO don't remove when recovering trigger
+        if (persister.removeTriggerWithoutNextFireTime(trigger)) {
+            return false;
+        }
+
+        if (notAcquirableAfterMisfire(noLaterThanDate, trigger)) {
+            return false;
+        }
+        return true;
     }
 
     private boolean acquiredEnough(Map<TriggerKey, OperableTrigger> triggers, int maxCount) {
@@ -136,8 +149,7 @@ public class TriggerRunner {
             log.debug("Skipping trigger {} as we have already acquired it.", trigger.getKey());
             return true;
         }
-
-        return persister.removeTriggerWithoutNextFireTime(trigger);
+        return false;
     }
 
     private TriggerFiredBundle createTriggerFiredBundle(OperableTrigger trigger)

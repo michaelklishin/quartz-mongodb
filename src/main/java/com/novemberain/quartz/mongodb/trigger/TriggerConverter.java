@@ -57,6 +57,14 @@ public class TriggerConverter {
         return trigger;
     }
 
+    /**
+     * Restore trigger from Mongo Document.
+     *
+     * @param triggerKey
+     * @param triggerDoc
+     * @return trigger from Document or null when trigger has no associated job
+     * @throws JobPersistenceException
+     */
     public OperableTrigger toTrigger(TriggerKey triggerKey, Document triggerDoc)
             throws JobPersistenceException {
         OperableTrigger trigger = createNewInstance(triggerDoc);

@@ -103,7 +103,6 @@ to distinguish between own long-running jobs and own dead jobs."
 (j/defjob DeadJob2
   [ctx]
   (println "Executing DeadJob2")
-  ;; (System/exit 0)
   (.countDown job2-run-signaler))
 
 (deftest should-reexecute-other-trigger-from-failed-execution
@@ -117,4 +116,27 @@ to distinguish between own long-running jobs and own dead jobs."
     (.await job2-run-signaler 2 TimeUnit/SECONDS)
     (is (= 0 (.getCount job2-run-signaler)))
     (.sleep TimeUnit/SECONDS 1)  ; let Quartz finish job
+    (quartz/shutdown cluster)))
+
+(def ^CountDownLatch job3-run-signaler (CountDownLatch. 1))
+
+(j/defjob DeadJob3
+  [ctx]
+  (println "Executing DeadJob3")
+  (.countDown job3-run-signaler))
+
+(deftest should-recover-own-one-shot-trigger
+  "Case: own, one-shot trigger whose job requests recovery
+   should be run again."
+  (insert-scheduler "single-node")
+  (insert-job "DeadJob3" true)
+  (insert-oneshot-trigger (Date. 1462820481910))
+  (insert-trigger-lock "single-node")
+  (let [cluster (quartz/create-cluster "single-node")]
+    (.await job3-run-signaler 2 TimeUnit/SECONDS)
+    (is (= 0 (.getCount job3-run-signaler)))
+    (.sleep TimeUnit/SECONDS 1)  ; let Quartz finish job
+    (is (= (mongo/get-count :triggers) 0))
+    (is (= (mongo/get-count :jobs) 0))
+    (is (= (mongo/get-count :locks) 0))
     (quartz/shutdown cluster)))

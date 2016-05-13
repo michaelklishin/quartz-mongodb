@@ -26,7 +26,8 @@
   [scheduler]
   ;; Dummy args are needed to fulfill super ctor needs:
   (proxy [SchedulerDao] [nil "sn" "in" 0 nil]
-    (findInstance [id] scheduler)))
+    (findInstance [id] scheduler)
+    (isNotSelf [scheduler] true)))
 
 (defn create-calc
   ([clock]

@@ -174,7 +174,10 @@ public class TriggerDao {
 
     private Bson createNextTriggerQuery(Date noLaterThanDate) {
         return Filters.and(
-                Filters.lte(Constants.TRIGGER_NEXT_FIRE_TIME, noLaterThanDate),
+                Filters.or(
+                        Filters.eq(Constants.TRIGGER_NEXT_FIRE_TIME, null),
+                        Filters.lte(Constants.TRIGGER_NEXT_FIRE_TIME, noLaterThanDate)
+                ),
                 Filters.eq(Constants.TRIGGER_STATE, Constants.STATE_WAITING));
     }
 

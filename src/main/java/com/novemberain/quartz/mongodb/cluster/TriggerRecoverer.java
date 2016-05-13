@@ -1,17 +1,17 @@
 package com.novemberain.quartz.mongodb.cluster;
 
-import com.novemberain.quartz.mongodb.JobConverter;
 import com.novemberain.quartz.mongodb.LockManager;
 import com.novemberain.quartz.mongodb.TriggerAndJobPersister;
 import com.novemberain.quartz.mongodb.dao.JobDao;
 import com.novemberain.quartz.mongodb.dao.LocksDao;
 import com.novemberain.quartz.mongodb.dao.TriggerDao;
-import org.bson.Document;
 import org.quartz.JobPersistenceException;
 import org.quartz.TriggerKey;
 import org.quartz.spi.OperableTrigger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Date;
 
 public class TriggerRecoverer {
 
@@ -36,33 +36,44 @@ public class TriggerRecoverer {
         removeOwnNonRecoverableTriggers();
     }
 
+    // When this method ends in database there should be only locks,
+    // whose triggers have next fire time or
     private void removeOwnNonRecoverableTriggers() throws JobPersistenceException {
-        locksDao.updateOwnLocks();
-
-        cleanUpFailedOneShotTriggers();
-    }
-
-    private void cleanUpFailedOneShotTriggers() throws JobPersistenceException {
         for (TriggerKey key : locksDao.findOwnTriggersLocks()) {
             OperableTrigger trigger = triggerDao.getTrigger(key);
-            if (wasOneShotTrigger(trigger)) {
+            if (trigger == null) {
+                continue;
+            }
+            if (jobDao.requestsRecovery(trigger.getJobKey())) {
+                markForReexecution(trigger);
+            } else if (wasOneShotTrigger(trigger)) {
                 cleanUpFailedRun(trigger);
-
             }
         }
     }
 
+    private void markForReexecution(OperableTrigger trigger)
+            throws JobPersistenceException {
+        log.info("Setting next fire time on recoverable trigger: {}", trigger.getKey());
+        if (locksDao.updateOwnLock(trigger.getKey())) {
+            trigger.setNextFireTime(new Date());
+            persister.storeTrigger(trigger, true);
+            locksDao.unlockTrigger(trigger);
+        }
+    }
+
     private void cleanUpFailedRun(OperableTrigger trigger) throws JobPersistenceException {
-        //TODO check if it's the same as getJobDataMap?
-        Document jobDoc = jobDao.getJob(trigger.getJobKey());
-        boolean recover = jobDoc.getBoolean(JobConverter.JOB_REQUESTS_RECOVERY, false);
-        if (!recover) {
+        // Make the trigger's lock fresh for other nodes,
+        // so they don't recover it. Also, we don't want to
+        // refresh all own locks, because dead jobs should
+        // be recovered when acquiring next triggers.
+        if (locksDao.updateOwnLock(trigger.getKey())) {
             persister.removeTrigger(trigger.getKey());
             lockManager.unlockAcquiredTrigger(trigger);
         }
     }
 
     private boolean wasOneShotTrigger(OperableTrigger trigger) {
-        return (trigger != null) && (trigger.getNextFireTime() == null);
+        return trigger.getNextFireTime() == null;
     }
 }

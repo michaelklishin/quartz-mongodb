@@ -97,6 +97,10 @@ public class SchedulerDao {
         return scheduler;
     }
 
+    public boolean isNotSelf(Scheduler scheduler) {
+        return !instanceId.equals(scheduler.getInstanceId());
+    }
+
     /**
      * Return all scheduler instances in ascending order by last check-in time.
      *

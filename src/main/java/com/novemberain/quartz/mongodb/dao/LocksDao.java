@@ -126,27 +126,30 @@ public class LocksDao {
     }
 
     /**
-     * Reset lock time on all own locks.
+     * Reset lock time on own lock.
      *
      * @throws JobPersistenceException in case of errors from Mongo
+     * @param key    trigger whose lock to refresh
+     * @return true on successful update
      */
-    public void updateOwnLocks() throws JobPersistenceException {
+    public boolean updateOwnLock(TriggerKey key) throws JobPersistenceException {
         UpdateResult updateResult;
         try {
             updateResult = locksCollection.withWriteConcern(WriteConcern.JOURNALED)
                     .updateMany(
-                            createLockRefreshFilter(instanceId),
+                            toFilter(key, instanceId),
                             createLockUpdateDocument(instanceId, clock.now()));
         } catch (MongoException e) {
             log.error("Lock refresh failed because: " + e.getMessage(), e);
             throw new JobPersistenceException("Lock refresh for scheduler: " + instanceId, e);
         }
 
-        if (updateResult.getModifiedCount() > 0) {
-            log.info("Scheduler {} refreshed locking times.", instanceId);
-        } else {
-            log.info("Scheduler {} couldn't refresh locking times", instanceId);
+        if (updateResult.getModifiedCount() == 1) {
+            log.info("Scheduler {} refreshed locking time.", instanceId);
+            return true;
         }
+        log.info("Scheduler {} couldn't refresh locking time", instanceId);
+        return false;
     }
 
     public void remove(Document lock) {

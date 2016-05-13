@@ -6,6 +6,7 @@ import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.result.DeleteResult;
 import com.novemberain.quartz.mongodb.JobConverter;
+import com.novemberain.quartz.mongodb.cluster.TriggerRecoverer;
 import com.novemberain.quartz.mongodb.util.GroupHelper;
 import com.novemberain.quartz.mongodb.util.Keys;
 import com.novemberain.quartz.mongodb.util.QueryHelper;
@@ -97,6 +98,12 @@ public class JobDao {
 
     public void remove(Bson keyObject) {
         jobCollection.deleteMany(keyObject);
+    }
+
+    public boolean requestsRecovery(JobKey jobKey) {
+        //TODO check if it's the same as getJobDataMap?
+        Document jobDoc = getJob(jobKey);
+        return jobDoc.getBoolean(JobConverter.JOB_REQUESTS_RECOVERY, false);
     }
 
     public JobDetail retrieveJob(JobKey jobKey) throws JobPersistenceException {

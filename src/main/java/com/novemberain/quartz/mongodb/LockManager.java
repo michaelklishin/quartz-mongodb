@@ -79,15 +79,20 @@ public class LockManager {
 
     private boolean relockExpired(TriggerKey key) {
         Document existingLock = locksDao.findTriggerLock(key);
-        if (existingLock != null && expiryCalculator.isTriggerLockExpired(existingLock)) {
-            // When a scheduler is defunct then its triggers become expired
-            // after sometime and can be recovered by other schedulers.
-            // To check that a trigger is owned by a defunct scheduler we evaluate
-            // its LOCK_TIME and try to reassign it to this scheduler.
-            // Relock may not be successful when some other scheduler has done
-            // it first.
-            log.info("Trigger {} is expired - re-locking", key);
-            return locksDao.relock(key, existingLock.getDate(Constants.LOCK_TIME));
+        if (existingLock != null) {
+            if (expiryCalculator.isTriggerLockExpired(existingLock)) {
+                // When a scheduler is defunct then its triggers become expired
+                // after sometime and can be recovered by other schedulers.
+                // To check that a trigger is owned by a defunct scheduler we evaluate
+                // its LOCK_TIME and try to reassign it to this scheduler.
+                // Relock may not be successful when some other scheduler has done
+                // it first.
+                log.info("Trigger {} is expired - re-locking", key);
+                return locksDao.relock(key, existingLock.getDate(Constants.LOCK_TIME));
+            } else {
+                log.info("Trigger {} hasn't expired yet. Lock time: {}",
+                        key, existingLock.getDate(Constants.LOCK_TIME));
+            }
         } else {
             log.warn("Error retrieving expired lock from the database. Maybe it was deleted");
         }
