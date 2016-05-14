@@ -163,12 +163,17 @@ public class TriggerRunner {
         trigger.triggered(cal);
 
         return new TriggerFiredBundle(retrieveJob(trigger), trigger, cal,
-                false, new Date(), trigger.getPreviousFireTime(), prevFireTime,
+                isRecovering(trigger), new Date(),
+                trigger.getPreviousFireTime(), prevFireTime,
                 trigger.getNextFireTime());
     }
 
     private boolean expectedCalendarButNotFound(OperableTrigger trigger, Calendar cal) {
         return trigger.getCalendarName() != null && cal == null;
+    }
+
+    private boolean isRecovering(OperableTrigger trigger) {
+        return trigger.getKey().getGroup().equals(Scheduler.DEFAULT_RECOVERY_GROUP);
     }
 
     private boolean hasJobDetail(TriggerFiredBundle bundle) {

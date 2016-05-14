@@ -51,25 +51,32 @@
   (mongo/add-trigger
    (merge common-trigger-data
           {"class" "org.quartz.impl.triggers.CalendarIntervalTriggerImpl"
-           "finalFireTime" nil
-           "nextFireTime" (Date. 1462820483910)
-           "previousFireTime" (Date. 1462820479910)
            "startTime" (Date. 1462820481910)
+           "previousFireTime" (Date. 1462820481910)
+           "nextFireTime" (Date. 1462820483910)
+           "finalFireTime" nil
            "repeatIntervalUnit" "SECOND"
            "repeatInterval" (int 2)})))
+
+(defn insert-simple-trigger
+  "Inserts a simple trigger."
+  ([fire-time repeat-interval repeat-count]
+   (insert-simple-trigger fire-time nil repeat-interval repeat-count))
+  ([fire-time final-fire-time repeat-interval repeat-count]
+   (mongo/add-trigger
+    (merge common-trigger-data
+           {"class" "org.quartz.impl.triggers.SimpleTriggerImpl"
+            "startTime" fire-time
+            "previousFireTime" fire-time
+            "nextFireTime" nil
+            "finalFireTime" final-fire-time
+            "repeatCount" (int repeat-count)
+            "repeatInterval" repeat-interval}))))
 
 (defn insert-oneshot-trigger
   "Inserts trigger that has no next fire time."
   [fire-time]
-  (mongo/add-trigger
-   (merge common-trigger-data
-          {"class" "org.quartz.impl.triggers.SimpleTriggerImpl"
-           "finalFireTime" fire-time
-           "nextFireTime" nil
-           "previousFireTime" fire-time
-           "startTime" fire-time
-           "repeatCount" (int 0)
-           "repeatInterval" 0})))
+  (insert-simple-trigger fire-time 0 0))
 
 (defn insert-trigger-lock
   [instance-id]
@@ -103,6 +110,8 @@ to distinguish between own long-running jobs and own dead jobs."
 (j/defjob DeadJob2
   [ctx]
   (println "Executing DeadJob2")
+  (when (.isRecovering ctx)
+    (throw (IllegalStateException. "Should not be in recovering state!")))
   (.countDown job2-run-signaler))
 
 (deftest should-reexecute-other-trigger-from-failed-execution
@@ -123,6 +132,8 @@ to distinguish between own long-running jobs and own dead jobs."
 (j/defjob DeadJob3
   [ctx]
   (println "Executing DeadJob3")
+  (when-not (.isRecovering ctx)
+    (throw (IllegalStateException. "Should be in recovering state!")))
   (.countDown job3-run-signaler))
 
 (deftest should-recover-own-one-shot-trigger

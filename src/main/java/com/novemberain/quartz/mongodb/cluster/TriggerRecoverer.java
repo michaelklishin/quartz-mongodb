@@ -11,8 +11,6 @@ import org.quartz.spi.OperableTrigger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Date;
-
 public class TriggerRecoverer {
 
     private static final Logger log = LoggerFactory.getLogger(TriggerRecoverer.class);
@@ -22,42 +20,39 @@ public class TriggerRecoverer {
     private final LockManager lockManager;
     private final TriggerDao triggerDao;
     private final JobDao jobDao;
+    private final RecoveryTriggerFactory recoveryTriggerFactory;
 
     public TriggerRecoverer(LocksDao locksDao, TriggerAndJobPersister persister,
-                            LockManager lockManager, TriggerDao triggerDao, JobDao jobDao) {
+                            LockManager lockManager, TriggerDao triggerDao,
+                            JobDao jobDao, RecoveryTriggerFactory recoveryTriggerFactory) {
         this.locksDao = locksDao;
         this.persister = persister;
         this.lockManager = lockManager;
         this.triggerDao = triggerDao;
         this.jobDao = jobDao;
+        this.recoveryTriggerFactory = recoveryTriggerFactory;
     }
 
     public void recover() throws JobPersistenceException {
-        removeOwnNonRecoverableTriggers();
-    }
-
-    // When this method ends in database there should be only locks,
-    // whose triggers have next fire time or
-    private void removeOwnNonRecoverableTriggers() throws JobPersistenceException {
         for (TriggerKey key : locksDao.findOwnTriggersLocks()) {
             OperableTrigger trigger = triggerDao.getTrigger(key);
             if (trigger == null) {
                 continue;
             }
             if (jobDao.requestsRecovery(trigger.getJobKey())) {
-                markForReexecution(trigger);
+                recoverTrigger(trigger);
             } else if (wasOneShotTrigger(trigger)) {
                 cleanUpFailedRun(trigger);
             }
         }
     }
 
-    private void markForReexecution(OperableTrigger trigger)
+    private void recoverTrigger(OperableTrigger trigger)
             throws JobPersistenceException {
-        log.info("Setting next fire time on recoverable trigger: {}", trigger.getKey());
+        log.info("Recovering trigger: {}", trigger.getKey());
         if (locksDao.updateOwnLock(trigger.getKey())) {
-            trigger.setNextFireTime(new Date());
-            persister.storeTrigger(trigger, true);
+            OperableTrigger recoveryTrigger = recoveryTriggerFactory.from(trigger);
+            persister.storeTrigger(recoveryTrigger, false);
             locksDao.unlockTrigger(trigger);
         }
     }
