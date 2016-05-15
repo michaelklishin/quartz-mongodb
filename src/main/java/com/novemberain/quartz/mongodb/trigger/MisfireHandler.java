@@ -24,9 +24,32 @@ public class MisfireHandler {
         this.misfireThreshold = misfireThreshold;
     }
 
+    /**
+     * Return true when misfire have been applied and trigger has next fire time.
+     *
+     * @param trigger    on which apply misfire logic
+     * @return true when result of misfire is next fire time
+     */
+    public boolean applyMisfireOnRecovery(OperableTrigger trigger) {
+        if (trigger.getMisfireInstruction() == Trigger.MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY) {
+            return false;
+        }
+
+        Calendar cal = null;
+        if (trigger.getCalendarName() != null) {
+            cal = retrieveCalendar(trigger);
+        }
+
+        signaler.notifyTriggerListenersMisfired(trigger);
+
+        trigger.updateAfterMisfire(cal);
+
+        return trigger.getNextFireTime() != null;
+    }
+
     public boolean applyMisfire(OperableTrigger trigger) throws JobPersistenceException {
         Date fireTime = trigger.getNextFireTime();
-        if (isMisfireApplicable(trigger, fireTime)) {
+        if (misfireIsNotApplicable(trigger, fireTime)) {
             return false;
         }
 
@@ -52,7 +75,7 @@ public class MisfireHandler {
         return misfireTime;
     }
 
-    private boolean isMisfireApplicable(OperableTrigger trigger, Date fireTime) {
+    private boolean misfireIsNotApplicable(OperableTrigger trigger, Date fireTime) {
         return fireTime == null || isNotMisfired(fireTime)
                 || trigger.getMisfireInstruction() == Trigger.MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY;
     }

@@ -151,3 +151,32 @@ to distinguish between own long-running jobs and own dead jobs."
     (is (= (mongo/get-count :jobs) 0))
     (is (= (mongo/get-count :locks) 0))
     (quartz/shutdown cluster)))
+
+(def ^CountDownLatch job4-run-signaler (CountDownLatch. 3))
+
+(j/defjob DeadJob4
+  [ctx]
+  (println "Executing DeadJob4. Recovering:" (.isRecovering ctx)
+           ", refire count:" (.getRefireCount ctx))
+  (.countDown job4-run-signaler))
+
+(deftest should-recover-own-repeating-trigger
+  "Case: own, repeating trigger whose job requests recovery
+   should be run times_left + 1 times."
+  (insert-scheduler "single-node")
+  (insert-job "DeadJob4" true)
+  (insert-trigger-lock "single-node")
+  (let [repeat-interval 1000
+        repeat-count 2
+        fire-time (Date.)
+        final-fire-time (+ (.getTime fire-time)
+                           (* repeat-interval (inc repeat-count)))]
+    (insert-simple-trigger fire-time final-fire-time repeat-interval repeat-count))
+  (let [cluster (quartz/create-cluster "single-node")]
+    (.await job4-run-signaler 5 TimeUnit/SECONDS)
+    (is (= 0 (.getCount job4-run-signaler)))
+    (.sleep TimeUnit/SECONDS 1)  ; let Quartz finish job
+    (is (= (mongo/get-count :triggers) 0))
+    (is (= (mongo/get-count :jobs) 0))
+    (is (= (mongo/get-count :locks) 0))
+    (quartz/shutdown cluster)))

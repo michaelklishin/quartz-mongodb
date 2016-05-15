@@ -5,6 +5,7 @@ import com.novemberain.quartz.mongodb.TriggerAndJobPersister;
 import com.novemberain.quartz.mongodb.dao.JobDao;
 import com.novemberain.quartz.mongodb.dao.LocksDao;
 import com.novemberain.quartz.mongodb.dao.TriggerDao;
+import com.novemberain.quartz.mongodb.trigger.MisfireHandler;
 import org.quartz.JobPersistenceException;
 import org.quartz.TriggerKey;
 import org.quartz.spi.OperableTrigger;
@@ -21,16 +22,19 @@ public class TriggerRecoverer {
     private final TriggerDao triggerDao;
     private final JobDao jobDao;
     private final RecoveryTriggerFactory recoveryTriggerFactory;
+    private final MisfireHandler misfireHandler;
 
     public TriggerRecoverer(LocksDao locksDao, TriggerAndJobPersister persister,
                             LockManager lockManager, TriggerDao triggerDao,
-                            JobDao jobDao, RecoveryTriggerFactory recoveryTriggerFactory) {
+                            JobDao jobDao, RecoveryTriggerFactory recoveryTriggerFactory,
+                            MisfireHandler misfireHandler) {
         this.locksDao = locksDao;
         this.persister = persister;
         this.lockManager = lockManager;
         this.triggerDao = triggerDao;
         this.jobDao = jobDao;
         this.recoveryTriggerFactory = recoveryTriggerFactory;
+        this.misfireHandler = misfireHandler;
     }
 
     public void recover() throws JobPersistenceException {
@@ -39,10 +43,21 @@ public class TriggerRecoverer {
             if (trigger == null) {
                 continue;
             }
-            if (jobDao.requestsRecovery(trigger.getJobKey())) {
-                recoverTrigger(trigger);
-            } else if (wasOneShotTrigger(trigger)) {
-                cleanUpFailedRun(trigger);
+
+            // Make the trigger's lock fresh for other nodes,
+            // so they don't recover it.
+            if (locksDao.updateOwnLock(trigger.getKey())) {
+                if (jobDao.requestsRecovery(trigger.getJobKey())) {
+                    recoverTrigger(trigger);
+                    if (!wasOneShotTrigger(trigger)) {
+                        updateMisfires(trigger);
+                    }
+                } else if (wasOneShotTrigger(trigger)) {
+                    cleanUpFailedRun(trigger);
+                } else {
+                    updateMisfires(trigger);
+                }
+                lockManager.unlockAcquiredTrigger(trigger);
             }
         }
     }
@@ -50,25 +65,30 @@ public class TriggerRecoverer {
     private void recoverTrigger(OperableTrigger trigger)
             throws JobPersistenceException {
         log.info("Recovering trigger: {}", trigger.getKey());
-        if (locksDao.updateOwnLock(trigger.getKey())) {
-            OperableTrigger recoveryTrigger = recoveryTriggerFactory.from(trigger);
-            persister.storeTrigger(recoveryTrigger, false);
-            locksDao.unlockTrigger(trigger);
+        OperableTrigger recoveryTrigger = recoveryTriggerFactory.from(trigger);
+        persister.storeTrigger(recoveryTrigger, false);
+    }
+
+    private void updateMisfires(OperableTrigger trigger) throws JobPersistenceException {
+        if (misfireHandler.applyMisfireOnRecovery(trigger)) {
+            log.info("Misfire applied. Replacing trigger: {}", trigger.getKey());
+            persister.storeTrigger(trigger, true);
+        } else {
+            //TODO should complete trigger?
+            log.warn("Recovery misfire not applied for trigger: {}",
+                    trigger.getKey());
+//            storeTrigger(conn, trig,
+//                    null, true, STATE_COMPLETE, forceState, recovering);
+//            schedSignaler.notifySchedulerListenersFinalized(trig);
         }
     }
 
-    private void cleanUpFailedRun(OperableTrigger trigger) throws JobPersistenceException {
-        // Make the trigger's lock fresh for other nodes,
-        // so they don't recover it. Also, we don't want to
-        // refresh all own locks, because dead jobs should
-        // be recovered when acquiring next triggers.
-        if (locksDao.updateOwnLock(trigger.getKey())) {
-            persister.removeTrigger(trigger.getKey());
-            lockManager.unlockAcquiredTrigger(trigger);
-        }
+    private void cleanUpFailedRun(OperableTrigger trigger) {
+        persister.removeTrigger(trigger.getKey());
     }
 
     private boolean wasOneShotTrigger(OperableTrigger trigger) {
-        return trigger.getNextFireTime() == null;
+        return trigger.getNextFireTime() == null
+                && trigger.getStartTime().equals(trigger.getFinalFireTime());
     }
 }

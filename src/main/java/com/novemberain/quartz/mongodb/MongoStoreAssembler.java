@@ -66,13 +66,15 @@ public class MongoStoreAssembler {
         lockManager = createLockManager(jobStore);
 
         triggerStateManager = createTriggerStateManager();
-        triggerRunner = createTriggerRunner(jobStore, signaler);
+        MisfireHandler misfireHandler = createMisfireHandler(jobStore, signaler);
+        triggerRunner = createTriggerRunner(misfireHandler);
 
         RecoveryTriggerFactory recoveryTriggerFactory
                 = new RecoveryTriggerFactory(jobStore.instanceId);
 
         triggerRecoverer = new TriggerRecoverer(locksDao, persister,
-                lockManager, triggerDao, jobDao, recoveryTriggerFactory);
+                lockManager, triggerDao, jobDao, recoveryTriggerFactory,
+                misfireHandler);
 
         checkinExecutor = createCheckinExecutor(jobStore);
     }
@@ -149,8 +151,7 @@ public class MongoStoreAssembler {
         return new TriggerDao(getCollection(jobStore, "triggers"), queryHelper, triggerConverter);
     }
 
-    private TriggerRunner createTriggerRunner(MongoDBJobStore jobStore, SchedulerSignaler signaler) {
-        MisfireHandler misfireHandler = createMisfireHandler(jobStore, signaler);
+    private TriggerRunner createTriggerRunner(MisfireHandler misfireHandler) {
         return new TriggerRunner(persister, triggerDao, jobDao, locksDao, calendarDao,
                 misfireHandler, triggerConverter, lockManager);
     }

@@ -36,8 +36,8 @@ public class RecoveryTriggerFactory {
         //TODO was ftRec.getPriority()
         rcvryTrig.setPriority(trigger.getPriority());
 
-        // Reusing JobDataMap is fine, because the original trigger
-        // is not persisted and won't see these changes.
+        // Cannot reuse JobDataMap, because the original trigger
+        // is may be persisted after applying misfire.
         JobDataMap jd = new JobDataMap(trigger.getJobDataMap());
         jd.put(Scheduler.FAILED_JOB_ORIGINAL_TRIGGER_NAME, tKey.getName());
         jd.put(Scheduler.FAILED_JOB_ORIGINAL_TRIGGER_GROUP, tKey.getGroup());
