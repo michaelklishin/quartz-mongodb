@@ -34,16 +34,6 @@ public class LockManager {
         }
     }
 
-    /**
-     * Try to lock the trigger with retry when found expired lock on it.
-     *
-     * @param key       trigger to lock
-     * @return true when successfully locked
-     */
-    public boolean tryLockWithExpiredTakeover(TriggerKey key) {
-        return tryLock(key) || relockExpired(key);
-    }
-
     public void unlockAcquiredTrigger(OperableTrigger trigger) throws JobPersistenceException {
         try {
             locksDao.unlockTrigger(trigger);
@@ -67,7 +57,12 @@ public class LockManager {
         }
     }
 
-    private boolean tryLock(TriggerKey key) {
+    /**
+     * Try to lock given trigger, ignoring errors.
+     * @param key    trigger to lock
+     * @return true when successfully locked, false otherwise
+     */
+    public boolean tryLock(TriggerKey key) {
         try {
             locksDao.lockTrigger(key);
             return true;
@@ -77,7 +72,13 @@ public class LockManager {
         return false;
     }
 
-    private boolean relockExpired(TriggerKey key) {
+    /**
+     * Relock trigger if its lock has expired.
+     *
+     * @param key    trigger to lock
+     * @return true when successfully relocked
+     */
+    public boolean relockExpired(TriggerKey key) {
         Document existingLock = locksDao.findTriggerLock(key);
         if (existingLock != null) {
             if (expiryCalculator.isTriggerLockExpired(existingLock)) {

@@ -1,6 +1,7 @@
 package com.novemberain.quartz.mongodb;
 
 import com.mongodb.MongoWriteException;
+import com.novemberain.quartz.mongodb.cluster.TriggerRecoverer;
 import com.novemberain.quartz.mongodb.dao.CalendarDao;
 import com.novemberain.quartz.mongodb.dao.JobDao;
 import com.novemberain.quartz.mongodb.dao.LocksDao;
@@ -35,13 +36,15 @@ public class TriggerRunner {
     private TriggerDao triggerDao;
     private TriggerConverter triggerConverter;
     private LockManager lockManager;
+    private TriggerRecoverer recoverer;
     private JobDao jobDao;
     private LocksDao locksDao;
     private CalendarDao calendarDao;
 
     public TriggerRunner(TriggerAndJobPersister persister, TriggerDao triggerDao, JobDao jobDao, LocksDao locksDao,
                          CalendarDao calendarDao, MisfireHandler misfireHandler,
-                         TriggerConverter triggerConverter, LockManager lockManager) {
+                         TriggerConverter triggerConverter, LockManager lockManager,
+                         TriggerRecoverer recoverer) {
         this.persister = persister;
         this.triggerDao = triggerDao;
         this.jobDao = jobDao;
@@ -50,6 +53,7 @@ public class TriggerRunner {
         this.misfireHandler = misfireHandler;
         this.triggerConverter = triggerConverter;
         this.lockManager = lockManager;
+        this.recoverer = recoverer;
     }
 
     public List<OperableTrigger> acquireNext(long noLaterThan, int maxCount, long timeWindow)
@@ -110,13 +114,22 @@ public class TriggerRunner {
                 continue;
             }
 
-            if (!prepareForFire(noLaterThanDate, trigger)) {
-                continue;
-            }
-
-            if (lockManager.tryLockWithExpiredTakeover(trigger.getKey())) {
-                log.info("Acquired trigger {}", trigger.getKey());
-                triggers.put(trigger.getKey(), trigger);
+            TriggerKey key = trigger.getKey();
+            if (lockManager.tryLock(key)) {
+                if (prepareForFire(noLaterThanDate, trigger)) {
+                    log.info("Acquired trigger: {}", trigger.getKey());
+                    triggers.put(trigger.getKey(), trigger);
+                } else {
+                    lockManager.unlockAcquiredTrigger(trigger);
+                }
+            } else if (lockManager.relockExpired(key)) {
+                log.info("Recovering trigger: {}", trigger.getKey());
+                OperableTrigger recoveryTrigger = recoverer.doRecovery(trigger);
+                lockManager.unlockAcquiredTrigger(trigger);
+                if (lockManager.tryLock(recoveryTrigger.getKey())) {
+                    log.info("Acquired trigger: {}", recoveryTrigger.getKey());
+                    triggers.put(recoveryTrigger.getKey(), recoveryTrigger);
+                }
             }
         }
 

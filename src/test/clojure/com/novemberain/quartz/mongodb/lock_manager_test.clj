@@ -43,7 +43,7 @@
         locks-dao (mock-locks-dao {:lockTrigger #(assert (identical? % tkey))})
         calculator nil
         manager (create-manager locks-dao calculator)]
-    (is (true? (.tryLockWithExpiredTakeover manager tkey)))))
+    (is (true? (.tryLock manager tkey)))))
 
 (deftest try-lock-cannot-get-existing-lock-for-expiration-check
   "LockDao.lockTrigger() throws exception and findTriggerLock() returns null."
@@ -52,16 +52,16 @@
                                    :findTriggerLock #(do (assert (identical? % tkey)) nil)})
         calculator nil
         manager (create-manager locks-dao calculator)]
-    (is (false? (.tryLockWithExpiredTakeover manager tkey)))))
+    (is (false? (.relockExpired manager tkey)))))
 
-(deftest try-lock-cannot-relock-valid-lock
+(deftest should-not-relock-valid-lock
   (let [tkey (t/key "n1" "g1")
         existing-lock (Document.)
         locks-dao (mock-locks-dao {:lockTrigger (fn [_] (throw (create-write-exception)))
                                    :findTriggerLock (fn [_] existing-lock)})
         calculator (mock-ecalc #(do (assert (= existing-lock %)) false))
         manager (create-manager locks-dao calculator)]
-    (is (false? (.tryLockWithExpiredTakeover manager tkey)))))
+    (is (false? (.relockExpired manager tkey)))))
 
 (defn- check-relock
   [relock-result]
@@ -76,8 +76,8 @@
                                                  relock-result))})
         calculator (mock-ecalc #(do (assert (= existing-lock %)) true))
         manager (create-manager locks-dao calculator)]
-    (is (= (.tryLockWithExpiredTakeover manager tkey) relock-result))))
+    (is (= (.relockExpired manager tkey) relock-result))))
 
-(deftest try-lock-should-relock-expired-lock
+(deftest should-relock-expired-lock
   (do (check-relock false)
       (check-relock true)))

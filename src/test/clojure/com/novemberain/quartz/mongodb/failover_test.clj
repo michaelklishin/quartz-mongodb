@@ -180,3 +180,28 @@ to distinguish between own long-running jobs and own dead jobs."
     (is (= (mongo/get-count :jobs) 0))
     (is (= (mongo/get-count :locks) 0))
     (quartz/shutdown cluster)))
+
+(def ^CountDownLatch job5-run-signaler (CountDownLatch. 1))
+
+(j/defjob DeadJob5
+  [ctx]
+  (println "Executing DeadJob5")
+  (when-not (.isRecovering ctx)
+    (throw (IllegalStateException. "Should be in recovering state!")))
+  (.countDown job5-run-signaler))
+
+(deftest should-recover-dead-node-one-shot-trigger
+  "Case: other node's, one-shot trigger whose job requests recovery
+   should be run again."
+  (insert-scheduler "dead-node")
+  (insert-job "DeadJob5" true)
+  (insert-oneshot-trigger (Date. 1462820481910))
+  (insert-trigger-lock "dead-node")
+  (let [cluster (quartz/create-cluster "single-node")]
+    (.await job5-run-signaler 2 TimeUnit/SECONDS)
+    (is (= 0 (.getCount job5-run-signaler)))
+    (.sleep TimeUnit/SECONDS 1)  ; let Quartz finish job
+    (is (= (mongo/get-count :triggers) 0))
+    (is (= (mongo/get-count :jobs) 0))
+    (is (= (mongo/get-count :locks) 0))
+    (quartz/shutdown cluster)))

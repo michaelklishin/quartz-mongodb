@@ -47,26 +47,40 @@ public class TriggerRecoverer {
             // Make the trigger's lock fresh for other nodes,
             // so they don't recover it.
             if (locksDao.updateOwnLock(trigger.getKey())) {
-                if (jobDao.requestsRecovery(trigger.getJobKey())) {
-                    recoverTrigger(trigger);
-                    if (!wasOneShotTrigger(trigger)) {
-                        updateMisfires(trigger);
-                    }
-                } else if (wasOneShotTrigger(trigger)) {
-                    cleanUpFailedRun(trigger);
-                } else {
-                    updateMisfires(trigger);
-                }
+                doRecovery(trigger);
                 lockManager.unlockAcquiredTrigger(trigger);
             }
         }
     }
 
-    private void recoverTrigger(OperableTrigger trigger)
+    /**
+     * Do recovery procedure after failed run of given trigger.
+     *
+     * @param trigger    trigger to recover
+     * @return recovery trigger or null if its job doesn't want that
+     * @throws JobPersistenceException
+     */
+    public OperableTrigger doRecovery(OperableTrigger trigger) throws JobPersistenceException {
+        OperableTrigger recoveryTrigger = null;
+        if (jobDao.requestsRecovery(trigger.getJobKey())) {
+            recoveryTrigger = recoverTrigger(trigger);
+            if (!wasOneShotTrigger(trigger)) {
+                updateMisfires(trigger);
+            }
+        } else if (wasOneShotTrigger(trigger)) {
+            cleanUpFailedRun(trigger);
+        } else {
+            updateMisfires(trigger);
+        }
+        return recoveryTrigger;
+    }
+
+    private OperableTrigger recoverTrigger(OperableTrigger trigger)
             throws JobPersistenceException {
         log.info("Recovering trigger: {}", trigger.getKey());
         OperableTrigger recoveryTrigger = recoveryTriggerFactory.from(trigger);
         persister.storeTrigger(recoveryTrigger, false);
+        return recoveryTrigger;
     }
 
     private void updateMisfires(OperableTrigger trigger) throws JobPersistenceException {
