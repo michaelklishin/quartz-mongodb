@@ -205,3 +205,62 @@ to distinguish between own long-running jobs and own dead jobs."
     (is (= (mongo/get-count :jobs) 0))
     (is (= (mongo/get-count :locks) 0))
     (quartz/shutdown cluster)))
+
+(def ^CountDownLatch job6-run-signaler (CountDownLatch. 3))
+
+(j/defjob DeadJob6
+  [ctx]
+  (println "Executing DeadJob6. Recovering:" (.isRecovering ctx)
+           ", refire count:" (.getRefireCount ctx))
+  (.countDown job6-run-signaler))
+
+(deftest should-recover-dead-node-repeating-trigger
+  "Case: other node's, repeating trigger whose job requests recovery
+   should be run times_left + 1 times."
+  (insert-scheduler "dead-node")
+  (insert-job "DeadJob6" true)
+  (insert-trigger-lock "dead-node")
+  (let [repeat-interval 1000
+        repeat-count 2
+        fire-time (Date.)
+        final-fire-time (+ (.getTime fire-time)
+                           (* repeat-interval (inc repeat-count)))]
+    (insert-simple-trigger fire-time final-fire-time repeat-interval repeat-count))
+  (let [cluster (quartz/create-cluster "single-node")]
+    (.await job6-run-signaler 5 TimeUnit/SECONDS)
+    (is (= 0 (.getCount job6-run-signaler)))
+    (.sleep TimeUnit/SECONDS 1)  ; let Quartz finish job
+    (is (= (mongo/get-count :triggers) 0))
+    (is (= (mongo/get-count :jobs) 0))
+    (is (= (mongo/get-count :locks) 0))
+    (quartz/shutdown cluster)))
+
+(def ^CountDownLatch job7-run-signaler (CountDownLatch. 3))
+
+(j/defjob DeadJob7
+  [ctx]
+  (println "Executing DeadJob7. Recovering:" (.isRecovering ctx)
+           ", refire count:" (.getRefireCount ctx))
+  (.countDown job7-run-signaler))
+
+(deftest should-recover-dead-node-repeating-trigger-by-any-node
+  "Case: other node's, repeating trigger whose job requests recovery
+   should be run times_left + 1 times, when cluster consists of more
+   than one node."
+  (insert-scheduler "dead-node")
+  (insert-job "DeadJob7" true)
+  (insert-trigger-lock "dead-node")
+  (let [repeat-interval 1000
+        repeat-count 2
+        fire-time (Date.)
+        final-fire-time (+ (.getTime fire-time)
+                           (* repeat-interval (inc repeat-count)))]
+    (insert-simple-trigger fire-time final-fire-time repeat-interval repeat-count))
+  (let [cluster (quartz/create-cluster "live-one" "live-two")]
+    (.await job7-run-signaler 5 TimeUnit/SECONDS)
+    (is (= 0 (.getCount job7-run-signaler)))
+    (.sleep TimeUnit/SECONDS 1)  ; let Quartz finish job
+    (is (= (mongo/get-count :triggers) 0))
+    (is (= (mongo/get-count :jobs) 0))
+    (is (= (mongo/get-count :locks) 0))
+    (quartz/shutdown cluster)))

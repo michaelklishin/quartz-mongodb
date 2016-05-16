@@ -126,7 +126,7 @@ public class TriggerRunner {
                 log.info("Recovering trigger: {}", trigger.getKey());
                 OperableTrigger recoveryTrigger = recoverer.doRecovery(trigger);
                 lockManager.unlockAcquiredTrigger(trigger);
-                if (lockManager.tryLock(recoveryTrigger.getKey())) {
+                if (recoveryTrigger != null && lockManager.tryLock(recoveryTrigger.getKey())) {
                     log.info("Acquired trigger: {}", recoveryTrigger.getKey());
                     triggers.put(recoveryTrigger.getKey(), recoveryTrigger);
                 }
