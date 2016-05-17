@@ -17,6 +17,8 @@
 
 (use-fixtures :each mongo/purge-collections)
 
+(def ^long quartz-finish-waittime-secs 2)
+
 (defn insert-scheduler
   [id]
   (mongo/add-scheduler {"instanceId" id
@@ -100,7 +102,7 @@ to distinguish between own long-running jobs and own dead jobs."
   (insert-oneshot-trigger (Date. 1462820481910))
   (insert-trigger-lock "single-node")
   (let [cluster (quartz/create-cluster "single-node")]
-    (.sleep TimeUnit/SECONDS 2)
+    (.sleep TimeUnit/SECONDS quartz-finish-waittime-secs)
     (is (= (mongo/get-count :triggers) 0))
     (is (= (mongo/get-count :locks) 0))
     (quartz/shutdown cluster)))
@@ -124,7 +126,7 @@ to distinguish between own long-running jobs and own dead jobs."
   (let [cluster (quartz/create-cluster "single-node")]
     (.await job2-run-signaler 2 TimeUnit/SECONDS)
     (is (= 0 (.getCount job2-run-signaler)))
-    (.sleep TimeUnit/SECONDS 1)  ; let Quartz finish job
+    (.sleep TimeUnit/SECONDS quartz-finish-waittime-secs)  ; let Quartz finish job
     (quartz/shutdown cluster)))
 
 (def ^CountDownLatch job3-run-signaler (CountDownLatch. 1))
@@ -146,7 +148,7 @@ to distinguish between own long-running jobs and own dead jobs."
   (let [cluster (quartz/create-cluster "single-node")]
     (.await job3-run-signaler 2 TimeUnit/SECONDS)
     (is (= 0 (.getCount job3-run-signaler)))
-    (.sleep TimeUnit/SECONDS 1)  ; let Quartz finish job
+    (.sleep TimeUnit/SECONDS quartz-finish-waittime-secs)  ; let Quartz finish job
     (is (= (mongo/get-count :triggers) 0))
     (is (= (mongo/get-count :jobs) 0))
     (is (= (mongo/get-count :locks) 0))
@@ -175,7 +177,7 @@ to distinguish between own long-running jobs and own dead jobs."
   (let [cluster (quartz/create-cluster "single-node")]
     (.await job4-run-signaler 5 TimeUnit/SECONDS)
     (is (= 0 (.getCount job4-run-signaler)))
-    (.sleep TimeUnit/SECONDS 1)  ; let Quartz finish job
+    (.sleep TimeUnit/SECONDS quartz-finish-waittime-secs)  ; let Quartz finish job
     (is (= (mongo/get-count :triggers) 0))
     (is (= (mongo/get-count :jobs) 0))
     (is (= (mongo/get-count :locks) 0))
@@ -200,7 +202,7 @@ to distinguish between own long-running jobs and own dead jobs."
   (let [cluster (quartz/create-cluster "single-node")]
     (.await job5-run-signaler 2 TimeUnit/SECONDS)
     (is (= 0 (.getCount job5-run-signaler)))
-    (.sleep TimeUnit/SECONDS 1)  ; let Quartz finish job
+    (.sleep TimeUnit/SECONDS quartz-finish-waittime-secs)  ; let Quartz finish job
     (is (= (mongo/get-count :triggers) 0))
     (is (= (mongo/get-count :jobs) 0))
     (is (= (mongo/get-count :locks) 0))
@@ -229,7 +231,7 @@ to distinguish between own long-running jobs and own dead jobs."
   (let [cluster (quartz/create-cluster "single-node")]
     (.await job6-run-signaler 5 TimeUnit/SECONDS)
     (is (= 0 (.getCount job6-run-signaler)))
-    (.sleep TimeUnit/SECONDS 1)  ; let Quartz finish job
+    (.sleep TimeUnit/SECONDS quartz-finish-waittime-secs)  ; let Quartz finish job
     (is (= (mongo/get-count :triggers) 0))
     (is (= (mongo/get-count :jobs) 0))
     (is (= (mongo/get-count :locks) 0))
@@ -259,7 +261,7 @@ to distinguish between own long-running jobs and own dead jobs."
   (let [cluster (quartz/create-cluster "live-one" "live-two")]
     (.await job7-run-signaler 5 TimeUnit/SECONDS)
     (is (= 0 (.getCount job7-run-signaler)))
-    (.sleep TimeUnit/SECONDS 1)  ; let Quartz finish job
+    (.sleep TimeUnit/SECONDS quartz-finish-waittime-secs)  ; let Quartz finish job
     (is (= (mongo/get-count :triggers) 0))
     (is (= (mongo/get-count :jobs) 0))
     (is (= (mongo/get-count :locks) 0))
