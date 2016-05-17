@@ -1,7 +1,6 @@
 package com.novemberain.quartz.mongodb.dao;
 
 import com.mongodb.MongoException;
-import com.mongodb.WriteConcern;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.IndexOptions;
@@ -107,10 +106,9 @@ public class LocksDao {
     public boolean relock(TriggerKey key, Date lockTime) {
         UpdateResult updateResult;
         try {
-            updateResult = locksCollection.withWriteConcern(WriteConcern.JOURNALED)
-                    .updateOne(
-                            createRelockFilter(key, lockTime),
-                            createLockUpdateDocument(instanceId, clock.now()));
+            updateResult = locksCollection.updateOne(
+                    createRelockFilter(key, lockTime),
+                    createLockUpdateDocument(instanceId, clock.now()));
         } catch (MongoException e) {
             log.error("Relock failed because: " + e.getMessage(), e);
             return false;
@@ -135,10 +133,9 @@ public class LocksDao {
     public boolean updateOwnLock(TriggerKey key) throws JobPersistenceException {
         UpdateResult updateResult;
         try {
-            updateResult = locksCollection.withWriteConcern(WriteConcern.JOURNALED)
-                    .updateMany(
-                            toFilter(key, instanceId),
-                            createLockUpdateDocument(instanceId, clock.now()));
+            updateResult = locksCollection.updateMany(
+                    toFilter(key, instanceId),
+                    createLockUpdateDocument(instanceId, clock.now()));
         } catch (MongoException e) {
             log.error("Lock refresh failed because: " + e.getMessage(), e);
             throw new JobPersistenceException("Lock refresh for scheduler: " + instanceId, e);
@@ -173,8 +170,7 @@ public class LocksDao {
     }
 
     private void insertLock(Document lock) {
-        // A lock needs to be written with FSYNCED to be 100% effective across multiple servers
-        locksCollection.withWriteConcern(WriteConcern.JOURNALED).insertOne(lock);
+        locksCollection.insertOne(lock);
     }
 
     private void remove(Bson filter) {

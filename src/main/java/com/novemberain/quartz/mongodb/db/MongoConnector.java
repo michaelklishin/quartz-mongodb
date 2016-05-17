@@ -6,6 +6,7 @@ import org.quartz.SchedulerConfigException;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * The responsibility of this class is create a MongoClient with given parameters.
@@ -23,9 +24,6 @@ public class MongoConnector {
     }
 
     public MongoDatabase selectDatabase(String dbName) {
-        // MongoDB defaults are insane, set a reasonable write concern explicitly. MK.
-        // But we would be insane not to override this when writing lock records. LB.
-        mongo.setWriteConcern(WriteConcern.JOURNALED);
         return mongo.getDatabase(dbName);
     }
 
@@ -43,6 +41,7 @@ public class MongoConnector {
         private String[] addresses;
         private String dbName;
         private String authDbName;
+        private int writeTimeout;
 
         public MongoConnector build() throws SchedulerConfigException {
             connect();
@@ -85,6 +84,7 @@ public class MongoConnector {
             if (connector.mongo == null) {
                 throw new SchedulerConfigException("Could not connect to MongoDB! Please check that quartz-mongodb configuration is correct.");
             }
+            setWriteConcern();
         }
 
         private MongoClient connectToMongoDB() throws SchedulerConfigException {
@@ -111,8 +111,6 @@ public class MongoConnector {
         }
 
         private MongoClientOptions createOptions() {
-            optionsBuilder.writeConcern(WriteConcern.ACKNOWLEDGED);
-
             return optionsBuilder.build();
         }
 
@@ -144,6 +142,20 @@ public class MongoConnector {
             } catch (final MongoException e) {
                 throw new SchedulerConfigException("MongoDB driver thrown an exception", e);
             }
+        }
+
+        private void setWriteConcern() {
+            // Use MAJORITY to make sure that writes (locks, updates, check-ins)
+            // are propagated to secondaries in a Replica Set. It allows us to
+            // have consistent state in case of failure of the primary.
+            //
+            // Since MongoDB 3.2, when MAJORITY is used and protocol version == 1
+            // for replica set, then Journaling in enabled by default for primary
+            // and secondaries.
+            WriteConcern writeConcern = WriteConcern.MAJORITY
+                    .withWTimeout(writeTimeout, TimeUnit.MILLISECONDS)
+                    .withJournal(true);
+            connector.mongo.setWriteConcern(writeConcern);
         }
 
         public MongoConnectorBuilder withAuthDatabaseName(String authDbName) {
@@ -200,6 +212,11 @@ public class MongoConnector {
                     optionsBuilder.sslInvalidHostNameAllowed(sslInvalidHostNameAllowed);
                 }
             }
+            return this;
+        }
+
+        public MongoConnectorBuilder withWriteTimeout(int writeTimeout) {
+            this.writeTimeout = writeTimeout;
             return this;
         }
     }

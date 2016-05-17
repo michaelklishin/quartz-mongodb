@@ -128,6 +128,7 @@ public class MongoStoreAssembler {
                 .withThreadsAllowedToBlockForConnectionMultiplier(
                         jobStore.mongoOptionThreadsAllowedToBlockForConnectionMultiplier)
                 .withSSL(jobStore.mongoOptionEnableSSL, jobStore.mongoOptionSslInvalidHostNameAllowed)
+                .withWriteTimeout(jobStore.mongoOptionWriteConcernTimeoutMillis)
                 .build();
     }
 

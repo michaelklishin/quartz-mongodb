@@ -1,7 +1,6 @@
 package com.novemberain.quartz.mongodb.dao;
 
 import com.mongodb.Block;
-import com.mongodb.WriteConcern;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.*;
 import com.mongodb.client.result.DeleteResult;
@@ -68,10 +67,7 @@ public class SchedulerDao {
         // If not found Mongo will create a new entry with content from filter and update.
         Document update = createUpdateClause(lastCheckinTime);
 
-        // An entry needs to be written with FSYNCED to be 100% effective across multiple servers
         UpdateResult result = schedulerCollection
-                //TODO shouldn't be WriteConcern.REPLICA_ACKNOWLEDGED?
-                .withWriteConcern(WriteConcern.JOURNALED)
                 .updateOne(schedulerFilter, update, new UpdateOptions().upsert(true));
 
         log.debug("Node {}:{} check-in result: {}", schedulerName, instanceId, result);
@@ -131,7 +127,6 @@ public class SchedulerDao {
         log.info("Removing scheduler: {},{},{}",
                 schedulerName, instanceId, lastCheckinTime);
         DeleteResult result = schedulerCollection
-                .withWriteConcern(WriteConcern.JOURNALED)
                 .deleteOne(createSchedulerFilter(
                         schedulerName, instanceId, lastCheckinTime));
 

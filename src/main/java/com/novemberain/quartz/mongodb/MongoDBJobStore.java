@@ -52,6 +52,8 @@ public class MongoDBJobStore implements JobStore, Constants {
     Boolean mongoOptionEnableSSL;
     Boolean mongoOptionSslInvalidHostNameAllowed;
 
+    int mongoOptionWriteConcernTimeoutMillis = 5000;
+
     public MongoDBJobStore() {
     }
 
@@ -513,6 +515,10 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     public void setMongoOptionSslInvalidHostNameAllowed(boolean sslInvalidHostNameAllowed) {
         this.mongoOptionSslInvalidHostNameAllowed = sslInvalidHostNameAllowed;
+    }
+
+    public void setMongoOptionWriteConcernTimeoutMillis(int writeConcernTimeoutMillis) {
+        this.mongoOptionWriteConcernTimeoutMillis = writeConcernTimeoutMillis;
     }
 
     public String getAuthDbName() {
