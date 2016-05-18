@@ -25,11 +25,10 @@ public class RecoveryTriggerFactory {
         long scheduleTimestamp = System.currentTimeMillis();
         //TODO was ftRec.getFireTimestamp()
         long fireTimestamp = System.currentTimeMillis();
-        SimpleTriggerImpl rcvryTrig = new SimpleTriggerImpl(
-                "recover_" + instanceId + "_"
-                        + System.currentTimeMillis(), //String.valueOf(recoverIds++),
-                Scheduler.DEFAULT_RECOVERY_GROUP,
-                new Date(scheduleTimestamp));
+        SimpleTriggerImpl rcvryTrig = new SimpleTriggerImpl();
+        rcvryTrig.setName("recover_" + instanceId + "_" + System.currentTimeMillis()); //String.valueOf(recoverIds++)
+        rcvryTrig.setGroup(Scheduler.DEFAULT_RECOVERY_GROUP);
+        rcvryTrig.setStartTime(new Date(scheduleTimestamp));
         rcvryTrig.setJobName(jKey.getName());
         rcvryTrig.setJobGroup(jKey.getGroup());
         rcvryTrig.setMisfireInstruction(SimpleTrigger.MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY);
