@@ -1,4 +1,4 @@
-package com.novemberain.quartz.mongodb;
+package com.novemberain.quartz.mongodb.util;
 
 import org.apache.commons.codec.binary.Base64;
 import org.quartz.Calendar;
