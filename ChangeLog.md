@@ -1,4 +1,4 @@
-## Changes between quartz-mongodb 2.0.0 and 2.1.0
+## Changes between quartz-mongodb 1.9.0 and 2.0.0
 
 ### Clustering
 
@@ -11,14 +11,6 @@ Quartz-mongodb is compiled with Java 7.
 ### MongoDB Java Driver Upgrade
 
 MongoDB Java driver was upgraded to `3.2.x`.
-
-
-
-## Changes between quartz-mongodb 1.9.0 and 2.0.0
-
-### MongoDB Java Driver Upgrade
-
-MongoDB Java driver was upgraded to `3.0.x`.
 
 Contributed by Przemysław Wojnowski.
 
