@@ -1,0 +1,47 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+}
+
+apply plugin: 'java'
+apply plugin: 'groovy'
+apply plugin: 'idea'
+
+jar {
+    baseName = 'quartz-mongodb'
+    version =  '2.0.0-rc2-SNAPSHOT'
+}
+
+repositories {
+    mavenCentral()
+}
+
+sourceCompatibility = 1.7
+targetCompatibility = 1.7
+
+configurations {
+    provided
+}
+sourceSets {
+    main { compileClasspath += configurations.provided }
+}
+
+dependencies {
+    compile("org.quartz-scheduler:quartz:2.1.7")
+    compile("org.mongodb:mongo-java-driver:3.2.2")
+    compile("joda-time:joda-time:2.8.2")
+    compile("commons-codec:commons-codec:1.10")
+    compile("org.slf4j:slf4j-api:1.7.10")
+    provided("org.clojure:clojure:1.7.0")
+
+    testCompile("org.slf4j:slf4j-simple:1.7.10")
+    testCompile("org.codehaus.groovy:groovy-all:2.4.1")
+    testCompile("org.spockframework:spock-core:1.0-groovy-2.4")
+    testRuntime("cglib:cglib-nodep:3.1")
+    testRuntime("org.objenesis:objenesis:2.1")
+}
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '2.13'
+}
