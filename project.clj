@@ -5,7 +5,9 @@
   :dependencies [[org.quartz-scheduler/quartz   "2.1.7"]
                  [org.mongodb/mongo-java-driver "3.2.2"]
                  [joda-time/joda-time           "2.8.2"]
-                 [commons-codec/commons-codec   "1.10"]]
+                 [commons-codec/commons-codec   "1.10"]
+                 [org.slf4j/slf4j-simple        "1.7.21"]
+                 [org.slf4j/slf4j-api           "1.7.21"]]
   :java-source-paths ["src/main/java"]
   :test-paths        ["src/test/clojure"]
   :test-selectors {:all     (constantly true)
