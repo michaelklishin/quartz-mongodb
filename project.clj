@@ -1,4 +1,4 @@
-(defproject com.novemberain/quartz-mongodb "2.0.0-rc2-SNAPSHOT"
+(defproject com.novemberain/quartz-mongodb "2.0.0-rc2"
   :description "A MongoDB-backed store for Quartz Scheduler and Quartzite"
   :min-lein-version "2.4.2"
   :license {:name "Apache License 2.0"}
@@ -19,8 +19,8 @@
                                   [clojurewerkz/quartzite    "1.3.0"]
                                   [com.novemberain/monger    "1.7.0"]
                                   [org.clojure/tools.logging "0.3.1" :exclusions [org.clojure/clojure]]
-                                  [org.slf4j/slf4j-simple    "1.7.10"]
-                                  [org.slf4j/slf4j-api       "1.7.10"]]}
+                                  [org.slf4j/slf4j-simple    "1.7.21"]
+                                  [org.slf4j/slf4j-api       "1.7.21"]]}
              :provided {:dependencies [[org.clojure/clojure       "1.7.0"]]}}
   :repositories {"sonatype" {:url "http://oss.sonatype.org/content/repositories/releases"
                              :snapshots false
