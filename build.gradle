@@ -22,11 +22,17 @@ targetCompatibility = 1.7
 
 configurations {
     provided
+    compile.extendsFrom provided
 }
 sourceSets {
     main { compileClasspath += configurations.provided }
 }
 
+idea {
+    module {
+        scopes.PROVIDED.plus += [configurations.provided]
+    }
+}
 dependencies {
     compile("org.quartz-scheduler:quartz:2.1.7")
     compile("org.mongodb:mongo-java-driver:3.2.2")
