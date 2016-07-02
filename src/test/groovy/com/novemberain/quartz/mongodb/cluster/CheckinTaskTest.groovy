@@ -1,7 +1,6 @@
-package com.novemberain.quartz.cluster
+package com.novemberain.quartz.mongodb.cluster
 
 import com.mongodb.MongoException
-import com.novemberain.quartz.mongodb.cluster.CheckinTask
 import com.novemberain.quartz.mongodb.dao.SchedulerDao
 import spock.lang.Specification
 

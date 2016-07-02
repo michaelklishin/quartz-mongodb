@@ -1,6 +1,5 @@
-package com.novemberain.quartz.cluster
+package com.novemberain.quartz.mongodb.cluster
 
-import com.novemberain.quartz.mongodb.cluster.Scheduler
 import spock.lang.Specification
 
 class SchedulerTest extends Specification {

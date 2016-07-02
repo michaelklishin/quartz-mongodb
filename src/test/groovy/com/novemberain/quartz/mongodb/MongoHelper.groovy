@@ -1,4 +1,4 @@
-package com.novemberain.quartz
+package com.novemberain.quartz.mongodb
 
 import com.mongodb.MongoClient
 import com.mongodb.MongoClientOptions

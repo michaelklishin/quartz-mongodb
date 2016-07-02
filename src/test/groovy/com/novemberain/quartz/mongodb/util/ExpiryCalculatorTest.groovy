@@ -1,11 +1,9 @@
-package com.novemberain.quartz.util
+package com.novemberain.quartz.mongodb.util
 
-import com.novemberain.quartz.Clocks
+import com.novemberain.quartz.mongodb.Clocks
 import com.novemberain.quartz.mongodb.Constants
 import com.novemberain.quartz.mongodb.cluster.Scheduler
 import com.novemberain.quartz.mongodb.dao.SchedulerDao
-import com.novemberain.quartz.mongodb.util.Clock
-import com.novemberain.quartz.mongodb.util.ExpiryCalculator
 import org.bson.Document
 import spock.lang.Shared
 import spock.lang.Specification

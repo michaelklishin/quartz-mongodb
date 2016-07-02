@@ -1,9 +1,8 @@
-package com.novemberain.quartz.dao
+package com.novemberain.quartz.mongodb.dao
 
 import com.mongodb.MongoWriteException
-import com.novemberain.quartz.Clocks
-import com.novemberain.quartz.MongoHelper
-import com.novemberain.quartz.mongodb.dao.LocksDao
+import com.novemberain.quartz.mongodb.Clocks
+import com.novemberain.quartz.mongodb.MongoHelper
 import com.novemberain.quartz.mongodb.util.Clock
 import com.novemberain.quartz.mongodb.util.Keys
 import org.quartz.TriggerKey
