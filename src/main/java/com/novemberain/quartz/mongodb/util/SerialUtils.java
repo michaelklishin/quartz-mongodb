@@ -1,6 +1,7 @@
 package com.novemberain.quartz.mongodb.util;
 
 import org.apache.commons.codec.binary.Base64;
+import org.bson.types.Binary;
 import org.quartz.Calendar;
 import org.quartz.JobDataMap;
 import org.quartz.JobPersistenceException;
@@ -25,6 +26,24 @@ public class SerialUtils {
             return byteStream.toByteArray();
         } catch (IOException e) {
             throw new JobPersistenceException("Could not serialize Calendar.", e);
+        }
+    }
+    
+    public static <T> T deserialize(Binary serialized, Class<T> clazz) throws JobPersistenceException {
+        ByteArrayInputStream byteStream = new ByteArrayInputStream(serialized.getData());
+        try {
+            ObjectInputStream objectStream = new ObjectInputStream(byteStream);
+            Object deserialized = objectStream.readObject();
+            objectStream.close();
+            if(clazz.isInstance(deserialized)) {
+                @SuppressWarnings("unchecked")
+                T obj = (T)deserialized;
+                return obj;
+            }
+        
+            throw new JobPersistenceException("Deserialized object is not of the desired type");
+        } catch (IOException | ClassNotFoundException e) {
+            throw new JobPersistenceException("Could not deserialize.", e);
         }
     }
 
