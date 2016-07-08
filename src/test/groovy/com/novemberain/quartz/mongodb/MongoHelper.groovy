@@ -19,12 +19,12 @@ class MongoHelper {
     static MongoDatabase testDatabase = client.getDatabase(testDatabaseName)
 
     static Map<String,MongoCollection<Document>> collections = [
-            calendars: testDatabase.getCollection('quartz_calendars'),
-            locks: testDatabase.getCollection('quartz_locks'),
-            jobs: testDatabase.getCollection('quartz_jobs'),
-            jobGroups: testDatabase.getCollection('quartz_paused_job_groups'),
-            schedulers: testDatabase.getCollection('quartz_schedulers'),
-            triggers: testDatabase.getCollection('quartz_triggers'),
+            calendars    : testDatabase.getCollection('quartz_calendars'),
+            locks        : testDatabase.getCollection('quartz_locks'),
+            jobs         : testDatabase.getCollection('quartz_jobs'),
+            jobGroups    : testDatabase.getCollection('quartz_paused_job_groups'),
+            schedulers   : testDatabase.getCollection('quartz_schedulers'),
+            triggers     : testDatabase.getCollection('quartz_triggers'),
             triggerGroups: testDatabase.getCollection('quartz_paused_trigger_groups')
     ]
 
@@ -95,11 +95,11 @@ class MongoHelper {
     /**
      * Return the first document from given collection.
      */
-    static def getFirst(String col) {
+    static def Document getFirst(String col) {
         getFirst(col, [:])
     }
 
-    static def getFirst(String col, Map amap) {
+    static def Document getFirst(String col, Map amap) {
         collections[col].find(new Document(amap)).first()
     }
 
