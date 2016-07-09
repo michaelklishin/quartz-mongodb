@@ -11,7 +11,6 @@ import org.quartz.JobDetail
 import org.quartz.JobKey
 import org.quartz.SimpleScheduleBuilder
 import org.quartz.TimeOfDay
-import org.quartz.Trigger
 import org.quartz.TriggerBuilder
 import org.quartz.TriggerKey
 import org.quartz.impl.matchers.GroupMatcher
@@ -33,39 +32,6 @@ class MongoDBJobStoreTest extends Specification {
 
     def setup() {
         MongoHelper.purgeCollections()
-    }
-
-    def Document firstTrigger(String name) {
-        firstTrigger(name, 'tests')
-    }
-
-    def Document firstTrigger(String name, String group) {
-        MongoHelper.getFirst('triggers', [keyName: name, keyGroup: group])
-    }
-
-    def JobDetail makeJob(String name) {
-        makeJob(name, 'tests')
-    }
-
-    def boolean hasJob(jobId) {
-        MongoHelper.getFirst('jobs', [_id: jobId]) != null
-    }
-
-    def Date in2Months() {
-        now().plusMonths(2).toDate()
-    }
-
-    def JobDetail makeJob(String name, String group) {
-        JobBuilder.newJob(NoOpJob).withIdentity(name, group).build()
-    }
-
-    def makeStore() {
-        def store = new MongoDBJobStore(
-                instanceName: 'quartz_mongodb_test',
-                dbName: 'quartz_mongodb_test',
-                addresses: '127.0.0.1')
-        store.initialize(new SimpleClassLoadHelper(), null)
-        store
     }
 
     def 'should store a job'() {
@@ -366,4 +332,295 @@ class MongoDBJobStoreTest extends Specification {
         groups == ['test-job1', 'test-job2']
     }
 
+    def 'should return trigger group names'() {
+        given:
+        def job1 = makeJob('job-in-test-trigger-group-names', 'test-job1')
+        def tr1 = TriggerBuilder.newTrigger()
+                .startNow()
+                .withIdentity('trigger-in-test-trigger-group-names', 'test-trigger-1')
+                .withDescription('description')
+                .endAt(in2Months())
+                .forJob(job1)
+                .withSchedule(CalendarIntervalScheduleBuilder.calendarIntervalSchedule()
+                .withIntervalInHours(4))
+                .build() as OperableTrigger
+
+
+        def job2 = makeJob('job-in-test-trigger-group-names', 'test-job2')
+        def tr2 = TriggerBuilder.newTrigger()
+                .startNow()
+                .withIdentity('trigger-in-test-trigger-group-names', 'test-trigger-2')
+                .withDescription('description')
+                .endAt(in2Months())
+                .forJob(job2)
+                .withSchedule(CalendarIntervalScheduleBuilder.calendarIntervalSchedule()
+                .withIntervalInHours(4))
+                .build() as OperableTrigger
+
+        when:
+        store.storeJob(job1, false)
+        store.storeTrigger(tr1, false)
+        store.storeJob(job2, false)
+        store.storeTrigger(tr2, false)
+
+        then:
+        store.getTriggerGroupNames() == ['test-trigger-1', 'test-trigger-2']
+    }
+
+    def 'should pause all triggers'() {
+        given:
+        def job = makeJob('job-in-test-pause-all-triggers', 'main-tests')
+        def tk1 = new TriggerKey('test-pause-all-triggers1', 'main-tests')
+        def tr1 = TriggerBuilder.newTrigger()
+                .startNow()
+                .withIdentity(tk1)
+                .endAt(in2Months())
+                .forJob(job)
+                .withSchedule(CalendarIntervalScheduleBuilder.calendarIntervalSchedule()
+                .withIntervalInHours(4))
+                .build() as OperableTrigger
+
+        def tk2 = new TriggerKey('test-pause-all-triggers2', 'alt-tests')
+        def tr2 = TriggerBuilder.newTrigger()
+                .startNow()
+                .withIdentity(tk2)
+                .endAt(in2Months())
+                .forJob(job)
+                .withSchedule(SimpleScheduleBuilder.simpleSchedule()
+                .withRepeatCount(10)
+                .withIntervalInMilliseconds(400))
+                .build() as OperableTrigger
+
+        expect:
+        MongoHelper.getCount('jobs') == 0
+        MongoHelper.getCount('triggers') == 0
+
+        when:
+        store.storeJob(job, false)
+        store.storeTrigger(tr1, false)
+        store.storeTrigger(tr2, false)
+        and:
+        store.pauseAll()
+        def m1 = firstTrigger('test-pause-all-triggers1', 'main-tests')
+        def m2 = firstTrigger('test-pause-all-triggers2', 'alt-tests')
+
+        then:
+        m1.state == 'paused'
+        store.getTriggerState(tk1) == PAUSED
+        m2.state == 'paused'
+        store.getTriggerState(tk2) == PAUSED
+        store.getPausedTriggerGroups() == ['main-tests', 'alt-tests'] as Set
+
+        when:
+        store.resumeAll()
+        m1 = firstTrigger('test-pause-all-triggers1', 'main-tests')
+        m2 = firstTrigger('test-pause-all-triggers2', 'alt-tests')
+
+        then:
+        m1.state == 'waiting'
+        store.getTriggerState(tk1) == NORMAL
+        m2.state == 'waiting'
+        store.getTriggerState(tk2) == NORMAL
+        store.getPausedTriggerGroups().isEmpty()
+    }
+
+    def 'should pause job'() {
+        given:
+        def jk = new JobKey('test-pause-job', 'tests')
+        def job = makeJob('test-pause-job')
+        def tk = new TriggerKey('test-pause-job', 'tests')
+        def tr = TriggerBuilder.newTrigger()
+                .startNow()
+                .withIdentity(tk)
+                .endAt(in2Months())
+                .forJob(job)
+                .withSchedule(CalendarIntervalScheduleBuilder.calendarIntervalSchedule()
+                .withIntervalInHours(4))
+                .build() as OperableTrigger
+
+        expect:
+        MongoHelper.getCount('jobs') == 0
+        MongoHelper.getCount('triggers') == 0
+
+        when:
+        store.storeJob(job, false)
+        store.storeTrigger(tr, false)
+        store.pauseJob(jk)
+
+        then:
+        firstTrigger('test-pause-job').state == 'paused'
+        store.getTriggerState(tk) == PAUSED
+
+        when:
+        store.resumeTrigger(tk)
+
+        then:
+        firstTrigger('test-pause-job').state == 'waiting'
+        store.getTriggerState(tk) == NORMAL
+    }
+
+    def 'should pause jobs'() {
+        given:
+        def j1 = makeJob('job-in-test-pause-jobs1', 'main-tests')
+        def tk1 = new TriggerKey('test-pause-jobs1', 'main-tests')
+        def tr1 = TriggerBuilder.newTrigger()
+                .startNow()
+                .withIdentity(tk1)
+                .endAt(in2Months())
+                .forJob(j1)
+                .withSchedule(CalendarIntervalScheduleBuilder.calendarIntervalSchedule()
+                .withIntervalInHours(4))
+                .build() as OperableTrigger
+        def j2 = makeJob('job-in-test-pause-jobs2', 'alt-tests')
+        def tk2 = new TriggerKey('test-pause-jobs2', 'alt-tests')
+        def tr2 = TriggerBuilder.newTrigger()
+                .startNow()
+                .withIdentity(tk2)
+                .endAt(in2Months())
+                .forJob(j2)
+                .withSchedule(SimpleScheduleBuilder.simpleSchedule()
+                .withRepeatCount(10)
+                .withIntervalInMilliseconds(400))
+                .build() as OperableTrigger
+
+        expect:
+        MongoHelper.getCount('jobs') == 0
+        MongoHelper.getCount('triggers') == 0
+
+        when:
+        store.storeJobAndTrigger(j1, tr1)
+        store.storeJobAndTrigger(j2, tr2)
+
+        then:
+        MongoHelper.getCount('jobs') == 2
+        MongoHelper.getCount('triggers') == 2
+        store.getNumberOfJobs() == 2
+        store.getNumberOfTriggers() == 2
+
+        when:
+        store.pauseJobs(GroupMatcher.groupStartsWith('main'))
+        def m1 = firstTrigger('test-pause-jobs1', 'main-tests')
+        def m2 = firstTrigger('test-pause-jobs2', 'alt-tests')
+
+        then:
+        m1.state == 'paused'
+        store.getTriggerState(tk1) == PAUSED
+        m2.state == 'waiting'
+        store.getTriggerState(tk2) == NORMAL
+        store.getPausedTriggerGroups().isEmpty()
+        store.getPausedJobGroups() == ['main-tests'] as Set
+
+        when:
+        store.resumeJobs(GroupMatcher.groupStartsWith('main'))
+        m1 = firstTrigger('test-pause-jobs1', 'main-tests')
+
+        then:
+        m1.state == 'waiting'
+        store.getTriggerState(tk1) == NORMAL
+        store.getPausedTriggerGroups().isEmpty()
+    }
+
+    def 'should acquire next trigger'() {
+        // Tests whether can acquire next trigger in case of trigger lock.
+        // It creates 3 triggers and tries to acquire them one-by-one, which results
+        // in locking triggers one-by-one in subsequent calls. At the end all should
+        // be locked and should not acquire more.
+        given:
+        def j1 = makeJob('job-in-test-acquire-next-trigger-job1', 'main-tests')
+        def tk1 = new TriggerKey('test-acquire-next-trigger-trigger1', 'main-tests')
+        def tr1 = TriggerBuilder.newTrigger()
+                .startAt(inSeconds(2))
+                .withIdentity(tk1)
+                .endAt(in2Months())
+                .forJob(j1)
+                .withSchedule(SimpleScheduleBuilder.simpleSchedule()
+                .withRepeatCount(2)
+                .withIntervalInSeconds(400))
+                .build() as OperableTrigger
+
+        def j2 = makeJob('job-in-test-acquire-next-trigger-job2', 'main-tests')
+        def tk2 = new TriggerKey('test-acquire-next-trigger-trigger2', 'main-tests')
+        def tr2 = TriggerBuilder.newTrigger()
+                .startAt(inSeconds(5))
+                .withIdentity(tk2)
+                .endAt(in2Months())
+                .forJob(j2)
+                .withSchedule(SimpleScheduleBuilder.simpleSchedule()
+                .withRepeatCount(2)
+                .withIntervalInSeconds(400))
+                .build() as OperableTrigger
+
+        def j3 = makeJob('job-in-test-acquire-next-trigger-job3', 'main-tests')
+        def tk3 = new TriggerKey('test-acquire-next-trigger-trigger3', 'main-tests')
+        def tr3 = TriggerBuilder.newTrigger()
+                .startAt(inSeconds(10))
+                .withIdentity(tk3)
+                .endAt(in2Months())
+                .forJob(j3)
+                .withSchedule(SimpleScheduleBuilder.simpleSchedule()
+                .withRepeatCount(2)
+                .withIntervalInSeconds(400))
+                .build() as OperableTrigger
+
+        when:
+        tr1.computeFirstFireTime(null)
+        tr2.computeFirstFireTime(null)
+        tr3.computeFirstFireTime(null)
+        and:
+        store.storeJob(j1 ,false)
+        store.storeTrigger(tr1 ,false)
+        store.storeJob(j2, false)
+        store.storeTrigger(tr2, false)
+        store.storeJob(j3 ,false)
+        store.storeTrigger(tr3 ,false)
+
+        then:
+        store.acquireNextTriggers(10, 1, 0).isEmpty()
+
+        when:
+        def ff = tr1.getNextFireTime().getTime()
+
+        then:
+        tk1 == store.acquireNextTriggers(ff + 10000, 1, 0).get(0).getKey()
+        tk2 == store.acquireNextTriggers(ff + 10000, 1, 0).get(0).getKey()
+        tk3 == store.acquireNextTriggers(ff + 10000, 1, 0).get(0).getKey()
+        store.acquireNextTriggers(ff + 10000, 1, 0).isEmpty()
+    }
+
+    def Document firstTrigger(String name) {
+        firstTrigger(name, 'tests')
+    }
+
+    def Document firstTrigger(String name, String group) {
+        MongoHelper.getFirst('triggers', [keyName: name, keyGroup: group])
+    }
+
+    def JobDetail makeJob(String name) {
+        makeJob(name, 'tests')
+    }
+
+    def boolean hasJob(jobId) {
+        MongoHelper.getFirst('jobs', [_id: jobId]) != null
+    }
+
+    def Date inSeconds(int n) {
+        now().plusSeconds(n).toDate()
+    }
+
+    def Date in2Months() {
+        now().plusMonths(2).toDate()
+    }
+
+    def JobDetail makeJob(String name, String group) {
+        JobBuilder.newJob(NoOpJob).withIdentity(name, group).build()
+    }
+
+    def makeStore() {
+        def store = new MongoDBJobStore(
+                instanceName: 'quartz_mongodb_test',
+                dbName: 'quartz_mongodb_test',
+                addresses: '127.0.0.1')
+        store.initialize(new SimpleClassLoadHelper(), null)
+        store
+    }
 }
