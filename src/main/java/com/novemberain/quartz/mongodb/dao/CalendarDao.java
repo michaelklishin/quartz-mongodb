@@ -7,6 +7,7 @@ import com.mongodb.client.model.Projections;
 import com.novemberain.quartz.mongodb.util.SerialUtils;
 import org.bson.Document;
 import org.bson.conversions.Bson;
+import org.bson.types.Binary;
 import org.quartz.Calendar;
 import org.quartz.JobPersistenceException;
 
@@ -48,14 +49,16 @@ public class CalendarDao {
         return false;
     }
 
-    public Calendar retrieveCalendar(String calName) {
+    public Calendar retrieveCalendar(String calName) throws JobPersistenceException {
         if (calName != null) {
-            // TODO
-            throw new UnsupportedOperationException();
+            Bson searchObj = Filters.eq(CALENDAR_NAME, calName);
+            Document doc = calendarCollection.find(searchObj).first();
+            Binary serializedCalendar = doc.get(CALENDAR_SERIALIZED_OBJECT, Binary.class);
+            return SerialUtils.deserialize(serializedCalendar, Calendar.class);
         }
         return null;
     }
-
+    
     public void store(String name, Calendar calendar) throws JobPersistenceException {
         Document doc = new Document(CALENDAR_NAME, name)
                 .append(CALENDAR_SERIALIZED_OBJECT, SerialUtils.serialize(calendar));
