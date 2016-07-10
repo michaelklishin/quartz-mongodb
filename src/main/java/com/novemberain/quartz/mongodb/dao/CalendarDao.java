@@ -13,8 +13,8 @@ import org.quartz.JobPersistenceException;
 
 public class CalendarDao {
 
-    private static final String CALENDAR_NAME = "name";
-    private static final String CALENDAR_SERIALIZED_OBJECT = "serializedObject";
+    static final String CALENDAR_NAME = "name";
+    static final String CALENDAR_SERIALIZED_OBJECT = "serializedObject";
 
     private final MongoCollection<Document> calendarCollection;
 
@@ -53,8 +53,10 @@ public class CalendarDao {
         if (calName != null) {
             Bson searchObj = Filters.eq(CALENDAR_NAME, calName);
             Document doc = calendarCollection.find(searchObj).first();
-            Binary serializedCalendar = doc.get(CALENDAR_SERIALIZED_OBJECT, Binary.class);
-            return SerialUtils.deserialize(serializedCalendar, Calendar.class);
+            if (doc != null) {
+                Binary serializedCalendar = doc.get(CALENDAR_SERIALIZED_OBJECT, Binary.class);
+                return SerialUtils.deserialize(serializedCalendar, Calendar.class);
+            }
         }
         return null;
     }

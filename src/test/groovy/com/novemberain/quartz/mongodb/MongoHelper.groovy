@@ -79,6 +79,13 @@ class MongoHelper {
     }
 
     /**
+     * Return calendars collection as MongoCollection.
+     */
+    static def getCalendarsColl() {
+        collections['calendars']
+    }
+
+    /**
      * Return locks collection as MongoCollection.
      */
     static def getLocksColl() {
