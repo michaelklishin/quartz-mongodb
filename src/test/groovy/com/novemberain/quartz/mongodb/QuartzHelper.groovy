@@ -1,5 +1,6 @@
 package com.novemberain.quartz.mongodb
 
+import org.joda.time.DateTime
 import org.quartz.Scheduler
 import org.quartz.SchedulerException
 import org.quartz.impl.StdSchedulerFactory
@@ -82,5 +83,13 @@ class QuartzHelper {
                 e.printStackTrace()
             }
         }
+    }
+
+    static def Date inSeconds(int n) {
+        DateTime.now().plusSeconds(n).toDate()
+    }
+
+    static def Date in2Months() {
+        DateTime.now().plusMonths(2).toDate()
     }
 }

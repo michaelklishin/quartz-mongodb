@@ -20,7 +20,8 @@ import org.quartz.spi.OperableTrigger
 import spock.lang.Specification
 import spock.lang.Subject
 
-import static org.joda.time.DateTime.now
+import static com.novemberain.quartz.mongodb.QuartzHelper.in2Months
+import static com.novemberain.quartz.mongodb.QuartzHelper.inSeconds
 import static org.quartz.DateBuilder.IntervalUnit.*
 import static org.quartz.Trigger.TriggerState.*
 import static org.quartz.Trigger.TriggerState.PAUSED
@@ -603,13 +604,6 @@ class MongoDBJobStoreTest extends Specification {
         MongoHelper.getFirst('jobs', [_id: jobId]) != null
     }
 
-    def Date inSeconds(int n) {
-        now().plusSeconds(n).toDate()
-    }
-
-    def Date in2Months() {
-        now().plusMonths(2).toDate()
-    }
 
     def JobDetail makeJob(String name, String group) {
         JobBuilder.newJob(NoOpJob).withIdentity(name, group).build()
