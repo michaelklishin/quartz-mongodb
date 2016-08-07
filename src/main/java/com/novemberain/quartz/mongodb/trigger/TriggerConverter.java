@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.Map;
 
 import static com.novemberain.quartz.mongodb.util.Keys.KEY_GROUP;
 import static com.novemberain.quartz.mongodb.util.Keys.KEY_NAME;
@@ -149,7 +150,8 @@ public class TriggerConverter {
 
         if (jobDataString != null) {
             try {
-                SerialUtils.deserialize(trigger.getJobDataMap(), jobDataString);
+                Map<String, ?> tmap = SerialUtils.deserialize(trigger.getJobDataMap(), jobDataString);
+                trigger.getJobDataMap().putAll(tmap);
             } catch (IOException e) {
                 throw new JobPersistenceException("Could not deserialize job data for trigger "
                         + triggerDoc.get(TRIGGER_CLASS));
