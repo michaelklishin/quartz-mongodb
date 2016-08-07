@@ -1,5 +1,6 @@
 package it
 
+import com.novemberain.quartz.mongodb.MongoHelper
 import com.novemberain.quartz.mongodb.QuartzHelper
 import org.quartz.CalendarIntervalScheduleBuilder
 import org.quartz.Job
@@ -39,6 +40,10 @@ class QuartzWithMongoDbStoreTest extends Specification {
 
     def cleanupSpec() {
         scheduler.shutdown()
+    }
+
+    def setup() {
+        MongoHelper.purgeCollections()
     }
 
     def 'scheduler should be started'() {
@@ -222,15 +227,15 @@ class QuartzWithMongoDbStoreTest extends Specification {
 
     def 'test job pausing resuming and unscheduling'() {
         given:
-        def jk = new JobKey(JobE.name, 'tests.jobs.unscheduling')
-        def tk = new TriggerKey('clojurewerkz.quartzite.test.execution.trigger5', 'tests.jobs.unscheduling')
+        def jk = new JobKey(JobE.name, 'jobs.unscheduling')
+        def tk = new TriggerKey('test.execution.trigger5', 'triggers.unscheduling')
         def job = JobBuilder.newJob(JobE)
                 .withIdentity(jk)
                 .usingJobData('jobKey', 2)
                 .build()
         def trigger = TriggerBuilder.newTrigger()
                 .startNow()
-                .withIdentity('clojurewerkz.quartzite.test.execution.trigger5', 'tests')
+                .withIdentity(tk)
                 .withSchedule(SimpleScheduleBuilder.simpleSchedule()
                 .withRepeatCount(10)
                 .withIntervalInSeconds(1))
@@ -240,12 +245,12 @@ class QuartzWithMongoDbStoreTest extends Specification {
         scheduler.scheduleJob(job, trigger)
         scheduler.pauseJob(jk)
         scheduler.resumeJob(jk)
-        scheduler.pauseJobs(groupEquals('tests.jobs.unscheduling'))
-        scheduler.resumeJobs(groupEquals('tests.jobs.unscheduling'))
+        scheduler.pauseJobs(groupEquals('jobs.unscheduling'))
+        scheduler.resumeJobs(groupEquals('jobs.unscheduling'))
         scheduler.pauseTrigger(tk)
         scheduler.resumeTrigger(tk)
-        scheduler.pauseTriggers(groupEquals('tests.triggers.unscheduling'))
-        scheduler.resumeTriggers(groupEquals('tests.triggers.unscheduling'))
+        scheduler.pauseTriggers(groupEquals('triggers.unscheduling'))
+        scheduler.resumeTriggers(groupEquals('triggers.unscheduling'))
         scheduler.pauseAll()
         scheduler.resumeAll()
         scheduler.unscheduleJob(tk)

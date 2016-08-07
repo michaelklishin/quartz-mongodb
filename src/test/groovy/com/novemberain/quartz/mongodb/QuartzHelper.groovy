@@ -54,11 +54,7 @@ class QuartzHelper {
      * Create and start the default scheduler.
      */
     static def Scheduler startDefaultScheduler() {
-        def scheduler = StdSchedulerFactory.getDefaultScheduler()
-        if (!scheduler.isStarted()) {
-            scheduler.start()
-        }
-        scheduler
+        createScheduler(createProps())
     }
 
     static def createClusteredScheduler(String instanceName) {
