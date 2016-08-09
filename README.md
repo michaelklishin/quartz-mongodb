@@ -32,7 +32,7 @@ repositories {
 
 With Leiningen:
 
-    [com.novemberain/quartz-mongodb "2.0.0-rc1"]
+    [com.novemberain/quartz-mongodb "2.0.0-rc2"]
 
 
 With Maven:
@@ -40,7 +40,7 @@ With Maven:
     <dependency>
       <groupId>com.novemberain</groupId>
       <artifactId>quartz-mongodb</artifactId>
-      <version>2.0.0-rc1</version>
+      <version>2.0.0-rc2</version>
     </dependency>
 
 
