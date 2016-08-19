@@ -73,6 +73,14 @@ to Clojure code, use:
 
 (this assumes Clojure jar is on classpath).
 
+### Job Data storage
+By default you are allowed to pass any `java.io.Serializable` objects inside `JobDataMap`.
+It will be serialized and stored as a `base64` string.
+
+If your `JobDataMap` only contains simple types, it may be stored directly inside MongoDB to save some performance.
+
+    org.quartz.jobStore.jobDataAsBase64=false
+
 ## Clustering
 
 To enable clustering set the following property:

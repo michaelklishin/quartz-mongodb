@@ -1,5 +1,6 @@
 package com.novemberain.quartz.mongodb.trigger
 
+import com.novemberain.quartz.mongodb.JobDataConverter
 import com.novemberain.quartz.mongodb.dao.JobDao
 import com.novemberain.quartz.mongodb.util.Keys
 import org.bson.Document
@@ -15,7 +16,7 @@ class TriggerConverterTest extends Specification {
     def jobDao = Mock(JobDao)
 
     @Subject
-    def converter = new TriggerConverter(jobDao)
+    def converter = new TriggerConverter(jobDao, new JobDataConverter(true))
 
     def 'should return null when job of trigger is gone'() {
         given:

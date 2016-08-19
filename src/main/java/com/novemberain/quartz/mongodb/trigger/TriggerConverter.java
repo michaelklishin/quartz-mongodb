@@ -1,8 +1,8 @@
 package com.novemberain.quartz.mongodb.trigger;
 
 import com.novemberain.quartz.mongodb.Constants;
+import com.novemberain.quartz.mongodb.JobDataConverter;
 import com.novemberain.quartz.mongodb.dao.JobDao;
-import com.novemberain.quartz.mongodb.util.*;
 import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.quartz.Job;
@@ -12,9 +12,6 @@ import org.quartz.TriggerKey;
 import org.quartz.spi.OperableTrigger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.util.Map;
 
 import static com.novemberain.quartz.mongodb.util.Keys.KEY_GROUP;
 import static com.novemberain.quartz.mongodb.util.Keys.KEY_NAME;
@@ -35,23 +32,22 @@ public class TriggerConverter {
     private static final Logger log = LoggerFactory.getLogger(TriggerConverter.class);
 
     private JobDao jobDao;
+    private final JobDataConverter jobDataConverter;
 
-    public TriggerConverter(JobDao jobDao) {
+    public TriggerConverter(JobDao jobDao, JobDataConverter jobDataConverter) {
         this.jobDao = jobDao;
+        this.jobDataConverter = jobDataConverter;
     }
 
+    /**
+     * Converts trigger into document.
+     * Depending on the config, job data map can be stored
+     * as a {@code base64} encoded (default) or plain object.
+     */
     public Document toDocument(OperableTrigger newTrigger, ObjectId jobId)
             throws JobPersistenceException {
         Document trigger = convertToBson(newTrigger, jobId);
-        if (newTrigger.getJobDataMap().size() > 0) {
-            try {
-                String jobDataString = SerialUtils.serialize(newTrigger.getJobDataMap());
-                trigger.put(Constants.JOB_DATA, jobDataString);
-            } catch (IOException ioe) {
-                throw new JobPersistenceException("Could not serialise job data map on the trigger for "
-                        + newTrigger.getKey(), ioe);
-            }
-        }
+        jobDataConverter.toDocument(newTrigger.getJobDataMap(), trigger);
 
         TriggerPropertiesConverter tpd = TriggerPropertiesConverter.getConverterFor(newTrigger);
         trigger = tpd.injectExtraPropertiesForInsert(newTrigger, trigger);
@@ -61,10 +57,11 @@ public class TriggerConverter {
     /**
      * Restore trigger from Mongo Document.
      *
-     * @param triggerKey
-     * @param triggerDoc
+     * @param triggerKey {@link TriggerKey} instance.
+     * @param triggerDoc mongo {@link Document} to read from.
      * @return trigger from Document or null when trigger has no associated job
-     * @throws JobPersistenceException
+     * @throws JobPersistenceException if could not construct trigger instance
+     * or could not deserialize job data map.
      */
     public OperableTrigger toTrigger(TriggerKey triggerKey, Document triggerDoc)
             throws JobPersistenceException {
@@ -74,7 +71,7 @@ public class TriggerConverter {
 
         loadCommonProperties(triggerKey, triggerDoc, trigger);
 
-        loadJobData(triggerDoc, trigger);
+        jobDataConverter.toJobData(triggerDoc, trigger.getJobDataMap());
 
         loadStartAndEndTimes(triggerDoc, trigger);
 
@@ -142,21 +139,6 @@ public class TriggerConverter {
         trigger.setNextFireTime(triggerDoc.getDate(Constants.TRIGGER_NEXT_FIRE_TIME));
         trigger.setPreviousFireTime(triggerDoc.getDate(TRIGGER_PREVIOUS_FIRE_TIME));
         trigger.setPriority(triggerDoc.getInteger(TRIGGER_PRIORITY));
-    }
-
-    private void loadJobData(Document triggerDoc, OperableTrigger trigger)
-            throws JobPersistenceException {
-        String jobDataString = triggerDoc.getString(Constants.JOB_DATA);
-
-        if (jobDataString != null) {
-            try {
-                Map<String, ?> tmap = SerialUtils.deserialize(trigger.getJobDataMap(), jobDataString);
-                trigger.getJobDataMap().putAll(tmap);
-            } catch (IOException e) {
-                throw new JobPersistenceException("Could not deserialize job data for trigger "
-                        + triggerDoc.get(TRIGGER_CLASS));
-            }
-        }
     }
 
     private void loadStartAndEndTimes(Document triggerDoc, OperableTrigger trigger) {

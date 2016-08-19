@@ -42,6 +42,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     long jobTimeoutMillis = 10 * 60 * 1000L;
     private boolean clustered = false;
     long clusterCheckinIntervalMillis = 7500;
+    boolean jobDataAsBase64 = true;
 
     // Options for the Mongo client.
     Boolean mongoOptionSocketKeepAlive;
@@ -144,6 +145,33 @@ public class MongoDBJobStore implements JobStore, Constants {
      */
     public void setClusterCheckinInterval(long clusterCheckinInterval) {
         this.clusterCheckinIntervalMillis = clusterCheckinInterval;
+    }
+
+    public boolean isJobDataAsBase64() {
+
+        return jobDataAsBase64;
+    }
+
+    /**
+     * Configures the way job data is stored. {@link JobDetail}'s
+     * or {@link Trigger}'s {@link JobDataMap} can be represented
+     * as a {@code Map<String,Object>}.
+     * <ul>
+     * <li><b>{@code true}</b> (default) - Serialize map with
+     * {@link java.io.ObjectOutputStream ObjectOutputStream}
+     * and store as {@code base64} encoded string in field
+     * '{@value Constants#JOB_DATA}'. Map may contain any
+     * {@link java.io.Serializable Serializable} object
+     * internally, but will have some performance impact.</li>
+     * <li><b>{@code false}</b> - Store map directly in
+     * '{@value Constants#JOB_DATA_PLAIN}' field. Use this
+     * option is you only store simple types in job data
+     * map for better performance.</li>
+     * </ul>
+     */
+    public void setJobDataAsBase64(boolean jobDataAsBase64) {
+
+        this.jobDataAsBase64 = jobDataAsBase64;
     }
 
     /**
