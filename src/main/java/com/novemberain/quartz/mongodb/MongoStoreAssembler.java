@@ -48,9 +48,11 @@ public class MongoStoreAssembler {
 
         db = mongoConnector.selectDatabase(jobStore.dbName);
 
-        jobDao = createJobDao(jobStore, loadHelper);
+        JobDataConverter jobDataConverter = new JobDataConverter(jobStore.isJobDataAsBase64());
 
-        triggerConverter = new TriggerConverter(jobDao);
+        jobDao = createJobDao(jobStore, loadHelper, jobDataConverter);
+
+        triggerConverter = new TriggerConverter(jobDao, jobDataConverter);
 
         triggerDao = createTriggerDao(jobStore);
         calendarDao = createCalendarDao(jobStore);
@@ -90,8 +92,8 @@ public class MongoStoreAssembler {
         return new CalendarDao(getCollection(jobStore, "calendars"));
     }
 
-    private JobDao createJobDao(MongoDBJobStore jobStore, ClassLoadHelper loadHelper) {
-        JobConverter jobConverter = new JobConverter(jobStore.getClassLoaderHelper(loadHelper));
+    private JobDao createJobDao(MongoDBJobStore jobStore, ClassLoadHelper loadHelper, JobDataConverter jobDataConverter) {
+        JobConverter jobConverter = new JobConverter(jobStore.getClassLoaderHelper(loadHelper), jobDataConverter);
         return new JobDao(getCollection(jobStore, "jobs"), queryHelper, jobConverter);
     }
 

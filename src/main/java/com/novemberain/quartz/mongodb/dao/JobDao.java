@@ -6,7 +6,6 @@ import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.result.DeleteResult;
 import com.novemberain.quartz.mongodb.JobConverter;
-import com.novemberain.quartz.mongodb.cluster.TriggerRecoverer;
 import com.novemberain.quartz.mongodb.util.GroupHelper;
 import com.novemberain.quartz.mongodb.util.Keys;
 import com.novemberain.quartz.mongodb.util.QueryHelper;
@@ -16,7 +15,6 @@ import org.bson.types.ObjectId;
 import org.quartz.JobDetail;
 import org.quartz.JobKey;
 import org.quartz.JobPersistenceException;
-import org.quartz.ObjectAlreadyExistsException;
 import org.quartz.impl.matchers.GroupMatcher;
 
 import java.util.*;
@@ -115,7 +113,7 @@ public class JobDao {
         return jobConverter.toJobDetail(doc);
     }
 
-    public ObjectId storeJobInMongo(JobDetail newJob, boolean replaceExisting) throws ObjectAlreadyExistsException {
+    public ObjectId storeJobInMongo(JobDetail newJob, boolean replaceExisting) throws JobPersistenceException {
         JobKey key = newJob.getKey();
 
         Bson keyDbo = toFilter(key);

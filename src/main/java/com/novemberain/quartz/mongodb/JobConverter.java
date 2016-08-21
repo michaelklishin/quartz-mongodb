@@ -1,11 +1,8 @@
 package com.novemberain.quartz.mongodb;
 
-import com.novemberain.quartz.mongodb.util.SerialUtils;
 import org.bson.Document;
 import org.quartz.*;
 import org.quartz.spi.ClassLoadHelper;
-
-import java.io.IOException;
 
 import static com.novemberain.quartz.mongodb.util.Keys.KEY_GROUP;
 import static com.novemberain.quartz.mongodb.util.Keys.KEY_NAME;
@@ -18,12 +15,19 @@ public class JobConverter {
     public static final String JOB_REQUESTS_RECOVERY = "requestsRecovery";
 
     private ClassLoadHelper loadHelper;
+    private final JobDataConverter jobDataConverter;
 
-    public JobConverter(ClassLoadHelper loadHelper) {
+    public JobConverter(ClassLoadHelper loadHelper, JobDataConverter jobDataConverter) {
         this.loadHelper = loadHelper;
+        this.jobDataConverter = jobDataConverter;
     }
 
-    public Document toDocument(JobDetail newJob, JobKey key) {
+    /**
+     * Converts job detail into document.
+     * Depending on the config, job data map can be stored
+     * as a {@code base64} encoded (default) or plain object.
+     */
+    public Document toDocument(JobDetail newJob, JobKey key) throws JobPersistenceException {
         Document job = new Document();
         job.put(KEY_NAME, key.getName());
         job.put(KEY_GROUP, key.getGroup());
@@ -31,10 +35,13 @@ public class JobConverter {
         job.put(JOB_CLASS, newJob.getJobClass().getName());
         job.put(JOB_DURABILITY, newJob.isDurable());
         job.put(JOB_REQUESTS_RECOVERY, newJob.requestsRecovery());
-        job.putAll(newJob.getJobDataMap());
+        jobDataConverter.toDocument(newJob.getJobDataMap(), job);
         return job;
     }
 
+    /**
+     * Converts from document to job detail.
+     */
     public JobDetail toJobDetail(Document doc) throws JobPersistenceException {
         try {
             // Make it possible for subclasses to use custom class loaders.
@@ -52,18 +59,21 @@ public class JobConverter {
             return builder.usingJobData(jobData).build();
         } catch (ClassNotFoundException e) {
             throw new JobPersistenceException("Could not load job class " + doc.get(JOB_CLASS), e);
-        } catch (IOException e) {
-            throw new JobPersistenceException("Could not load job class " + doc.get(JOB_CLASS), e);
         }
     }
 
-    private JobDataMap createJobDataMap(Document doc) throws IOException {
+    /**
+     * Converts document into job data map.
+     * Will first try {@link JobDataConverter} to deserialize
+     * from '{@value Constants#JOB_DATA}' ({@code base64})
+     * or '{@value Constants#JOB_DATA_PLAIN}' fields.
+     * If didn't succeed, will try to build job data
+     * from root fields (legacy, subject to remove).
+     */
+    private JobDataMap createJobDataMap(Document doc) throws JobPersistenceException {
         JobDataMap jobData = new JobDataMap();
 
-        String jobDataString = doc.getString(Constants.JOB_DATA);
-        if (jobDataString != null) {
-            jobData.putAll(SerialUtils.deserialize(jobData, jobDataString));
-        } else {
+        if (!jobDataConverter.toJobData(doc, jobData)) {
             for (String key : doc.keySet()) {
                 if (!key.equals(KEY_NAME)
                         && !key.equals(KEY_GROUP)

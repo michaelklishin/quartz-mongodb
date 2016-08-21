@@ -3,6 +3,7 @@ package com.novemberain.quartz.mongodb;
 public interface Constants {
 
   String JOB_DATA = "jobData";
+  String JOB_DATA_PLAIN = "jobDataPlain";
   String TRIGGER_NEXT_FIRE_TIME = "nextFireTime";
   String TRIGGER_JOB_ID = "jobId";
   String TRIGGER_STATE = "state";
