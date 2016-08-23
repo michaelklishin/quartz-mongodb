@@ -190,7 +190,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     }
 
     @Override
-    public void storeJobsAndTriggers(Map<JobDetail, List<Trigger>> triggersAndJobs, boolean replace)
+    public void storeJobsAndTriggers(Map<JobDetail, Set<? extends Trigger>> triggersAndJobs, boolean replace)
             throws JobPersistenceException {
         throw new UnsupportedOperationException();
     }
@@ -393,7 +393,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     }
 
     @Override
-    public void releaseAcquiredTrigger(OperableTrigger trigger) throws JobPersistenceException {
+    public void releaseAcquiredTrigger(OperableTrigger trigger) {
         assembler.lockManager.unlockAcquiredTrigger(trigger);
     }
 
@@ -405,8 +405,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     @Override
     public void triggeredJobComplete(OperableTrigger trigger, JobDetail job,
-                                     CompletedExecutionInstruction triggerInstCode)
-            throws JobPersistenceException {
+                              CompletedExecutionInstruction triggerInstCode) {
         assembler.jobCompleteHandler.jobComplete(trigger, job, triggerInstCode);
     }
 
