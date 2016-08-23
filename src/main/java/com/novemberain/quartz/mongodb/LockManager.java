@@ -5,7 +5,6 @@ import com.novemberain.quartz.mongodb.dao.LocksDao;
 import com.novemberain.quartz.mongodb.util.ExpiryCalculator;
 import org.bson.Document;
 import org.quartz.JobDetail;
-import org.quartz.JobPersistenceException;
 import org.quartz.TriggerKey;
 import org.quartz.spi.OperableTrigger;
 import org.slf4j.Logger;
@@ -34,12 +33,8 @@ public class LockManager {
         }
     }
 
-    public void unlockAcquiredTrigger(OperableTrigger trigger) throws JobPersistenceException {
-        try {
-            locksDao.unlockTrigger(trigger);
-        } catch (Exception e) {
-            throw new JobPersistenceException(e.getLocalizedMessage(), e);
-        }
+    public void unlockAcquiredTrigger(OperableTrigger trigger) {
+        locksDao.unlockTrigger(trigger);
     }
 
     /**

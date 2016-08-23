@@ -6,15 +6,17 @@ import org.bson.Document
 import org.quartz.CalendarIntervalScheduleBuilder
 import org.quartz.CronScheduleBuilder
 import org.quartz.DailyTimeIntervalScheduleBuilder
+import org.quartz.Job
 import org.quartz.JobBuilder
 import org.quartz.JobDetail
+import org.quartz.JobExecutionContext
+import org.quartz.JobExecutionException
 import org.quartz.JobKey
 import org.quartz.SimpleScheduleBuilder
 import org.quartz.TimeOfDay
 import org.quartz.TriggerBuilder
 import org.quartz.TriggerKey
 import org.quartz.impl.matchers.GroupMatcher
-import org.quartz.jobs.NoOpJob
 import org.quartz.simpl.SimpleClassLoadHelper
 import org.quartz.spi.OperableTrigger
 import spock.lang.Specification
@@ -616,5 +618,12 @@ class MongoDBJobStoreTest extends Specification {
                 addresses: '127.0.0.1')
         store.initialize(new SimpleClassLoadHelper(), null)
         store
+    }
+
+    class NoOpJob implements Job {
+
+        @Override
+        void execute(final JobExecutionContext context) throws JobExecutionException {
+        }
     }
 }

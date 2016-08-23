@@ -32,14 +32,17 @@ public class JobCompleteHandler {
     }
 
     public void jobComplete(OperableTrigger trigger, JobDetail job,
-                            CompletedExecutionInstruction executionInstruction)
-            throws JobPersistenceException {
+                            CompletedExecutionInstruction executionInstruction) {
         log.debug("Trigger completed {}", trigger.getKey());
 
         if (job.isPersistJobDataAfterExecution()) {
             if (job.getJobDataMap().isDirty()) {
                 log.debug("Job data map dirty, will store {}", job.getKey());
-                jobDao.storeJobInMongo(job, true);
+                try {
+                    jobDao.storeJobInMongo(job, true);
+                } catch (JobPersistenceException e) {
+                    throw new RuntimeException(e);
+                }
             }
         }
 
@@ -47,7 +50,11 @@ public class JobCompleteHandler {
             locksDao.unlockJob(job);
         }
 
-        process(trigger, executionInstruction);
+        try {
+            process(trigger, executionInstruction);
+        } catch (JobPersistenceException e) {
+            throw new RuntimeException(e);
+        }
 
         locksDao.unlockTrigger(trigger);
     }
