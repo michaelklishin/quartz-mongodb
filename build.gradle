@@ -1,6 +1,13 @@
 buildscript {
     repositories {
         mavenCentral()
+        maven {
+            url 'http://maven.tmatesoft.com/content/repositories/releases/'
+        }
+    }
+
+    dependencies {
+        classpath('au.com.ish.gradle:release:2.2.2')
     }
 }
 
@@ -10,7 +17,7 @@ apply plugin: 'idea'
 
 jar {
     baseName = 'quartz-mongodb'
-    version =  '2.0.0-rc2-SNAPSHOT'
+    version =  '2.0.0-rc3-SNAPSHOT'
 }
 
 repositories {
@@ -50,4 +57,13 @@ dependencies {
 
 task wrapper(type: Wrapper) {
     gradleVersion = '2.13'
+}
+
+apply plugin: 'release'
+
+release {
+  failOnSnapshotDependencies = true
+  allowLocalModifications = false
+  releaseDryRun = false
+  scm = 'git'
 }
