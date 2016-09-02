@@ -60,3 +60,9 @@ task wrapper(type: Wrapper) {
 }
 
 apply plugin: 'net.researchgate.release'
+
+release {
+    git {
+        pushToRemote = 'origin'
+    }
+}
