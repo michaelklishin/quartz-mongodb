@@ -62,6 +62,7 @@ task wrapper(type: Wrapper) {
 apply plugin: 'net.researchgate.release'
 
 release {
+    failOnUpdateNeeded = true
     scmAdapters = [net.researchgate.release.GitAdapter]
     git {
         pushToRemote = 'origin'
