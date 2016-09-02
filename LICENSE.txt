@@ -1,5 +1,5 @@
 Copyright 2011 MuleSoft, Inc.
-Copyright 2012 Michael S. Klishin.
+Copyright 2012-2016 Michael S. Klishin.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
