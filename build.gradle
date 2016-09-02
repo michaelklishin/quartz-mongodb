@@ -2,12 +2,12 @@ buildscript {
     repositories {
         mavenCentral()
         maven {
-            url 'http://maven.tmatesoft.com/content/repositories/releases/'
+            url 'https://plugins.gradle.org/m2/'
         }
     }
 
     dependencies {
-        classpath('au.com.ish.gradle:release:2.2.2')
+        classpath 'net.researchgate:gradle-release:2.4.0'
     }
 }
 
@@ -59,11 +59,4 @@ task wrapper(type: Wrapper) {
     gradleVersion = '2.13'
 }
 
-apply plugin: 'release'
-
-release {
-  failOnSnapshotDependencies = true
-  allowLocalModifications = false
-  releaseDryRun = false
-  scm = 'git'
-}
+apply plugin: 'net.researchgate.release'
