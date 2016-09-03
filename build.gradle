@@ -1,23 +1,30 @@
 buildscript {
     repositories {
         mavenCentral()
-        maven {
-            url 'https://plugins.gradle.org/m2/'
-        }
-    }
-
-    dependencies {
-        classpath 'net.researchgate:gradle-release:2.4.0'
+        jcenter()
     }
 }
 
-apply plugin: 'java'
+plugins {
+    id 'net.researchgate.release' version '2.4.0'
+    id "com.jfrog.bintray" version "1.7"
+}
+
+allprojects {
+	repositories {
+		jcenter()
+	}
+	apply plugin: 'maven'
+	apply plugin: 'maven-publish'
+	apply plugin: 'java'
+}
+
 apply plugin: 'groovy'
 apply plugin: 'idea'
 
 jar {
     baseName = 'quartz-mongodb'
-    version =  '2.0.0-rc3-SNAPSHOT'
+    version =  '2.0.0-rc4-SNAPSHOT'
 }
 
 repositories {
@@ -59,11 +66,41 @@ task wrapper(type: Wrapper) {
     gradleVersion = '2.13'
 }
 
-apply plugin: 'net.researchgate.release'
 
 release {
     scmAdapters = [net.researchgate.release.GitAdapter]
     git {
         pushToRemote = 'origin'
+    }
+}
+
+publishing {
+    publications {
+        QuartzMongoDB(MavenPublication) {
+            from components.java
+            groupId 'com.novemberain'
+            artifactId(jar.baseName)
+            version(version)
+        }
+    }
+}
+
+bintray {
+    user = System.getenv("BINTRAY_USERNAME")
+    key  = System.getenv("BINTRAY_API_KEY")
+    publications = ['QuartzMongoDB']
+    pkg {
+        repo = 'maven'
+        name = 'quartz-mongodb'
+        labels = ['quartz', 'mongodb']
+        userOrg = 'michaelklishin'
+        licenses = ['Apache-2.0']
+        vcsUrl = 'https://github.com/michaelklishin/quartz-mongodb.git'
+
+        version {
+            name = version
+			      desc = 'MongoDB-backed job store for the Quartz scheduler'
+			      vcsTag = version
+        }
     }
 }
