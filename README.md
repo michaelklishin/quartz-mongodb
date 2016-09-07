@@ -4,17 +4,18 @@ This is a MongoDB-backed job store for the [Quartz scheduler](http://quartz-sche
 
 ## Maven Artifacts
 
-Artifacts are released to [clojars.org](http://clojars.org).
-[![Clojars Project](http://clojars.org/com.novemberain/quartz-mongodb/latest-version.svg)](http://clojars.org/com.novemberain/quartz-mongodb)
+Artifacts are released to [Bintray](https://bintray.com/michaelklishin/maven/).
 
 If you are using Maven, add the following repository
 definition to your `pom.xml`:
 
 ``` xml
-<repository>
-  <id>clojars.org</id>
-  <url>http://clojars.org/repo</url>
-</repository>
+<repositories>
+    <repository>
+        <id>michaelklishin</id>
+        <url>https://dl.bintray.com/michaelklishin/maven/</url>
+    </repository>
+</repositories>
 ```
 
 If you are using Gradle, add the following to your `build.gradle`:
@@ -22,7 +23,7 @@ If you are using Gradle, add the following to your `build.gradle`:
 ``` groovy
 repositories {
     maven {
-        url "http://clojars.org/repo"
+        url "https://dl.bintray.com/michaelklishin/maven/"
     }
 }
 ```
@@ -30,23 +31,19 @@ repositories {
 
 ### The Most Recent Release
 
-With Leiningen:
-
-    [com.novemberain/quartz-mongodb "2.0.0-rc2"]
-
-
-With Maven:
-
-    <dependency>
-      <groupId>com.novemberain</groupId>
-      <artifactId>quartz-mongodb</artifactId>
-      <version>2.0.0-rc2</version>
-    </dependency>
-
+``` xml
+<dependency>
+    <groupId>com.novemberain</groupId>
+    <artifactId>quartz-mongodb</artifactId>
+    <version>2.0.0-rc3</version>
+</dependency>
+```
 
 With Gradle:
 
-    compile "com.novemberain:quartz-mongodb:2.0.0-rc1"
+``` groovy
+compile "com.novemberain:quartz-mongodb:2.0.0-rc3"
+```
 
 
 ## Usage
