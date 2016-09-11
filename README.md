@@ -31,6 +31,8 @@ repositories {
 
 ### The Most Recent Release
 
+With Maven:
+
 ``` xml
 <dependency>
     <groupId>com.novemberain</groupId>
