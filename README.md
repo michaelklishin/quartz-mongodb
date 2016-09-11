@@ -31,18 +31,20 @@ repositories {
 
 ### The Most Recent Release
 
+With Maven:
+
 ``` xml
 <dependency>
     <groupId>com.novemberain</groupId>
     <artifactId>quartz-mongodb</artifactId>
-    <version>2.0.0-rc3</version>
+    <version>2.0.0</version>
 </dependency>
 ```
 
 With Gradle:
 
 ``` groovy
-compile "com.novemberain:quartz-mongodb:2.0.0-rc3"
+compile "com.novemberain:quartz-mongodb:2.0.0"
 ```
 
 
