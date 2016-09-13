@@ -104,7 +104,7 @@ tasks.withType(Test){
         journalingEnabled true
         port 12345
         logging 'console'
-        version '2.6.6'
+        mongoVersion '2.6.6'
     }
 }
 
