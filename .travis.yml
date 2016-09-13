@@ -1,10 +1,10 @@
 language: java
-install: gradle assemble
+install: ./gradlew assemble
 
 before_script:
   - sudo hostname localhost
 
-script: gradle check
+script: ./gradlew check
 
 notifications:
   recipients:
@@ -14,3 +14,7 @@ jdk:
   - openjdk7
   - oraclejdk7
   - oraclejdk8
+
+cache:
+  directories:
+  - $HOME/.gradle
