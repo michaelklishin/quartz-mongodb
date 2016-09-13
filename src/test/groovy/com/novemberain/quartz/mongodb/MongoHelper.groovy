@@ -2,6 +2,7 @@ package com.novemberain.quartz.mongodb
 
 import com.mongodb.MongoClient
 import com.mongodb.MongoClientOptions
+import com.mongodb.ServerAddress;
 import com.mongodb.WriteConcern
 import com.mongodb.client.MongoCollection
 import com.mongodb.client.MongoDatabase
@@ -11,7 +12,7 @@ class MongoHelper {
 
     static testDatabaseName = 'quartz_mongodb_test'
 
-    static MongoClient client = new MongoClient('localhost',
+    static MongoClient client = new MongoClient(new ServerAddress('localhost', 12345),
             MongoClientOptions.builder()
                     .writeConcern(WriteConcern.JOURNALED)
                     .build())

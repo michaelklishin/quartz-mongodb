@@ -8,6 +8,7 @@ buildscript {
 plugins {
     id 'net.researchgate.release' version '2.4.0'
     id "com.jfrog.bintray" version "1.7"
+    id "com.sourcemuse.mongo" version "0.13.0"
 }
 
 allprojects {
@@ -21,6 +22,7 @@ allprojects {
 
 apply plugin: 'groovy'
 apply plugin: 'idea'
+apply plugin: 'mongo'
 
 jar {
     baseName = 'quartz-mongodb'
@@ -93,6 +95,16 @@ publishing {
             artifactId(jar.baseName)
             version(version)
         }
+    }
+}
+
+tasks.withType(Test){
+    runWithMongoDb = true
+    mongo {
+        journalingEnabled true
+        port 12345
+        logging 'console'
+        version '2.6.6'
     }
 }
 

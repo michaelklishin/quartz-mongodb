@@ -15,7 +15,7 @@ class QuartzHelper {
         props.setProperty("org.quartz.jobStore.class",
                 "com.novemberain.quartz.mongodb.DynamicMongoDBJobStore")
         props.setProperty("org.quartz.jobStore.mongoUri",
-                "mongodb://localhost:27017")
+                "mongodb://localhost:12345")
         //;; Often check for triggers to speed up collisions:
         props.setProperty("org.quartz.scheduler.idleWaitTime", "1000")
         props.setProperty("org.quartz.jobStore.dbName", "quartz_mongodb_test")
