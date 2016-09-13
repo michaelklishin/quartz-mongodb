@@ -350,4 +350,24 @@ class QuartzWithMongoDbStoreTest extends Specification {
         }
         scheduler.scheduleJob(job, trigger) != null
     }
+
+    def 'schedule via scheduleJobs method'(){
+        given:
+        def jobKey = new JobKey('foo', 'bar')
+        def job = JobBuilder.newJob(JobH).withIdentity(jobKey).build()
+        def trigger = TriggerBuilder.newTrigger().build()
+        def jobsAndTriggers = [:]
+        jobsAndTriggers.put(job, [ trigger ] as Set)
+        when:
+        scheduler.scheduleJobs(jobsAndTriggers, false)
+        then:
+        scheduler.getJobDetail(jobKey)
+        scheduler.getTriggersOfJob(jobKey) == [trigger]
+    }
+
+    public static class JobH implements Job {
+      @Override
+      void execute(JobExecutionContext ctx) throws JobExecutionException {
+      }
+  }
 }
