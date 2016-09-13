@@ -615,7 +615,7 @@ class MongoDBJobStoreTest extends Specification {
         def store = new MongoDBJobStore(
                 instanceName: 'quartz_mongodb_test',
                 dbName: 'quartz_mongodb_test',
-                addresses: '127.0.0.1')
+                addresses: '127.0.0.1:12345')
         store.initialize(new SimpleClassLoadHelper(), null)
         store
     }
