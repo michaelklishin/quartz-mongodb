@@ -22,6 +22,7 @@ import org.quartz.impl.matchers.GroupMatcher;
 import org.quartz.spi.*;
 
 import java.util.*;
+import java.util.Map.Entry;
 
 public class MongoDBJobStore implements JobStore, Constants {
 
@@ -192,7 +193,19 @@ public class MongoDBJobStore implements JobStore, Constants {
     @Override
     public void storeJobsAndTriggers(Map<JobDetail, Set<? extends Trigger>> triggersAndJobs, boolean replace)
             throws JobPersistenceException {
-        throw new UnsupportedOperationException();
+        for (Entry<JobDetail, Set<? extends Trigger>> entry : triggersAndJobs.entrySet()) {
+
+            JobDetail newJob = entry.getKey();
+            Set<? extends Trigger> triggers = entry.getValue();
+            assembler.jobDao.storeJobInMongo(newJob, replace);
+
+            // Store all triggers of the job.
+            for(Trigger newTrigger: triggers) {
+                // Simply cast to OperableTrigger as in QuartzScheduler.scheduleJobs
+                // http://www.programcreek.com/java-api-examples/index.php?api=org.quartz.spi.OperableTrigger
+                assembler.persister.storeTrigger((OperableTrigger)newTrigger, replace);
+            }
+        }
     }
 
     @Override
