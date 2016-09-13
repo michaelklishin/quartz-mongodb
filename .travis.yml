@@ -1,5 +1,5 @@
 language: java
-install: gradle assemble
+install: ./gradlew assemble
 
 before_script:
   - sudo hostname localhost
@@ -10,7 +10,7 @@ before_script:
   - sleep 15 #mongo may not be responded directly. See http://docs.travis-ci.com/user/database-setup/#MongoDB
   - mongo --version
 
-script: gradle check
+script: ./gradlew check
 
 notifications:
   recipients:
