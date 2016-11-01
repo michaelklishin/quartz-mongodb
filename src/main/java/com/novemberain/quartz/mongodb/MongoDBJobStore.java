@@ -9,25 +9,32 @@
  */
 package com.novemberain.quartz.mongodb;
 
-import com.mongodb.*;
-
+import com.mongodb.MongoClient;
+import com.mongodb.MongoCommandException;
+import com.mongodb.MongoException;
 import com.mongodb.client.MongoCollection;
-import com.novemberain.quartz.mongodb.util.*;
+import com.mongodb.client.MongoDatabase;
+import com.novemberain.quartz.mongodb.db.MongoConnector;
+import com.novemberain.quartz.mongodb.util.Keys;
 import org.bson.Document;
-import org.quartz.Calendar;
 import org.quartz.*;
 import org.quartz.Trigger.CompletedExecutionInstruction;
 import org.quartz.Trigger.TriggerState;
 import org.quartz.impl.matchers.GroupMatcher;
 import org.quartz.spi.*;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 public class MongoDBJobStore implements JobStore, Constants {
 
     private MongoStoreAssembler assembler = new MongoStoreAssembler();
 
+    MongoConnector mongoConnector;
+    MongoDatabase mongoDatabase;
     MongoClient mongo;
     String collectionPrefix = "quartz_";
     String dbName;
@@ -57,6 +64,14 @@ public class MongoDBJobStore implements JobStore, Constants {
     int mongoOptionWriteConcernTimeoutMillis = 5000;
 
     public MongoDBJobStore() {
+    }
+
+    public MongoDBJobStore(final MongoConnector mongoConnector) {
+        this.mongoConnector = mongoConnector;
+    }
+
+    public MongoDBJobStore(final MongoDatabase mongoDatabase) {
+        this.mongoDatabase = mongoDatabase;
     }
 
     public MongoDBJobStore(final MongoClient mongo) {
@@ -112,7 +127,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     @Override
     public void shutdown() {
         assembler.checkinExecutor.shutdown();
-        assembler.mongoConnector.shutdown();
+        assembler.mongoConnector.close();
     }
 
     @Override

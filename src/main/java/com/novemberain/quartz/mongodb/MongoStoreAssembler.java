@@ -1,18 +1,18 @@
 package com.novemberain.quartz.mongodb;
 
 import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoDatabase;
 import com.novemberain.quartz.mongodb.cluster.CheckinExecutor;
 import com.novemberain.quartz.mongodb.cluster.CheckinTask;
 import com.novemberain.quartz.mongodb.cluster.RecoveryTriggerFactory;
 import com.novemberain.quartz.mongodb.cluster.TriggerRecoverer;
 import com.novemberain.quartz.mongodb.dao.*;
 import com.novemberain.quartz.mongodb.db.MongoConnector;
+import com.novemberain.quartz.mongodb.db.MongoConnectorBuilder;
 import com.novemberain.quartz.mongodb.trigger.MisfireHandler;
 import com.novemberain.quartz.mongodb.trigger.TriggerConverter;
 import com.novemberain.quartz.mongodb.util.Clock;
-import com.novemberain.quartz.mongodb.util.QueryHelper;
 import com.novemberain.quartz.mongodb.util.ExpiryCalculator;
+import com.novemberain.quartz.mongodb.util.QueryHelper;
 import org.bson.Document;
 import org.quartz.SchedulerConfigException;
 import org.quartz.spi.ClassLoadHelper;
@@ -38,15 +38,12 @@ public class MongoStoreAssembler {
     public TriggerRecoverer triggerRecoverer;
     public CheckinExecutor checkinExecutor;
 
-    private MongoDatabase db;
     private QueryHelper queryHelper = new QueryHelper();
     private TriggerConverter triggerConverter;
 
     public void build(MongoDBJobStore jobStore, ClassLoadHelper loadHelper, SchedulerSignaler signaler)
             throws SchedulerConfigException {
         mongoConnector = createMongoConnector(jobStore);
-
-        db = mongoConnector.selectDatabase(jobStore.dbName);
 
         JobDataConverter jobDataConverter = new JobDataConverter(jobStore.isJobDataAsBase64());
 
@@ -116,7 +113,9 @@ public class MongoStoreAssembler {
     }
 
     private MongoConnector createMongoConnector(MongoDBJobStore jobStore) throws SchedulerConfigException {
-        return MongoConnector.builder()
+        return MongoConnectorBuilder.builder()
+                .withConnector(jobStore.mongoConnector)
+                .withDatabase(jobStore.mongoDatabase)
                 .withClient(jobStore.mongo)
                 .withUri(jobStore.mongoUri)
                 .withCredentials(jobStore.username, jobStore.password)
@@ -167,6 +166,6 @@ public class MongoStoreAssembler {
     }
 
     private MongoCollection<Document> getCollection(MongoDBJobStore jobStore, String name) {
-        return db.getCollection(jobStore.collectionPrefix + name);
+        return mongoConnector.getCollection(jobStore.collectionPrefix + name);
     }
 }

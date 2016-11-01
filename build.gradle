@@ -51,7 +51,7 @@ idea {
 }
 dependencies {
     compile("org.quartz-scheduler:quartz:2.2.3")
-    compile("org.mongodb:mongo-java-driver:3.3.0")
+    compile("org.mongodb:mongodb-driver:3.3.0")
     compile("commons-codec:commons-codec:1.10")
     compile("org.slf4j:slf4j-api:1.7.21")
     provided("org.clojure:clojure:1.7.0")
