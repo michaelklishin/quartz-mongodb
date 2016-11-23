@@ -35,6 +35,7 @@ class QuartzWithMongoDbStoreTest extends Specification {
     @Shared def Scheduler scheduler
 
     def setupSpec() {
+        MongoHelper.dropTestDB()
         scheduler = QuartzHelper.startDefaultScheduler()
     }
 

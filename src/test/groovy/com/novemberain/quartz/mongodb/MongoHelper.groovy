@@ -32,6 +32,10 @@ class MongoHelper {
             triggerGroups: testDatabase.getCollection('quartz_paused_trigger_groups')
     ]
 
+    static def dropTestDB() {
+        testDatabase.drop()
+    }
+
     static def clearColl(String colKey) {
         collections[colKey].deleteMany(new Document())
     }

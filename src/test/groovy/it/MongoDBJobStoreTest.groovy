@@ -33,6 +33,10 @@ class MongoDBJobStoreTest extends Specification {
     @Subject
     def store = makeStore()
 
+    def setupSpec() {
+        MongoHelper.dropTestDB()
+    }
+
     def setup() {
         MongoHelper.purgeCollections()
     }
