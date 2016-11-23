@@ -12,7 +12,10 @@ class MongoHelper {
 
     static testDatabaseName = 'quartz_mongodb_test'
 
-    static MongoClient client = new MongoClient(new ServerAddress('localhost', 12345),
+    static DEFAULT_MONGO_PORT = 12345
+
+    static MongoClient client = new MongoClient(
+            new ServerAddress('localhost', DEFAULT_MONGO_PORT),
             MongoClientOptions.builder()
                     .writeConcern(WriteConcern.JOURNALED)
                     .build())
