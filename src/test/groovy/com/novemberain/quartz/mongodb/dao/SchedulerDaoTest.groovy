@@ -199,8 +199,10 @@ class SchedulerDaoTest extends Specification {
     }
 
     def createDao(String id, Clock clock) {
-        new SchedulerDao(MongoHelper.getSchedulersColl(),
+        def dao = new SchedulerDao(MongoHelper.getSchedulersColl(),
                 schedulerName, id, clusterCheckinIntervalMillis, clock)
+        dao.createIndex()
+        dao
     }
 
     def void checkScheduler(dao, entry, expectedTimeMillis) {

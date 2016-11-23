@@ -23,7 +23,7 @@ class LocksDaoTest extends Specification {
     def 'should have passed collection and instanceId'() {
         given:
         def locksCollection = MongoHelper.getLocksColl()
-        def dao = new LocksDao(locksCollection, testClock, instanceId)
+        def dao = createDao()
 
         expect:
         dao.instanceId == instanceId
@@ -131,7 +131,9 @@ class LocksDaoTest extends Specification {
     }
 
     def createDao(Clock clock, String id) {
-        new LocksDao(MongoHelper.getLocksColl(), clock, id)
+        def dao = new LocksDao(MongoHelper.getLocksColl(), clock, id)
+        dao.createIndex(true)
+        dao
     }
 
     def void assertLock(lock, instanceId, time) {

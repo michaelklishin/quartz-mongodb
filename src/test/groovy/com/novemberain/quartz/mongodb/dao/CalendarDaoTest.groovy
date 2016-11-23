@@ -12,6 +12,7 @@ class CalendarDaoTest extends Specification {
     def dao = new CalendarDao(MongoHelper.getCalendarsColl())
 
     def setup() {
+        dao.createIndex()
         MongoHelper.purgeCollections()
     }
 
