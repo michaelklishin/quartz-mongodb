@@ -1,30 +1,39 @@
 package com.novemberain.quartz.mongodb.trigger
 
+import com.novemberain.quartz.mongodb.Constants
 import com.novemberain.quartz.mongodb.JobDataConverter
 import com.novemberain.quartz.mongodb.dao.JobDao
+import com.novemberain.quartz.mongodb.dao.TriggerDao
 import com.novemberain.quartz.mongodb.util.Keys
 import org.bson.Document
+import org.quartz.TriggerKey
 import org.quartz.impl.triggers.SimpleTriggerImpl
 import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Subject
+
 
 class TriggerConverterTest extends Specification {
 
     @Shared def jobId = '57a6d36dee7825134cf47308'
 
     def jobDao = Mock(JobDao)
+    def triggerDao = Mock(TriggerDao)
 
     @Subject
-    def converter = new TriggerConverter(jobDao, new JobDataConverter(true))
+    def converter = new TriggerConverter(jobDao, new JobDataConverter(true), triggerDao)
 
-    def 'should return null when job of trigger is gone'() {
+    def 'should return null when job of trigger is gone and set error state for trigger'() {
         given:
         def doc = createTriggerDoc()
         1 * jobDao.getById(jobId) >> null
 
-        expect:
-        converter.toTrigger(doc) == null
+        when:
+        def trigger = converter.toTrigger(doc)
+
+        then:
+        trigger == null
+        1 * triggerDao.setState(new TriggerKey(doc.getString(Keys.KEY_NAME), doc.getString(Keys.KEY_GROUP)), Constants.STATE_ERROR)
     }
 
     def 'should convert document to trigger'() {
