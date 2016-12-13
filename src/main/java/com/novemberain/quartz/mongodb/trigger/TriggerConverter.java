@@ -3,6 +3,7 @@ package com.novemberain.quartz.mongodb.trigger;
 import com.novemberain.quartz.mongodb.Constants;
 import com.novemberain.quartz.mongodb.JobDataConverter;
 import com.novemberain.quartz.mongodb.dao.JobDao;
+import com.novemberain.quartz.mongodb.dao.TriggerDao;
 import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.quartz.Job;
@@ -33,10 +34,12 @@ public class TriggerConverter {
 
     private JobDao jobDao;
     private final JobDataConverter jobDataConverter;
+    private final TriggerDao triggerDao;
 
-    public TriggerConverter(JobDao jobDao, JobDataConverter jobDataConverter) {
+    public TriggerConverter(JobDao jobDao, JobDataConverter jobDataConverter, TriggerDao triggerDao) {
         this.jobDao = jobDao;
         this.jobDataConverter = jobDataConverter;
+        this.triggerDao = triggerDao;
     }
 
     /**
@@ -77,12 +80,14 @@ public class TriggerConverter {
 
         tpd.setExtraPropertiesAfterInstantiation(trigger, triggerDoc);
 
-        Document job = jobDao.getById(triggerDoc.get(Constants.TRIGGER_JOB_ID));
+        Object jobId = triggerDoc.get(Constants.TRIGGER_JOB_ID);
+        Document job = jobDao.getById(jobId);
         if (job != null) {
             trigger.setJobKey(new JobKey(job.getString(KEY_NAME), job.getString(KEY_GROUP)));
             return trigger;
         } else {
-            // job was deleted
+            log.info("Trigger {} status changed to ERROR, no job found for id {}.", trigger.getKey(), jobId);
+            triggerDao.setState(triggerKey, Constants.STATE_ERROR);
             return null;
         }
     }
