@@ -34,12 +34,10 @@ public class TriggerConverter {
 
     private JobDao jobDao;
     private final JobDataConverter jobDataConverter;
-    private final TriggerDao triggerDao;
 
-    public TriggerConverter(JobDao jobDao, JobDataConverter jobDataConverter, TriggerDao triggerDao) {
+    public TriggerConverter(JobDao jobDao, JobDataConverter jobDataConverter) {
         this.jobDao = jobDao;
         this.jobDataConverter = jobDataConverter;
-        this.triggerDao = triggerDao;
     }
 
     /**
@@ -68,6 +66,23 @@ public class TriggerConverter {
      */
     public OperableTrigger toTrigger(TriggerKey triggerKey, Document triggerDoc)
             throws JobPersistenceException {
+        OperableTrigger trigger = toTriggerWithOptionalJob(triggerKey, triggerDoc);
+        if ( trigger.getJobKey() == null) {
+            return null;
+        }
+        return trigger;
+    }
+
+    /**
+     * Restore trigger from Mongo Document.
+     *
+     * @param triggerKey {@link TriggerKey} instance.
+     * @param triggerDoc mongo {@link Document} to read from.
+     * @return trigger from Document even if no associated job exists
+     * @throws JobPersistenceException if could not construct trigger instance
+     * or could not deserialize job data map.
+     */
+    public OperableTrigger toTriggerWithOptionalJob(TriggerKey triggerKey, Document triggerDoc) throws JobPersistenceException {
         OperableTrigger trigger = createNewInstance(triggerDoc);
 
         TriggerPropertiesConverter tpd = TriggerPropertiesConverter.getConverterFor(trigger);
@@ -82,19 +97,21 @@ public class TriggerConverter {
 
         Object jobId = triggerDoc.get(Constants.TRIGGER_JOB_ID);
         Document job = jobDao.getById(jobId);
+
         if (job != null) {
             trigger.setJobKey(new JobKey(job.getString(KEY_NAME), job.getString(KEY_GROUP)));
-            return trigger;
-        } else {
-            log.info("Trigger {} status changed to ERROR, no job found for id {}.", trigger.getKey(), jobId);
-            triggerDao.setState(triggerKey, Constants.STATE_ERROR);
-            return null;
         }
+        return trigger;
     }
 
     public OperableTrigger toTrigger(Document doc) throws JobPersistenceException {
         TriggerKey key = new TriggerKey(doc.getString(KEY_NAME), doc.getString(KEY_GROUP));
         return toTrigger(key, doc);
+    }
+
+    public OperableTrigger toTriggerWithOptionalJob(Document doc) throws JobPersistenceException {
+        TriggerKey key = new TriggerKey(doc.getString(KEY_NAME), doc.getString(KEY_GROUP));
+        return toTriggerWithOptionalJob(key, doc);
     }
 
     private Document convertToBson(OperableTrigger newTrigger, ObjectId jobId) {

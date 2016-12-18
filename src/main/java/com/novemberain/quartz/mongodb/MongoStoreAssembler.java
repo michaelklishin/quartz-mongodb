@@ -49,7 +49,7 @@ public class MongoStoreAssembler {
 
         jobDao = createJobDao(jobStore, loadHelper, jobDataConverter);
 
-        triggerConverter = new TriggerConverter(jobDao, jobDataConverter, triggerDao);
+        triggerConverter = new TriggerConverter(jobDao, jobDataConverter);
 
         triggerDao = createTriggerDao(jobStore);
         calendarDao = createCalendarDao(jobStore);

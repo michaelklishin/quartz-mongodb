@@ -22,7 +22,12 @@ import org.quartz.spi.OperableTrigger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
 
 import static com.mongodb.client.model.Sorts.ascending;
 import static com.novemberain.quartz.mongodb.util.Keys.KEY_GROUP;
@@ -155,6 +160,15 @@ public class TriggerDao {
                 Keys.toFilter(triggerKey),
                 createTriggerStateUpdateDocument(state));
     }
+
+    public void transferState(TriggerKey triggerKey, String oldState, String newState) {
+        triggerCollection.updateOne(
+                Filters.and(
+                        Keys.toFilter(triggerKey),
+                        Filters.eq(Constants.TRIGGER_STATE, oldState)),
+                createTriggerStateUpdateDocument(newState));
+    }
+
 
     public void setStateInAll(String state) {
         setStates(new Document(), state);

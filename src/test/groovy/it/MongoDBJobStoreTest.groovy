@@ -1,8 +1,10 @@
 package it
 
+import com.novemberain.quartz.mongodb.Constants
 import com.novemberain.quartz.mongodb.MongoDBJobStore
 import com.novemberain.quartz.mongodb.MongoHelper
 import org.bson.Document
+import org.bson.types.ObjectId
 import org.quartz.CalendarIntervalScheduleBuilder
 import org.quartz.CronScheduleBuilder
 import org.quartz.DailyTimeIntervalScheduleBuilder
@@ -14,6 +16,7 @@ import org.quartz.JobExecutionException
 import org.quartz.JobKey
 import org.quartz.SimpleScheduleBuilder
 import org.quartz.TimeOfDay
+import org.quartz.Trigger.TriggerState
 import org.quartz.TriggerBuilder
 import org.quartz.TriggerKey
 import org.quartz.impl.matchers.GroupMatcher
@@ -592,6 +595,40 @@ class MongoDBJobStoreTest extends Specification {
         tk2 == store.acquireNextTriggers(ff + 10000, 1, 0).get(0).getKey()
         tk3 == store.acquireNextTriggers(ff + 10000, 1, 0).get(0).getKey()
         store.acquireNextTriggers(ff + 10000, 1, 0).isEmpty()
+    }
+
+    def "should acquire new triggers and update state for those without existing job"() {
+        given:
+        def j1 = makeJob('job-in-test-acquire-next-trigger-job1', 'main-tests')
+        def tk1 = new TriggerKey('test-acquire-next-trigger-trigger1', 'main-tests')
+
+        def tr1 = TriggerBuilder.newTrigger()
+                .startAt(inSeconds(2))
+                .withIdentity(tk1)
+                .forJob(j1)
+                .withSchedule(SimpleScheduleBuilder.simpleSchedule())
+                .build() as OperableTrigger
+        def tk2 = new TriggerKey('triggerWithoutJob', 'main-tests')
+        def triggerWithoutJob = TriggerBuilder.newTrigger()
+                .startAt(inSeconds(5))
+                .withIdentity(tk2)
+                .withSchedule(SimpleScheduleBuilder.simpleSchedule())
+                .build() as OperableTrigger
+        tr1.computeFirstFireTime(null)
+        triggerWithoutJob.computeFirstFireTime(null)
+        store.storeJobAndTrigger(j1, tr1)
+
+        and: "store trigger without existing job"
+        store.assembler.persister.storeTrigger(triggerWithoutJob, ObjectId.get(), false)
+        def ff = tr1.getNextFireTime().getTime()
+
+        when:
+        def acquiredTriggers = store.acquireNextTriggers(ff + 10000, 2, 0)
+
+        then:
+        acquiredTriggers.size() == 1
+        acquiredTriggers.get(0) == tr1
+        store.getTriggerState(triggerWithoutJob.key) == ERROR
     }
 
     def Document firstTrigger(String name) {

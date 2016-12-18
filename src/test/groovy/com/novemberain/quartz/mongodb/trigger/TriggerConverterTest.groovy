@@ -21,9 +21,9 @@ class TriggerConverterTest extends Specification {
     def triggerDao = Mock(TriggerDao)
 
     @Subject
-    def converter = new TriggerConverter(jobDao, new JobDataConverter(true), triggerDao)
+    def converter = new TriggerConverter(jobDao, new JobDataConverter(true))
 
-    def 'should return null when job of trigger is gone and set error state for trigger'() {
+    def 'should return null when job of trigger is gone'() {
         given:
         def doc = createTriggerDoc()
         1 * jobDao.getById(jobId) >> null
@@ -33,7 +33,7 @@ class TriggerConverterTest extends Specification {
 
         then:
         trigger == null
-        1 * triggerDao.setState(new TriggerKey(doc.getString(Keys.KEY_NAME), doc.getString(Keys.KEY_GROUP)), Constants.STATE_ERROR)
+
     }
 
     def 'should convert document to trigger'() {
