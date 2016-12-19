@@ -601,33 +601,44 @@ class MongoDBJobStoreTest extends Specification {
         given:
         def j1 = makeJob('job-in-test-acquire-next-trigger-job1', 'main-tests')
         def tk1 = new TriggerKey('test-acquire-next-trigger-trigger1', 'main-tests')
-
         def tr1 = TriggerBuilder.newTrigger()
                 .startAt(inSeconds(2))
                 .withIdentity(tk1)
                 .forJob(j1)
                 .withSchedule(SimpleScheduleBuilder.simpleSchedule())
                 .build() as OperableTrigger
-        def tk2 = new TriggerKey('triggerWithoutJob', 'main-tests')
+        def triggerWithoutJobKey = new TriggerKey('triggerWithoutJob', 'main-tests')
         def triggerWithoutJob = TriggerBuilder.newTrigger()
                 .startAt(inSeconds(5))
-                .withIdentity(tk2)
+                .withIdentity(triggerWithoutJobKey)
                 .withSchedule(SimpleScheduleBuilder.simpleSchedule())
                 .build() as OperableTrigger
+        def j2 = makeJob('job-in-test-acquire-next-trigger-job2', 'main-tests')
+        def tk2 = new TriggerKey('test-acquire-next-trigger-trigger2', 'main-tests')
+        def tr2 = TriggerBuilder.newTrigger()
+                .startAt(inSeconds(7))
+                .withIdentity(tk2)
+                .forJob(j2)
+                .withSchedule(SimpleScheduleBuilder.simpleSchedule())
+                .build() as OperableTrigger
+
         tr1.computeFirstFireTime(null)
         triggerWithoutJob.computeFirstFireTime(null)
-        store.storeJobAndTrigger(j1, tr1)
+        tr2.computeFirstFireTime(null)
 
-        and: "store trigger without existing job"
-        store.assembler.persister.storeTrigger(triggerWithoutJob, ObjectId.get(), false)
+        and: "jobs with triggers are stored"
+        store.storeJobAndTrigger(j1, tr1)
+        store.storeJobAndTrigger(j2, tr2)
+        store.assembler.persister.storeTrigger(triggerWithoutJob, ObjectId.get(), false) // omits checks for job existing when string triggers
         def ff = tr1.getNextFireTime().getTime()
 
         when:
         def acquiredTriggers = store.acquireNextTriggers(ff + 10000, 2, 0)
 
         then:
-        acquiredTriggers.size() == 1
+        acquiredTriggers.size() == 2
         acquiredTriggers.get(0) == tr1
+        acquiredTriggers.get(1) == tr2
         store.getTriggerState(triggerWithoutJob.key) == ERROR
     }
 
