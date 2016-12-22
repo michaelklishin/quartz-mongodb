@@ -25,6 +25,20 @@ class TriggerDaoTest extends Specification {
         MongoHelper.purgeCollections()
     }
 
+    def 'should create index for triggers'() {
+        when:
+        def indices = MongoHelper.getTriggersColl().listIndexes().into([]).groupBy { it.name }
+
+        then: 'contains default _id index'
+        indices.size() == 2 // id and key-group
+        indices.containsKey('_id_')
+
+        and: 'has trigger key-group index'
+        def idx = indices['keyGroup_1_keyName_1'].first()
+        idx['unique'] == true
+        idx['key'] == [keyGroup: 1, keyName: 1]
+    }
+
     def "should transfer trigger state if trigger is in specified state"() {
         given:
         insertWaitingTrigger(triggerKey)
