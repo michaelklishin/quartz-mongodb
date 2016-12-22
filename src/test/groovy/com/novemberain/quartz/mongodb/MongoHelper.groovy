@@ -107,7 +107,7 @@ class MongoHelper {
         collections['schedulers']
     }
 
-    static def gerTriggersColl() {
+    static def getTriggersColl() {
         collections['triggers']
     }
 

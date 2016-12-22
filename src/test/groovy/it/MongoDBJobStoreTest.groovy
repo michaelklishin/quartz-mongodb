@@ -1,6 +1,5 @@
 package it
 
-import com.novemberain.quartz.mongodb.Constants
 import com.novemberain.quartz.mongodb.MongoDBJobStore
 import com.novemberain.quartz.mongodb.MongoHelper
 import org.bson.Document
@@ -16,7 +15,6 @@ import org.quartz.JobExecutionException
 import org.quartz.JobKey
 import org.quartz.SimpleScheduleBuilder
 import org.quartz.TimeOfDay
-import org.quartz.Trigger.TriggerState
 import org.quartz.TriggerBuilder
 import org.quartz.TriggerKey
 import org.quartz.impl.matchers.GroupMatcher
@@ -629,7 +627,8 @@ class MongoDBJobStoreTest extends Specification {
         and: "jobs with triggers are stored"
         store.storeJobAndTrigger(j1, tr1)
         store.storeJobAndTrigger(j2, tr2)
-        store.assembler.persister.storeTrigger(triggerWithoutJob, ObjectId.get(), false) // omits checks for job existing when string triggers
+        // omits checks for job existing when string triggers:
+        store.assembler.persister.storeTrigger(triggerWithoutJob, ObjectId.get(), false)
         def ff = tr1.getNextFireTime().getTime()
 
         when:

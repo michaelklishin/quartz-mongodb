@@ -9,7 +9,7 @@ import spock.lang.Specification
 
 class TriggerDaoTest extends Specification {
 
-    def triggerDao = new TriggerDao(MongoHelper.gerTriggersColl(),
+    def triggerDao = new TriggerDao(MongoHelper.getTriggersColl(),
             new QueryHelper(),
             Mock(TriggerConverter))
 
