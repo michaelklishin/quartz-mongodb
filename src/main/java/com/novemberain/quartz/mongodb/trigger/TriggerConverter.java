@@ -3,6 +3,7 @@ package com.novemberain.quartz.mongodb.trigger;
 import com.novemberain.quartz.mongodb.Constants;
 import com.novemberain.quartz.mongodb.JobDataConverter;
 import com.novemberain.quartz.mongodb.dao.JobDao;
+import com.novemberain.quartz.mongodb.dao.TriggerDao;
 import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.quartz.Job;
@@ -65,6 +66,23 @@ public class TriggerConverter {
      */
     public OperableTrigger toTrigger(TriggerKey triggerKey, Document triggerDoc)
             throws JobPersistenceException {
+        OperableTrigger trigger = toTriggerWithOptionalJob(triggerKey, triggerDoc);
+        if ( trigger.getJobKey() == null) {
+            return null;
+        }
+        return trigger;
+    }
+
+    /**
+     * Restore trigger from Mongo Document.
+     *
+     * @param triggerKey {@link TriggerKey} instance.
+     * @param triggerDoc mongo {@link Document} to read from.
+     * @return trigger from Document even if no associated job exists
+     * @throws JobPersistenceException if could not construct trigger instance
+     * or could not deserialize job data map.
+     */
+    public OperableTrigger toTriggerWithOptionalJob(TriggerKey triggerKey, Document triggerDoc) throws JobPersistenceException {
         OperableTrigger trigger = createNewInstance(triggerDoc);
 
         TriggerPropertiesConverter tpd = TriggerPropertiesConverter.getConverterFor(trigger);
@@ -77,19 +95,23 @@ public class TriggerConverter {
 
         tpd.setExtraPropertiesAfterInstantiation(trigger, triggerDoc);
 
-        Document job = jobDao.getById(triggerDoc.get(Constants.TRIGGER_JOB_ID));
+        Object jobId = triggerDoc.get(Constants.TRIGGER_JOB_ID);
+        Document job = jobDao.getById(jobId);
+
         if (job != null) {
             trigger.setJobKey(new JobKey(job.getString(KEY_NAME), job.getString(KEY_GROUP)));
-            return trigger;
-        } else {
-            // job was deleted
-            return null;
         }
+        return trigger;
     }
 
     public OperableTrigger toTrigger(Document doc) throws JobPersistenceException {
         TriggerKey key = new TriggerKey(doc.getString(KEY_NAME), doc.getString(KEY_GROUP));
         return toTrigger(key, doc);
+    }
+
+    public OperableTrigger toTriggerWithOptionalJob(Document doc) throws JobPersistenceException {
+        TriggerKey key = new TriggerKey(doc.getString(KEY_NAME), doc.getString(KEY_GROUP));
+        return toTriggerWithOptionalJob(key, doc);
     }
 
     private Document convertToBson(OperableTrigger newTrigger, ObjectId jobId) {
