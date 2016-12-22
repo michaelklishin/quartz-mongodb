@@ -1,13 +1,20 @@
 package com.novemberain.quartz.mongodb.dao
 
-import com.novemberain.quartz.mongodb.Constants
 import com.novemberain.quartz.mongodb.MongoHelper
 import com.novemberain.quartz.mongodb.trigger.TriggerConverter
 import com.novemberain.quartz.mongodb.util.QueryHelper
 import org.quartz.TriggerKey
+import org.quartz.impl.triggers.SimpleTriggerImpl
+import spock.lang.Shared
 import spock.lang.Specification
 
+import static com.novemberain.quartz.mongodb.Constants.STATE_ERROR
+import static com.novemberain.quartz.mongodb.Constants.STATE_PAUSED
+import static com.novemberain.quartz.mongodb.Constants.STATE_WAITING
+
 class TriggerDaoTest extends Specification {
+
+    @Shared triggerKey = new TriggerKey("name", "default")
 
     def triggerDao = new TriggerDao(MongoHelper.getTriggersColl(),
             new QueryHelper(),
@@ -20,39 +27,33 @@ class TriggerDaoTest extends Specification {
 
     def "should transfer trigger state if trigger is in specified state"() {
         given:
-        def triggerKey = new TriggerKey("name", "default")
-        insertSimpleTrigger(triggerKey)
-        def currentState = Constants.STATE_WAITING
-        def finalState = Constants.STATE_ERROR
+        insertWaitingTrigger(triggerKey)
 
         when:
-        triggerDao.transferState(triggerKey, currentState, finalState)
+        triggerDao.transferState(triggerKey, STATE_WAITING, STATE_ERROR)
 
         then:
-        triggerDao.getState(triggerKey) == finalState
+        triggerDao.getState(triggerKey) == STATE_ERROR
     }
 
     def "should not transfer state if trigger has different state already"() {
         given:
-        def triggerKey = new TriggerKey("name", "default")
-        insertSimpleTrigger(triggerKey)
-        def originalState = Constants.STATE_WAITING
+        insertWaitingTrigger(triggerKey)
 
         when:
-        triggerDao.transferState(triggerKey, Constants.STATE_PAUSED, Constants.STATE_ERROR)
+        triggerDao.transferState(triggerKey, STATE_PAUSED, STATE_ERROR)
 
         then:
-        triggerDao.getState(triggerKey) == originalState
+        triggerDao.getState(triggerKey) == STATE_WAITING
     }
 
-    private def insertSimpleTrigger(TriggerKey key) {
-        def data = [:]
-        data.putAll([
-                state   : 'waiting',
+    private static insertWaitingTrigger(TriggerKey key) {
+        def data = [
+                state   : STATE_WAITING,
                 keyName : key.name,
                 keyGroup: key.group,
-                class   : 'org.quartz.impl.triggers.SimpleTriggerImpl'
-        ])
+                class   : SimpleTriggerImpl.name
+        ]
         MongoHelper.addTrigger(data)
     }
 }
