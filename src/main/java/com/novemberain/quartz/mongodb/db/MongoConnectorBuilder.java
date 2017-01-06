@@ -70,16 +70,6 @@ public class MongoConnectorBuilder {
             return new ExternalMongoConnector(writeConcern, database);
         }
 
-        if (uri != null) {
-            // User passed URI.
-            validateForUri();
-            MongoClientURI mongoUri = new MongoClientURI(uri);
-            if(dbName == null){
-                dbName = mongoUri.getDatabase();
-            }
-            return new InternalMongoConnector(writeConcern, mongoUri);
-        }
-
         // Options below require database name
         checkNotNull(dbName, "'Database name' parameter is required.");
 
@@ -87,6 +77,12 @@ public class MongoConnectorBuilder {
             // User passed MongoClient instance.
             validateForClient();
             return new ExternalMongoConnector(writeConcern, client, dbName);
+        }
+
+        if (uri != null) {
+            // User passed URI.
+            validateForUri();
+            return new InternalMongoConnector(writeConcern, uri, dbName);
         }
 
         checkNotNull(addresses, "At least one MongoDB address or a MongoDB URI must be specified.");

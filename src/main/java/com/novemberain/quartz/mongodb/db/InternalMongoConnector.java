@@ -22,19 +22,6 @@ public class InternalMongoConnector implements MongoConnector {
      *
      * @param writeConcern instance of {@link WriteConcern}. Each {@link MongoCollection} produced by
      *                     {@link #getCollection(String)} will be configured with this write concern.
-     * @param mongoClientURI  {@link MongoClientURI} that we just created.
-     */
-    public InternalMongoConnector(final WriteConcern writeConcern, final MongoClientURI mongoClientURI) {
-        this.writeConcern = writeConcern;
-        this.mongoClient = new MongoClient(mongoClientURI);
-        this.database = this.mongoClient.getDatabase(mongoClientURI.getDatabase());
-    }
-
-    /**
-     * Constructs an instance of {@link InternalMongoConnector}.
-     *
-     * @param writeConcern instance of {@link WriteConcern}. Each {@link MongoCollection} produced by
-     *                     {@link #getCollection(String)} will be configured with this write concern.
      * @param mongoClient  {@link MongoClient} that we just created.
      * @param dbName       name of the database that will be used to produce collections.
      */
