@@ -94,6 +94,10 @@ publishing {
             groupId 'com.novemberain'
             artifactId(jar.baseName)
             version(version)
+
+            artifact sourceJar {
+                classifier "sources"
+            }
         }
     }
 }
