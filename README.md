@@ -104,23 +104,23 @@ Different time settings for cluster operations:
     # Frequency (in milliseconds) at which this instance checks-in to cluster.
     # Affects the rate of detecting failed instances.
     # Defaults to 7500 ms.
-    org.quartz.scheduler.clusterCheckinInterval=10000
+    org.quartz.jobStore.clusterCheckinInterval=10000
     
     # Time in millis after which a trigger can be considered as expired.
     # Defaults to 10 minutes:
-    org.quartz.scheduler.triggerTimeoutMillis=1200000
+    org.quartz.jobStore.triggerTimeoutMillis=1200000
     
     # Time in millis after which a job can be considered as expired.
     # Defaults to 10 minutes:
-    org.quartz.scheduler.jobTimeoutMillis=1200000
+    org.quartz.jobStore.jobTimeoutMillis=1200000
     
     # Time limit in millis after which a trigger should be treated as misfired.
     # Defaults to 5000 ms.
-    org.quartz.scheduler.misfireThreshold=10000
+    org.quartz.jobStore.misfireThreshold=10000
     
     # WriteConcern timeout in millis when writing in Replica Set.
     # Defaults to 5000 ms.
-    org.quartz.scheduler.mongoOptionWriteConcernTimeoutMillis=10000
+    org.quartz.jobStore.mongoOptionWriteConcernTimeoutMillis=10000
 
 ## Continuous Integration
 
