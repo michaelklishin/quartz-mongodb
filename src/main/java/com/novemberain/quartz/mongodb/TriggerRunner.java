@@ -9,8 +9,8 @@ import com.novemberain.quartz.mongodb.dao.TriggerDao;
 import com.novemberain.quartz.mongodb.trigger.MisfireHandler;
 import com.novemberain.quartz.mongodb.trigger.TriggerConverter;
 import org.bson.Document;
-import org.quartz.*;
 import org.quartz.Calendar;
+import org.quartz.*;
 import org.quartz.spi.OperableTrigger;
 import org.quartz.spi.TriggerFiredBundle;
 import org.quartz.spi.TriggerFiredResult;
@@ -101,13 +101,9 @@ public class TriggerRunner {
 
     private List<OperableTrigger> acquireNextTriggers(Date noLaterThanDate, int maxCount)
             throws JobPersistenceException {
-        Map<TriggerKey, OperableTrigger> triggers = new HashMap<TriggerKey, OperableTrigger>();
+        Map<TriggerKey, OperableTrigger> triggers = new HashMap<>();
 
-        for (Document triggerDoc : triggerDao.findEligibleToRun(noLaterThanDate)) {
-            if (acquiredEnough(triggers, maxCount)) {
-                break;
-            }
-
+        for (Document triggerDoc : triggerDao.findEligibleToRun(noLaterThanDate, maxCount)) {
             OperableTrigger trigger = triggerConverter.toTriggerWithOptionalJob(triggerDoc);
 
             if (cannotAcquire(triggers, trigger)) {
@@ -136,6 +132,10 @@ public class TriggerRunner {
                     log.info("Acquired trigger: {}", recoveryTrigger.getKey());
                     triggers.put(recoveryTrigger.getKey(), recoveryTrigger);
                 }
+            }
+
+            if (acquiredEnough(triggers, maxCount)) {
+                break;
             }
         }
 
