@@ -104,6 +104,10 @@ public class TriggerRunner {
         Map<TriggerKey, OperableTrigger> triggers = new HashMap<>();
 
         for (Document triggerDoc : triggerDao.findEligibleToRun(noLaterThanDate, maxCount)) {
+            if (acquiredEnough(triggers, maxCount)) {
+                break;
+            }
+
             OperableTrigger trigger = triggerConverter.toTriggerWithOptionalJob(triggerDoc);
 
             if (cannotAcquire(triggers, trigger)) {
@@ -132,10 +136,6 @@ public class TriggerRunner {
                     log.info("Acquired trigger: {}", recoveryTrigger.getKey());
                     triggers.put(recoveryTrigger.getKey(), recoveryTrigger);
                 }
-            }
-
-            if (acquiredEnough(triggers, maxCount)) {
-                break;
             }
         }
 
