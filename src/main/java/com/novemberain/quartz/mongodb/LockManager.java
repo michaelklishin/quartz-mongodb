@@ -25,7 +25,7 @@ public class LockManager {
     /**
      * Lock job if it doesn't allow concurrent executions.
      *
-     * @param job    job to lock
+     * @param job job to lock
      */
     public void lockJob(JobDetail job) {
         if (job.isConcurrentExectionDisallowed()) {
@@ -40,7 +40,7 @@ public class LockManager {
     /**
      * Unlock job that have existing, expired lock.
      *
-     * @param job    job to potentially unlock
+     * @param job job to potentially unlock
      */
     public void unlockExpired(JobDetail job) {
         Document existingLock = locksDao.findJobLock(job.getKey());
@@ -54,7 +54,8 @@ public class LockManager {
 
     /**
      * Try to lock given trigger, ignoring errors.
-     * @param key    trigger to lock
+     *
+     * @param key trigger to lock
      * @return true when successfully locked, false otherwise
      */
     public boolean tryLock(TriggerKey key) {
@@ -70,7 +71,7 @@ public class LockManager {
     /**
      * Relock trigger if its lock has expired.
      *
-     * @param key    trigger to lock
+     * @param key trigger to lock
      * @return true when successfully relocked
      */
     public boolean relockExpired(TriggerKey key) {
@@ -83,10 +84,10 @@ public class LockManager {
                 // its LOCK_TIME and try to reassign it to this scheduler.
                 // Relock may not be successful when some other scheduler has done
                 // it first.
-                log.info("Trigger {} is expired - re-locking", key);
+                log.debug("Trigger {} is expired - re-locking", key);
                 return locksDao.relock(key, existingLock.getDate(Constants.LOCK_TIME));
             } else {
-                log.info("Trigger {} hasn't expired yet. Lock time: {}",
+                log.debug("Trigger {} hasn't expired yet. Lock time: {}",
                         key, existingLock.getDate(Constants.LOCK_TIME));
             }
         } else {
