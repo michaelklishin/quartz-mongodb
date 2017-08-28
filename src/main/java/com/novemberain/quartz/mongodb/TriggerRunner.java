@@ -108,20 +108,13 @@ public class TriggerRunner {
                 break;
             }
 
-            OperableTrigger trigger = triggerConverter.toTriggerWithOptionalJob(triggerDoc);
+            TriggerKey key = triggerConverter.createTriggerKey(triggerDoc);
 
-            if (cannotAcquire(triggers, trigger)) {
-                continue;
-            }
-
-            if (trigger.getJobKey() == null) {
-                log.error("Error retrieving job for trigger {}, setting trigger state to ERROR.", trigger.getKey());
-                triggerDao.transferState(trigger.getKey(), Constants.STATE_WAITING, Constants.STATE_ERROR);
-                continue;
-            }
-
-            TriggerKey key = trigger.getKey();
             if (lockManager.tryLock(key)) {
+                OperableTrigger trigger = joinTriggerWithJob(triggers, triggerDoc);
+
+                if (trigger == null) continue;
+
                 if (prepareForFire(noLaterThanDate, trigger)) {
                     log.info("Acquired trigger: {}", trigger.getKey());
                     triggers.put(trigger.getKey(), trigger);
@@ -129,6 +122,10 @@ public class TriggerRunner {
                     lockManager.unlockAcquiredTrigger(trigger);
                 }
             } else if (lockManager.relockExpired(key)) {
+                OperableTrigger trigger = joinTriggerWithJob(triggers, triggerDoc);
+
+                if (trigger == null) continue;
+
                 log.info("Recovering trigger: {}", trigger.getKey());
                 OperableTrigger recoveryTrigger = recoverer.doRecovery(trigger);
                 lockManager.unlockAcquiredTrigger(trigger);
@@ -140,6 +137,21 @@ public class TriggerRunner {
         }
 
         return new ArrayList<OperableTrigger>(triggers.values());
+    }
+
+    private OperableTrigger joinTriggerWithJob(Map<TriggerKey, OperableTrigger> triggers, Document triggerDoc) throws JobPersistenceException {
+        OperableTrigger trigger = triggerConverter.toTriggerWithOptionalJob(triggerDoc);
+
+        if (cannotAcquire(triggers, trigger)) {
+            return null;
+        }
+
+        if (trigger.getJobKey() == null) {
+            log.error("Error retrieving job for trigger {}, setting trigger state to ERROR.", trigger.getKey());
+            triggerDao.transferState(trigger.getKey(), Constants.STATE_WAITING, Constants.STATE_ERROR);
+            return null;
+        }
+        return trigger;
     }
 
     private boolean prepareForFire(Date noLaterThanDate, OperableTrigger trigger)
