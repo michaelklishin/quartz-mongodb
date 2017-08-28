@@ -63,7 +63,7 @@ public class LockManager {
             locksDao.lockTrigger(key);
             return true;
         } catch (MongoWriteException e) {
-            log.info("Failed to lock trigger {}, reason: {}", key, e.getError());
+            log.debug("Failed to lock trigger {}, reason: {}", key, e.getError());
         }
         return false;
     }
