@@ -116,7 +116,7 @@ public class TriggerRunner {
                 if (trigger == null) continue;
 
                 if (prepareForFire(noLaterThanDate, trigger)) {
-                    log.info("Acquired trigger: {}", trigger.getKey());
+                    log.debug("Acquired trigger: {}", trigger.getKey());
                     triggers.put(trigger.getKey(), trigger);
                 } else {
                     lockManager.unlockAcquiredTrigger(trigger);
@@ -126,11 +126,11 @@ public class TriggerRunner {
 
                 if (trigger == null) continue;
 
-                log.info("Recovering trigger: {}", trigger.getKey());
+                log.debug("Recovering trigger: {}", trigger.getKey());
                 OperableTrigger recoveryTrigger = recoverer.doRecovery(trigger);
                 lockManager.unlockAcquiredTrigger(trigger);
                 if (recoveryTrigger != null && lockManager.tryLock(recoveryTrigger.getKey())) {
-                    log.info("Acquired trigger: {}", recoveryTrigger.getKey());
+                    log.debug("Acquired trigger: {}", recoveryTrigger.getKey());
                     triggers.put(recoveryTrigger.getKey(), recoveryTrigger);
                 }
             }
