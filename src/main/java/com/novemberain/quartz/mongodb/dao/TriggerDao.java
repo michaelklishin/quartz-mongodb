@@ -65,7 +65,7 @@ public class TriggerDao {
         return triggerCollection.count(filter) > 0;
     }
 
-    public FindIterable<Document> findEligibleToRun(Date noLaterThanDate, Integer limit) {
+    public FindIterable<Document> findEligibleToRun(Date noLaterThanDate, int limit) {
         Bson query = createNextTriggerQuery(noLaterThanDate);
 
         return triggerCollection.find(query)
