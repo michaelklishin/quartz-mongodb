@@ -153,8 +153,11 @@ public class TriggerRunner {
 
         if (trigger.getJobKey() == null) {
             log.error("Error retrieving job for trigger {}, setting trigger state to ERROR.", trigger.getKey());
-            triggerDao.transferState(trigger.getKey(), Constants.STATE_WAITING, Constants.STATE_ERROR);
-            lockManager.unlockAcquiredTrigger(trigger);
+            try {
+                triggerDao.transferState(trigger.getKey(), Constants.STATE_WAITING, Constants.STATE_ERROR);
+            } finally {
+                lockManager.unlockAcquiredTrigger(trigger);
+            }
             return null;
         }
         return trigger;
