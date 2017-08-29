@@ -91,7 +91,8 @@ public class LockManager {
                         key, existingLock.getDate(Constants.LOCK_TIME));
             }
         } else {
-            log.warn("Error retrieving expired lock from the database for trigger {}. Maybe it was deleted", key);
+            log.debug("Error retrieving expired lock from the database for trigger {}. Maybe it was deleted. " +
+                    "Possibly it was processed by other node", key);
         }
         return false;
     }
