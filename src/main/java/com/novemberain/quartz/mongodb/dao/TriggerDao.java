@@ -22,12 +22,7 @@ import org.quartz.spi.OperableTrigger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 import static com.mongodb.client.model.Sorts.ascending;
 import static com.novemberain.quartz.mongodb.util.Keys.KEY_GROUP;
@@ -70,12 +65,12 @@ public class TriggerDao {
         return triggerCollection.count(filter) > 0;
     }
 
-    public FindIterable<Document> findEligibleToRun(Date noLaterThanDate) {
+    public FindIterable<Document> findEligibleToRun(Date noLaterThanDate, int limit) {
         Bson query = createNextTriggerQuery(noLaterThanDate);
-        if (log.isInfoEnabled()) {
-            log.info("Found {} triggers which are eligible to be run.", getCount(query));
-        }
-        return triggerCollection.find(query).sort(ascending(Constants.TRIGGER_NEXT_FIRE_TIME));
+
+        return triggerCollection.find(query)
+                .sort(ascending(Constants.TRIGGER_NEXT_FIRE_TIME))
+                .limit(limit);
     }
 
     public Document findTrigger(Bson filter) {

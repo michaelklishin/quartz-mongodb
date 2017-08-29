@@ -105,13 +105,17 @@ public class TriggerConverter {
     }
 
     public OperableTrigger toTrigger(Document doc) throws JobPersistenceException {
-        TriggerKey key = new TriggerKey(doc.getString(KEY_NAME), doc.getString(KEY_GROUP));
+        TriggerKey key = createTriggerKey(doc);
         return toTrigger(key, doc);
     }
 
     public OperableTrigger toTriggerWithOptionalJob(Document doc) throws JobPersistenceException {
-        TriggerKey key = new TriggerKey(doc.getString(KEY_NAME), doc.getString(KEY_GROUP));
+        TriggerKey key = createTriggerKey(doc);
         return toTriggerWithOptionalJob(key, doc);
+    }
+
+    public TriggerKey createTriggerKey(Document doc) {
+        return new TriggerKey(doc.getString(KEY_NAME), doc.getString(KEY_GROUP));
     }
 
     private Document convertToBson(OperableTrigger newTrigger, ObjectId jobId) {

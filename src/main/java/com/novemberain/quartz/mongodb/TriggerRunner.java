@@ -9,8 +9,8 @@ import com.novemberain.quartz.mongodb.dao.TriggerDao;
 import com.novemberain.quartz.mongodb.trigger.MisfireHandler;
 import com.novemberain.quartz.mongodb.trigger.TriggerConverter;
 import org.bson.Document;
-import org.quartz.*;
 import org.quartz.Calendar;
+import org.quartz.*;
 import org.quartz.spi.OperableTrigger;
 import org.quartz.spi.TriggerFiredBundle;
 import org.quartz.spi.TriggerFiredResult;
@@ -101,45 +101,66 @@ public class TriggerRunner {
 
     private List<OperableTrigger> acquireNextTriggers(Date noLaterThanDate, int maxCount)
             throws JobPersistenceException {
-        Map<TriggerKey, OperableTrigger> triggers = new HashMap<TriggerKey, OperableTrigger>();
+        Map<TriggerKey, OperableTrigger> triggers = new HashMap<>();
 
-        for (Document triggerDoc : triggerDao.findEligibleToRun(noLaterThanDate)) {
+        for (Document triggerDoc : triggerDao.findEligibleToRun(noLaterThanDate, maxCount)) {
             if (acquiredEnough(triggers, maxCount)) {
                 break;
             }
 
-            OperableTrigger trigger = triggerConverter.toTriggerWithOptionalJob(triggerDoc);
+            TriggerKey key = triggerConverter.createTriggerKey(triggerDoc);
 
-            if (cannotAcquire(triggers, trigger)) {
-                continue;
-            }
-
-            if (trigger.getJobKey() == null) {
-                log.error("Error retrieving job for trigger {}, setting trigger state to ERROR.", trigger.getKey());
-                triggerDao.transferState(trigger.getKey(), Constants.STATE_WAITING, Constants.STATE_ERROR);
-                continue;
-            }
-
-            TriggerKey key = trigger.getKey();
             if (lockManager.tryLock(key)) {
+                OperableTrigger trigger = joinTriggerWithJob(triggers, triggerDoc, key);
+
+                if (trigger == null) continue;
+
                 if (prepareForFire(noLaterThanDate, trigger)) {
-                    log.info("Acquired trigger: {}", trigger.getKey());
+                    log.debug("Acquired trigger: {}", trigger.getKey());
                     triggers.put(trigger.getKey(), trigger);
                 } else {
                     lockManager.unlockAcquiredTrigger(trigger);
                 }
             } else if (lockManager.relockExpired(key)) {
-                log.info("Recovering trigger: {}", trigger.getKey());
+                OperableTrigger trigger = joinTriggerWithJob(triggers, triggerDoc, key);
+
+                if (trigger == null) continue;
+
+                log.debug("Recovering trigger: {}", trigger.getKey());
                 OperableTrigger recoveryTrigger = recoverer.doRecovery(trigger);
                 lockManager.unlockAcquiredTrigger(trigger);
                 if (recoveryTrigger != null && lockManager.tryLock(recoveryTrigger.getKey())) {
-                    log.info("Acquired trigger: {}", recoveryTrigger.getKey());
+                    log.debug("Acquired trigger: {}", recoveryTrigger.getKey());
                     triggers.put(recoveryTrigger.getKey(), recoveryTrigger);
                 }
             }
         }
 
         return new ArrayList<OperableTrigger>(triggers.values());
+    }
+
+    private OperableTrigger joinTriggerWithJob(Map<TriggerKey, OperableTrigger> triggers, Document triggerDoc, TriggerKey key) throws JobPersistenceException {
+        //check if the trigger was not already processed (and removed) by some other node
+        if (triggerDao.getTrigger(key) == null) {
+            return null;
+        }
+
+        OperableTrigger trigger = triggerConverter.toTriggerWithOptionalJob(triggerDoc);
+
+        if (cannotAcquire(triggers, trigger)) {
+            return null;
+        }
+
+        if (trigger.getJobKey() == null) {
+            log.error("Error retrieving job for trigger {}, setting trigger state to ERROR.", trigger.getKey());
+            try {
+                triggerDao.transferState(trigger.getKey(), Constants.STATE_WAITING, Constants.STATE_ERROR);
+            } finally {
+                lockManager.unlockAcquiredTrigger(trigger);
+            }
+            return null;
+        }
+        return trigger;
     }
 
     private boolean prepareForFire(Date noLaterThanDate, OperableTrigger trigger)
