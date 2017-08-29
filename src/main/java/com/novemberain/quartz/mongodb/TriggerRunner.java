@@ -110,7 +110,8 @@ public class TriggerRunner {
 
             TriggerKey key = triggerConverter.createTriggerKey(triggerDoc);
 
-            if (lockManager.tryLock(key)) {
+            if (lockManager.tryLock(key)) { //todo when other job finished its execution
+            //it will delete job and trigger. That instance has trigger in memory and tryLock succeed
                 OperableTrigger trigger = joinTriggerWithJob(triggers, triggerDoc);
 
                 if (trigger == null) continue;
@@ -149,6 +150,7 @@ public class TriggerRunner {
         if (trigger.getJobKey() == null) {
             log.error("Error retrieving job for trigger {}, setting trigger state to ERROR.", trigger.getKey());
             triggerDao.transferState(trigger.getKey(), Constants.STATE_WAITING, Constants.STATE_ERROR);
+            lockManager.unlockAcquiredTrigger(trigger);
             return null;
         }
         return trigger;
