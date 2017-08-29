@@ -110,9 +110,8 @@ public class TriggerRunner {
 
             TriggerKey key = triggerConverter.createTriggerKey(triggerDoc);
 
-            if (lockManager.tryLock(key)) { //todo when other job finished its execution
-            //it will delete job and trigger. That instance has trigger in memory and tryLock succeed
-                OperableTrigger trigger = joinTriggerWithJob(triggers, triggerDoc);
+            if (lockManager.tryLock(key)) {
+                OperableTrigger trigger = joinTriggerWithJob(triggers, triggerDoc, key);
 
                 if (trigger == null) continue;
 
@@ -123,7 +122,7 @@ public class TriggerRunner {
                     lockManager.unlockAcquiredTrigger(trigger);
                 }
             } else if (lockManager.relockExpired(key)) {
-                OperableTrigger trigger = joinTriggerWithJob(triggers, triggerDoc);
+                OperableTrigger trigger = joinTriggerWithJob(triggers, triggerDoc, key);
 
                 if (trigger == null) continue;
 
@@ -140,7 +139,12 @@ public class TriggerRunner {
         return new ArrayList<OperableTrigger>(triggers.values());
     }
 
-    private OperableTrigger joinTriggerWithJob(Map<TriggerKey, OperableTrigger> triggers, Document triggerDoc) throws JobPersistenceException {
+    private OperableTrigger joinTriggerWithJob(Map<TriggerKey, OperableTrigger> triggers, Document triggerDoc, TriggerKey key) throws JobPersistenceException {
+        //check if the trigger was not already processed (and removed) by some other node
+        if (triggerDao.getTrigger(key) == null) {
+            return null;
+        }
+
         OperableTrigger trigger = triggerConverter.toTriggerWithOptionalJob(triggerDoc);
 
         if (cannotAcquire(triggers, trigger)) {
