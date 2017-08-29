@@ -584,7 +584,7 @@ class MongoDBJobStoreTest extends Specification {
         store.acquireNextTriggers(ff + 10000, 1, 0).isEmpty()
     }
 
-    @Ignore
+    @Ignore("in isClustered = true it shouldn't work this way because other worker can process job and remove, causing not needed state transformation and log")
     def "should acquire new triggers and update state for those without existing job"() {
         given:
         def j1 = makeJob('job-in-test-acquire-next-trigger-job1', 'main-tests')
