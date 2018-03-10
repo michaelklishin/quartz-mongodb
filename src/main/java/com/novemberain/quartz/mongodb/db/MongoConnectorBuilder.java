@@ -127,7 +127,8 @@ public class MongoConnectorBuilder {
             optionsBuilder.socketTimeout(socketTimeoutMillis);
         }
         if (socketKeepAlive != null) {
-            optionsBuilder.socketKeepAlive(socketKeepAlive);
+            // enabled by default,
+            // ignored per MongoDB Java client deprecations
         }
         if (threadsAllowedToBlockForConnectionMultiplier != null) {
             optionsBuilder.threadsAllowedToBlockForConnectionMultiplier(threadsAllowedToBlockForConnectionMultiplier);

@@ -7,7 +7,7 @@ import spock.lang.Specification
 class CheckinTaskTest extends Specification {
 
     def schedulerDao = Mock(SchedulerDao)
-    def checkinTask = new CheckinTask(schedulerDao)
+    def checkinTask = new CheckinTask(schedulerDao, {})
 
     def 'should store scheduler data to checkin'() {
         when:

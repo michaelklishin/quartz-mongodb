@@ -14,13 +14,13 @@ public class CheckinExecutor {
 
     // Arbitrary value:
     private static final int INITIAL_DELAY = 0;
-    private final CheckinTask checkinTask;
+    private final Runnable checkinTask;
     private final long checkinIntervalMillis;
     private final String instanceId;
 
     private ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
 
-    public CheckinExecutor(CheckinTask checkinTask, long checkinIntervalMillis, String instanceId) {
+    public CheckinExecutor(Runnable checkinTask, long checkinIntervalMillis, String instanceId) {
         this.checkinTask = checkinTask;
         this.checkinIntervalMillis = checkinIntervalMillis;
         this.instanceId = instanceId;

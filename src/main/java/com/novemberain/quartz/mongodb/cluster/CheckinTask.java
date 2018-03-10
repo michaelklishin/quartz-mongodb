@@ -12,31 +12,17 @@ public class CheckinTask implements Runnable {
 
     private static final Logger log = LoggerFactory.getLogger(CheckinTask.class);
 
-    /**
-     * This implementation shuts down JVM to not allow to execute the same JOB by two schedulers.
-     *
-     * If a scheduler cannot register itself due to an exception we stop JVM to prevent
-     * concurrent execution of the same jobs together with other nodes that might have found this
-     * scheduler as defunct and take over its triggers.
-     */
-    private static final Runnable DEFAULT_ERROR_HANDLER = new Runnable() {
-        @Override
-        public void run() {
-            //TODO Is there a way to stop only Quartz?
-            System.exit(1);
-        }
-    };
-
     private SchedulerDao schedulerDao;
-    private Runnable errorhandler = DEFAULT_ERROR_HANDLER;
+    private Runnable errorhandler;
 
-    public CheckinTask(SchedulerDao schedulerDao) {
+    public CheckinTask(SchedulerDao schedulerDao, Runnable errorHandler) {
         this.schedulerDao = schedulerDao;
+        this.errorhandler = errorHandler;
     }
 
     // for tests only
-    public void setErrorHandler(Runnable errorhandler) {
-        this.errorhandler = errorhandler;
+    public void setErrorHandler(Runnable errorHandler) {
+        this.errorhandler = errorHandler;
     }
 
     @Override

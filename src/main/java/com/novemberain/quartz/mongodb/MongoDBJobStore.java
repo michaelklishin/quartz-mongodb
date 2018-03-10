@@ -18,16 +18,15 @@ import com.novemberain.quartz.mongodb.db.MongoConnector;
 import com.novemberain.quartz.mongodb.util.Keys;
 import org.bson.Document;
 import org.quartz.*;
+import org.quartz.Calendar;
 import org.quartz.Trigger.CompletedExecutionInstruction;
 import org.quartz.Trigger.TriggerState;
 import org.quartz.impl.matchers.GroupMatcher;
 import org.quartz.spi.*;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
+import java.io.IOException;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Set;
 
 public class MongoDBJobStore implements JobStore, Constants {
 
@@ -96,7 +95,17 @@ public class MongoDBJobStore implements JobStore, Constants {
     @Override
     public void initialize(ClassLoadHelper loadHelper, SchedulerSignaler signaler)
             throws SchedulerConfigException {
-        assembler.build(this, loadHelper, signaler);
+        Properties props = new Properties();
+        try {
+            props.load(loadHelper.getClassLoader().getResourceAsStream("quartz.properties"));
+        } catch (IOException e) {
+            // ignore
+        }
+        try {
+            assembler.build(this, loadHelper, signaler, props);
+        } catch (ClassNotFoundException | IllegalAccessException | InstantiationException e) {
+            throw new SchedulerConfigException("Failed to instantiate cluster checkin error handler", e);
+        }
 
         if (isClustered()) {
             try {

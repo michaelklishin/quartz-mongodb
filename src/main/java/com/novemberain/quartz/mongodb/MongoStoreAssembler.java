@@ -1,10 +1,7 @@
 package com.novemberain.quartz.mongodb;
 
 import com.mongodb.client.MongoCollection;
-import com.novemberain.quartz.mongodb.cluster.CheckinExecutor;
-import com.novemberain.quartz.mongodb.cluster.CheckinTask;
-import com.novemberain.quartz.mongodb.cluster.RecoveryTriggerFactory;
-import com.novemberain.quartz.mongodb.cluster.TriggerRecoverer;
+import com.novemberain.quartz.mongodb.cluster.*;
 import com.novemberain.quartz.mongodb.dao.*;
 import com.novemberain.quartz.mongodb.db.MongoConnector;
 import com.novemberain.quartz.mongodb.db.MongoConnectorBuilder;
@@ -17,6 +14,8 @@ import org.bson.Document;
 import org.quartz.SchedulerConfigException;
 import org.quartz.spi.ClassLoadHelper;
 import org.quartz.spi.SchedulerSignaler;
+
+import java.util.Properties;
 
 public class MongoStoreAssembler {
 
@@ -41,8 +40,10 @@ public class MongoStoreAssembler {
     private QueryHelper queryHelper = new QueryHelper();
     private TriggerConverter triggerConverter;
 
-    public void build(MongoDBJobStore jobStore, ClassLoadHelper loadHelper, SchedulerSignaler signaler)
-            throws SchedulerConfigException {
+    public void build(MongoDBJobStore jobStore, ClassLoadHelper loadHelper,
+                      SchedulerSignaler signaler, Properties quartzProps)
+        throws SchedulerConfigException, ClassNotFoundException,
+        IllegalAccessException, InstantiationException {
         mongoConnector = createMongoConnector(jobStore);
 
         JobDataConverter jobDataConverter = new JobDataConverter(jobStore.isJobDataAsBase64());
@@ -77,12 +78,29 @@ public class MongoStoreAssembler {
 
         triggerRunner = createTriggerRunner(misfireHandler);
 
-        checkinExecutor = createCheckinExecutor(jobStore);
+        checkinExecutor = createCheckinExecutor(jobStore, loadHelper, quartzProps);
     }
 
-    private CheckinExecutor createCheckinExecutor(MongoDBJobStore jobStore) {
-        return new CheckinExecutor(new CheckinTask(schedulerDao),
+    private CheckinExecutor createCheckinExecutor(MongoDBJobStore jobStore, ClassLoadHelper loadHelper,
+                                                  Properties quartzProps)
+        throws ClassNotFoundException, InstantiationException, IllegalAccessException {
+        return new CheckinExecutor(createCheckinTask(loadHelper, quartzProps),
                 jobStore.clusterCheckinIntervalMillis, jobStore.instanceId);
+    }
+
+    private Runnable createCheckinTask(ClassLoadHelper loadHelper, Properties quartzProps)
+        throws ClassNotFoundException, IllegalAccessException, InstantiationException {
+        Runnable errorHandler;
+        String className = quartzProps.getProperty("org.quartz.jobStore.checkInErrorHandler.class");
+        Class aClass;
+        if (className == null) {
+            // current default, see 
+            aClass = KamikazeErrorHandler.class;
+        } else {
+            aClass = loadHelper.loadClass(className);
+        }
+        errorHandler = (Runnable) aClass.newInstance();
+        return new CheckinTask(schedulerDao, errorHandler);
     }
 
     private CalendarDao createCalendarDao(MongoDBJobStore jobStore) {
