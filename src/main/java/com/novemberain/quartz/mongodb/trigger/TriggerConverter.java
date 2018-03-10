@@ -165,7 +165,6 @@ public class TriggerConverter {
 
     private void loadStartAndEndTimes(Document triggerDoc, OperableTrigger trigger) {
         loadStartAndEndTime(triggerDoc, trigger);
-        loadStartAndEndTime(triggerDoc, trigger);
     }
 
     private void loadStartAndEndTime(Document triggerDoc, OperableTrigger trigger) {
