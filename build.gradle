@@ -109,6 +109,17 @@ mongo {
     logging 'console'
 }
 
+test {
+ beforeTest { descriptor ->
+    logger.lifecycle("Running test \"${descriptor}\"")
+ }
+}
+
+// force test runs even when there are no test changes,
+// such test loops are very useful for testing race conditions
+// and other concurrency hazards
+test.outputs.upToDateWhen { false }
+
 tasks.withType(Test){
     runWithMongoDb = true
     mongo {
