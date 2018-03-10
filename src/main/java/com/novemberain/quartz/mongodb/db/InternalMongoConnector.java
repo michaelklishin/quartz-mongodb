@@ -7,6 +7,7 @@ import org.bson.Document;
 import org.quartz.SchedulerConfigException;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * The implementation of {@link MongoConnector} that owns the lifecycle of {@link MongoClient}.
@@ -52,15 +53,15 @@ public class InternalMongoConnector implements MongoConnector {
      * @param writeConcern    instance of {@link WriteConcern}. Each {@link MongoCollection} produced by
      *                        {@link #getCollection(String)} will be configured with this write concern.
      * @param seeds           list of server addresses.
-     * @param credentialsList list of credentials used to authenticate all connections.
+     * @param credentialslist list of credentials used to authenticate all connections.
      * @param options         default options.
      * @param dbName          name of the database that will be used to produce collections.
      * @throws SchedulerConfigException if failed to create instance of MongoClient.
      */
     public InternalMongoConnector(final WriteConcern writeConcern, final List<ServerAddress> seeds,
-                                  final List<MongoCredential> credentialsList, final MongoClientOptions options,
+                                  final Optional<MongoCredential> credentialslist, final MongoClientOptions options,
                                   final String dbName) throws SchedulerConfigException {
-        this(writeConcern, createClient(seeds, credentialsList, options), dbName);
+        this(writeConcern, createClient(seeds, credentialslist, options), dbName);
     }
 
     @Override
@@ -101,10 +102,14 @@ public class InternalMongoConnector implements MongoConnector {
      * Creates an instance of MongoClient from server addresses, credentials and options wrapping exception.
      */
     private static MongoClient createClient(final List<ServerAddress> seeds,
-                                            final List<MongoCredential> credentialsList,
+                                            final Optional<MongoCredential> credentials,
                                             final MongoClientOptions options) throws SchedulerConfigException {
         try {
-            return new MongoClient(seeds, credentialsList, options);
+            MongoClient client;
+            client = credentials
+                .map(mongoCredential -> new MongoClient(seeds, mongoCredential, options))
+                .orElseGet(() -> new MongoClient(seeds, options));
+            return client;
         } catch (MongoException e) {
             throw new SchedulerConfigException("MongoDB driver thrown an exception.", e);
         }

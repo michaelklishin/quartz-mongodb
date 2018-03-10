@@ -7,6 +7,7 @@ import org.quartz.SchedulerConfigException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -87,7 +88,7 @@ public class MongoConnectorBuilder {
 
         checkNotNull(addresses, "At least one MongoDB address or a MongoDB URI must be specified.");
         final List<ServerAddress> serverAddresses = collectServerAddresses();
-        final List<MongoCredential> credentials = createCredentials();
+        final Optional<MongoCredential> credentials = createCredentials();
         final MongoClientOptions options = createOptions();
         return new InternalMongoConnector(writeConcern, serverAddresses, credentials, options, dbName);
     }
@@ -100,7 +101,7 @@ public class MongoConnectorBuilder {
         return serverAddresses;
     }
 
-    private List<MongoCredential> createCredentials() {
+    private Optional<MongoCredential> createCredentials() {
         if (username != null) {
             final MongoCredential cred;
             if (authDbName != null) {
@@ -110,9 +111,9 @@ public class MongoConnectorBuilder {
             } else {
                 cred = MongoCredential.createCredential(username, dbName, password.toCharArray());
             }
-            return Collections.singletonList(cred);
+            return Optional.of(cred);
         }
-        return Collections.emptyList();
+        return Optional.empty();
     }
 
     private MongoClientOptions createOptions() {
