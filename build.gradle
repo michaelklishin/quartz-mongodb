@@ -8,7 +8,7 @@ buildscript {
 plugins {
     id 'net.researchgate.release' version '2.4.0'
     id "com.jfrog.bintray" version "1.7"
-    id "com.sourcemuse.mongo" version "0.13.0"
+    id 'com.sourcemuse.mongo' version '1.0.6'
 }
 
 allprojects {
@@ -22,7 +22,7 @@ allprojects {
 
 apply plugin: 'groovy'
 apply plugin: 'idea'
-apply plugin: 'mongo'
+apply plugin: 'com.sourcemuse.mongo'
 
 jar {
     baseName = 'quartz-mongodb'
@@ -33,8 +33,8 @@ repositories {
     mavenCentral()
 }
 
-sourceCompatibility = 1.7
-targetCompatibility = 1.7
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
 
 configurations {
     provided
@@ -51,11 +51,13 @@ idea {
 }
 dependencies {
     compile("org.quartz-scheduler:quartz:2.2.3")
-    compile("org.mongodb:mongodb-driver:3.4.0")
+    compile("org.mongodb:mongodb-driver:3.6.2")
     compile("commons-codec:commons-codec:1.10")
     compile("org.slf4j:slf4j-api:1.7.21")
-    provided("org.clojure:clojure:1.7.0")
 
+    compileOnly("org.clojure:clojure:1.9.0")
+
+    testCompile("org.clojure:clojure:1.9.0")
     testCompile("joda-time:joda-time:2.8.2")
     testCompile("org.slf4j:slf4j-simple:1.7.10")
     testCompile("org.codehaus.groovy:groovy-all:2.4.1")
@@ -65,7 +67,7 @@ dependencies {
 }
 
 task wrapper(type: Wrapper) {
-    gradleVersion = '4.5'
+    gradleVersion = '4.6'
 }
 
 
@@ -102,13 +104,18 @@ publishing {
     }
 }
 
+mongo {
+    port 12345
+    logging 'console'
+}
+
 tasks.withType(Test){
     runWithMongoDb = true
     mongo {
         journalingEnabled true
         port 12345
         logging 'console'
-        mongoVersion '2.6.6'
+        mongoVersion '3.6.3'
     }
 }
 
