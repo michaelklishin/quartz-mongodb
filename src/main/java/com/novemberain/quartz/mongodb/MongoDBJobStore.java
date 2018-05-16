@@ -50,6 +50,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     private boolean clustered = false;
     long clusterCheckinIntervalMillis = 7500;
     boolean jobDataAsBase64 = true;
+	String checkInErrorHandler = null;
 
     // Options for the Mongo client.
     Boolean mongoOptionSocketKeepAlive;
@@ -198,6 +199,14 @@ public class MongoDBJobStore implements JobStore, Constants {
 
         this.jobDataAsBase64 = jobDataAsBase64;
     }
+
+	public String getCheckInErrorHandler() {
+		return checkInErrorHandler;
+	}
+
+	public void setCheckInErrorHandler(String checkInErrorHandler) {
+		this.checkInErrorHandler = checkInErrorHandler;
+	}
 
     /**
      * Job and Trigger storage Methods
