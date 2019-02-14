@@ -51,13 +51,13 @@ idea {
 }
 dependencies {
     compile("org.quartz-scheduler:quartz:2.2.3")
-    compile("org.mongodb:mongodb-driver:3.6.2")
+    compile("org.mongodb:mongodb-driver:3.9.1")
     compile("commons-codec:commons-codec:1.10")
     compile("org.slf4j:slf4j-api:1.7.21")
 
-    compileOnly("org.clojure:clojure:1.9.0")
+    compileOnly("org.clojure:clojure:1.10.0")
 
-    testCompile("org.clojure:clojure:1.9.0")
+    testCompile("org.clojure:clojure:1.10.0")
     testCompile("joda-time:joda-time:2.8.2")
     testCompile("org.slf4j:slf4j-simple:1.7.10")
     testCompile("org.codehaus.groovy:groovy-all:2.4.1")
@@ -131,7 +131,7 @@ tasks.withType(Test){
         journalingEnabled true
         port 12345
         logging 'console'
-        mongoVersion '3.6.3'
+        mongoVersion '3.6.10'
     }
 }
 
