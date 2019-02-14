@@ -27,7 +27,7 @@ public class CheckinTask implements Runnable {
 
     @Override
     public void run() {
-        log.info("Node {}:{} checks-in.", schedulerDao.schedulerName, schedulerDao.instanceId);
+        log.debug("Node {}:{} checks-in.", schedulerDao.schedulerName, schedulerDao.instanceId);
         try {
             schedulerDao.checkIn();
         } catch (MongoException e) {
