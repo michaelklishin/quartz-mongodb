@@ -84,20 +84,19 @@ public class MongoStoreAssembler {
     private CheckinExecutor createCheckinExecutor(MongoDBJobStore jobStore, ClassLoadHelper loadHelper,
                                                   Properties quartzProps)
         throws ClassNotFoundException, InstantiationException, IllegalAccessException {
-        return new CheckinExecutor(createCheckinTask(loadHelper, quartzProps),
+        return new CheckinExecutor(createCheckinTask(jobStore, loadHelper),
                 jobStore.clusterCheckinIntervalMillis, jobStore.instanceId);
     }
 
-    private Runnable createCheckinTask(ClassLoadHelper loadHelper, Properties quartzProps)
+    private Runnable createCheckinTask(MongoDBJobStore jobStore, ClassLoadHelper loadHelper)
         throws ClassNotFoundException, IllegalAccessException, InstantiationException {
         Runnable errorHandler;
-        String className = quartzProps.getProperty("org.quartz.jobStore.checkInErrorHandler.class");
         Class aClass;
-        if (className == null) {
+        if (jobStore.getCheckInErrorHandler() == null) {
             // current default, see 
             aClass = KamikazeErrorHandler.class;
         } else {
-            aClass = loadHelper.loadClass(className);
+            aClass = loadHelper.loadClass(jobStore.getCheckInErrorHandler());
         }
         errorHandler = (Runnable) aClass.newInstance();
         return new CheckinTask(schedulerDao, errorHandler);
