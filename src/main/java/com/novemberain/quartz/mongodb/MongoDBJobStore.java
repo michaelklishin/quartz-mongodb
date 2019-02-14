@@ -24,7 +24,11 @@ import org.quartz.Trigger.TriggerState;
 import org.quartz.impl.matchers.GroupMatcher;
 import org.quartz.spi.*;
 
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.*;
 import java.util.Map.Entry;
 
@@ -62,6 +66,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     Boolean mongoOptionSslInvalidHostNameAllowed;
 
     int mongoOptionWriteConcernTimeoutMillis = 5000;
+    public static final String PROPERTIES_FILE_NAME = "quartz.properties";
 
     public MongoDBJobStore() {
     }
@@ -97,12 +102,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     @Override
     public void initialize(ClassLoadHelper loadHelper, SchedulerSignaler signaler)
             throws SchedulerConfigException {
-        Properties props = new Properties();
-        try {
-            props.load(loadHelper.getClassLoader().getResourceAsStream("quartz.properties"));
-        } catch (IOException e) {
-            // ignore
-        }
+        Properties props = loadProperties(loadHelper);
         try {
             assembler.build(this, loadHelper, signaler, props);
         } catch (ClassNotFoundException | IllegalAccessException | InstantiationException e) {
@@ -119,6 +119,27 @@ public class MongoDBJobStore implements JobStore, Constants {
         }
 
         ensureIndexes();
+    }
+
+    private Properties loadProperties(ClassLoadHelper loadHelper) {
+        Properties props = new Properties();
+        File propFile = new File(PROPERTIES_FILE_NAME);
+        InputStream is = null;
+        // this roughly mimics how StdSchedulerFactory#initialize() fills properties in
+        try {
+            if (propFile.exists()) {
+                new BufferedInputStream(new FileInputStream(PROPERTIES_FILE_NAME));
+                props.load(is);
+            } else {
+                is = loadHelper.getClassLoader().getResourceAsStream(PROPERTIES_FILE_NAME);
+                if (is != null) {
+                    props.load(is);
+                }
+            }
+        } catch (IOException e) {
+            // ignore
+        }
+        return props;
     }
 
     @Override
