@@ -50,7 +50,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     private boolean clustered = false;
     long clusterCheckinIntervalMillis = 7500;
     boolean jobDataAsBase64 = true;
-	String checkInErrorHandler = null;
+    String checkInErrorHandler = null;
 
     // Options for the Mongo client.
     Boolean mongoOptionSocketKeepAlive;
@@ -86,7 +86,8 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     /**
      * Override to change class loading mechanism, to e.g. dynamic
-     * @param original    default provided by Quartz
+     *
+     * @param original default provided by Quartz
      * @return loader to use for loading of Quartz Jobs' classes
      */
     protected ClassLoadHelper getClassLoaderHelper(ClassLoadHelper original) {
@@ -166,7 +167,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     /**
      * Set the frequency (in milliseconds) at which this instance "checks-in"
      * with the other instances of the cluster.
-     *
+     * <p>
      * Affects the rate of detecting failed instances.
      */
     public void setClusterCheckinInterval(long clusterCheckinInterval) {
@@ -200,13 +201,13 @@ public class MongoDBJobStore implements JobStore, Constants {
         this.jobDataAsBase64 = jobDataAsBase64;
     }
 
-	public String getCheckInErrorHandler() {
-		return checkInErrorHandler;
-	}
+    public String getCheckInErrorHandler() {
+        return checkInErrorHandler;
+    }
 
-	public void setCheckInErrorHandler(String checkInErrorHandler) {
-		this.checkInErrorHandler = checkInErrorHandler;
-	}
+    public void setCheckInErrorHandler(String checkInErrorHandler) {
+        this.checkInErrorHandler = checkInErrorHandler;
+    }
 
     /**
      * Job and Trigger storage Methods
@@ -233,10 +234,10 @@ public class MongoDBJobStore implements JobStore, Constants {
             assembler.jobDao.storeJobInMongo(newJob, replace);
 
             // Store all triggers of the job.
-            for(Trigger newTrigger: triggers) {
+            for (Trigger newTrigger : triggers) {
                 // Simply cast to OperableTrigger as in QuartzScheduler.scheduleJobs
                 // http://www.programcreek.com/java-api-examples/index.php?api=org.quartz.spi.OperableTrigger
-                assembler.persister.storeTrigger((OperableTrigger)newTrigger, replace);
+                assembler.persister.storeTrigger((OperableTrigger) newTrigger, replace);
             }
         }
     }
@@ -451,7 +452,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     @Override
     public void triggeredJobComplete(OperableTrigger trigger, JobDetail job,
-                              CompletedExecutionInstruction triggerInstCode) {
+                                     CompletedExecutionInstruction triggerInstCode) {
         assembler.jobCompleteHandler.jobComplete(trigger, job, triggerInstCode);
     }
 
@@ -534,14 +535,14 @@ public class MongoDBJobStore implements JobStore, Constants {
      */
     private void ensureIndexes() throws SchedulerConfigException {
         try {
-      /*
-       * Indexes are to be declared as group then name.  This is important as the quartz API allows
-       * for the searching of jobs and triggers using a group matcher.  To be able to use the compound
-       * index using group alone (as the API allows), group must be the first key in that index.
-       * 
-       * To be consistent, all such indexes are ensured in the order group then name.  The previous
-       * indexes are removed after we have "ensured" the new ones.
-       */
+            /*
+             * Indexes are to be declared as group then name.  This is important as the quartz API allows
+             * for the searching of jobs and triggers using a group matcher.  To be able to use the compound
+             * index using group alone (as the API allows), group must be the first key in that index.
+             *
+             * To be consistent, all such indexes are ensured in the order group then name.  The previous
+             * indexes are removed after we have "ensured" the new ones.
+             */
 
             assembler.jobDao.createIndex();
             assembler.triggerDao.createIndex();
