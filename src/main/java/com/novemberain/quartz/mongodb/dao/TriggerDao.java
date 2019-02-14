@@ -73,7 +73,7 @@ public class TriggerDao {
     public FindIterable<Document> findEligibleToRun(Date noLaterThanDate) {
         Bson query = createNextTriggerQuery(noLaterThanDate);
         if (log.isInfoEnabled()) {
-            log.info("Found {} triggers which are eligible to be run.", getCount(query));
+            log.debug("Found {} triggers which are eligible to be run.", getCount(query));
         }
         return triggerCollection.find(query).sort(ascending(Constants.TRIGGER_NEXT_FIRE_TIME));
     }
