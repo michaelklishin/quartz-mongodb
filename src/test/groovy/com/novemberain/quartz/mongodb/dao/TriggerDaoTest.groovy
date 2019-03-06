@@ -2,7 +2,9 @@ package com.novemberain.quartz.mongodb.dao
 
 import com.novemberain.quartz.mongodb.MongoHelper
 import com.novemberain.quartz.mongodb.trigger.TriggerConverter
+import com.novemberain.quartz.mongodb.util.Keys
 import com.novemberain.quartz.mongodb.util.QueryHelper
+import org.bson.Document
 import org.quartz.TriggerKey
 import org.quartz.impl.triggers.SimpleTriggerImpl
 import spock.lang.Shared
@@ -61,13 +63,29 @@ class TriggerDaoTest extends Specification {
         triggerDao.getState(triggerKey) == STATE_WAITING
     }
 
-    private static insertWaitingTrigger(TriggerKey key) {
-        def data = [
+    def "should create trigger if it not exists"() {
+        given:
+        def triggerKey = new TriggerKey('test-replace-nonexisting', 'tests')
+        def triggerData = createSimpleTriggerData(triggerKey)
+
+        when:
+        triggerDao.replace(triggerKey, new Document(triggerData))
+
+        then:
+        triggerDao.exists(Keys.toFilter(triggerKey))
+    }
+
+    private static Map createSimpleTriggerData(TriggerKey key) {
+        return [
                 state   : STATE_WAITING,
                 keyName : key.name,
                 keyGroup: key.group,
                 class   : SimpleTriggerImpl.name
         ]
+    }
+
+    private static insertWaitingTrigger(TriggerKey key) {
+        def data = createSimpleTriggerData(key)
         MongoHelper.addTrigger(data)
     }
 }

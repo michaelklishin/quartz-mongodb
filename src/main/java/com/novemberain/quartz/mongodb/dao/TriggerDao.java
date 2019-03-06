@@ -5,6 +5,7 @@ import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.IndexOptions;
+import com.mongodb.client.model.ReplaceOptions;
 import com.mongodb.client.model.UpdateOptions;
 import com.novemberain.quartz.mongodb.Constants;
 import com.novemberain.quartz.mongodb.trigger.TriggerConverter;
@@ -152,7 +153,7 @@ public class TriggerDao {
     }
 
     public void replace(TriggerKey triggerKey, Document trigger) {
-        triggerCollection.replaceOne(toFilter(triggerKey), trigger);
+        triggerCollection.replaceOne(toFilter(triggerKey), trigger, new ReplaceOptions().upsert(true));
     }
 
     public void setState(TriggerKey triggerKey, String state) {
