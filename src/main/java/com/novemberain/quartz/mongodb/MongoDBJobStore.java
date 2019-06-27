@@ -381,7 +381,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     @Override
     public List<String> getCalendarNames() throws JobPersistenceException {
-        throw new UnsupportedOperationException();
+        return assembler.calendarDao.retrieveCalendarNames();
     }
 
     @Override
