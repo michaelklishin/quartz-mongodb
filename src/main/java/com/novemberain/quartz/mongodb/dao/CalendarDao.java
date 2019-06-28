@@ -65,18 +65,16 @@ public class CalendarDao {
     }
 
     public void store(String name, Calendar calendar) throws JobPersistenceException {
-        Document doc = new Document(CALENDAR_NAME, name).append(CALENDAR_SERIALIZED_OBJECT,
-                SerialUtils.serialize(calendar));
+        Document doc = new Document(CALENDAR_NAME, name)
+            .append(CALENDAR_SERIALIZED_OBJECT, SerialUtils.serialize(calendar));
         calendarCollection.insertOne(doc);
     }
 
-    public List<String> retrieveCalendarNames() throws JobPersistenceException {
-        final List<String> calendarNames = new LinkedList<>();
-        MongoIterable<String> iterator = calendarCollection
+    public List<String> retrieveCalendarNames() {
+        return calendarCollection
                 .find()
                 .projection(Projections.include(CALENDAR_NAME))
-                .map(document -> document.getString(CALENDAR_NAME));
-        ((Iterable<String>)iterator).forEach(calendarNames::add);
-        return calendarNames;
+                .map(document -> document.getString(CALENDAR_NAME))
+                .into(new LinkedList<>());
     }
 }
