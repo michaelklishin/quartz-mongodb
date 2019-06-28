@@ -55,4 +55,24 @@ class CalendarDaoTest extends Specification {
         calendar.toString() == stored.toString()
     }
 
+    def 'should return calendar names'() {
+        given:
+        def nameFirst = 'first'
+        def nameSecond = 'second'
+
+        when:
+        [nameFirst, nameSecond].forEach {
+            name -> dao.store(
+                    name as String
+                    , new DailyCalendar('10:15', '10:30')
+            )
+        }
+        def calendarNames = dao.retrieveCalendarNames()
+
+        then:
+        calendarNames.size() == 2
+        calendarNames.contains(nameFirst)
+        calendarNames.contains(nameSecond)
+    }
+
 }
