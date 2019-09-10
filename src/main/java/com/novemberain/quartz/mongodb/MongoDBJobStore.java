@@ -623,4 +623,22 @@ public class MongoDBJobStore implements JobStore, Constants {
     public void setAuthDbName(String authDbName) {
         this.authDbName = authDbName;
     }
+
+    @Override
+    public void resetTriggerFromErrorState(TriggerKey triggerKey) throws JobPersistenceException {
+        String currentState = assembler.triggerDao.getState(triggerKey);
+        if (!STATE_ERROR.equals(currentState)) {
+            return;
+        }
+        String newState = STATE_WAITING;
+        if (assembler.pausedTriggerGroupsDao.getPausedGroups().contains(triggerKey.getGroup())) {
+            newState = STATE_PAUSED;
+        }
+        assembler.triggerDao.transferState(triggerKey, STATE_ERROR, newState);
+    }
+
+    @Override
+    public long getAcquireRetryDelay(int failureCount) {
+        return mongo.getMongoClientOptions().getServerSelectionTimeout();
+    }
 }
