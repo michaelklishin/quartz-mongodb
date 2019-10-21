@@ -64,6 +64,12 @@ public class MongoDBJobStore implements JobStore, Constants {
     Integer mongoOptionThreadsAllowedToBlockForConnectionMultiplier;
     Boolean mongoOptionEnableSSL;
     Boolean mongoOptionSslInvalidHostNameAllowed;
+    String mongoOptionTrustStorePath;
+    String mongoOptionTrustStorePassword;
+    String mongoOptionTrustStoreType;
+    String mongoOptionKeyStorePath;
+    String mongoOptionKeyStorePassword;
+    String mongoOptionKeyStoreType;
 
     int mongoOptionWriteConcernTimeoutMillis = 5000;
     public static final String PROPERTIES_FILE_NAME = "quartz.properties";
@@ -620,6 +626,30 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     public void setMongoOptionSslInvalidHostNameAllowed(boolean sslInvalidHostNameAllowed) {
         this.mongoOptionSslInvalidHostNameAllowed = sslInvalidHostNameAllowed;
+    }
+
+    public void setMongoOptionTrustStorePath(String trustStorePath) {
+        this.mongoOptionTrustStorePath = trustStorePath;
+    }
+
+    public void setMongoOptionTrustStorePassword(String trustStorePassword) {
+        this.mongoOptionTrustStorePassword = trustStorePassword;
+    }
+
+    public void setMongoOptionTrustStoreType(String trustStoreType) {
+        this.mongoOptionTrustStoreType = trustStoreType;
+    }
+
+    public void setMongoOptionKeyStorePath(String keyStorePath) {
+        this.mongoOptionKeyStorePath = keyStorePath;
+    }
+
+    public void setMongoOptionKeyStorePassword(String keyStorePassword) {
+        this.mongoOptionKeyStorePassword = keyStorePassword;
+    }
+
+    public void setMongoOptionKeyStoreType(String keyStoreType) {
+        this.mongoOptionKeyStoreType = keyStoreType;
     }
 
     public void setMongoOptionWriteConcernTimeoutMillis(int writeConcernTimeoutMillis) {
