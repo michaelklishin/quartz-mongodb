@@ -559,6 +559,7 @@ class MongoDBJobStoreTest extends Specification {
         store.resetTriggerFromErrorState(tk)
 
         then:
+        m = firstTrigger('test-storing-triggers-reset', 'reset-tests')
         m.state == 'waiting'
         store.getTriggerState(tk) == NORMAL
         store.getPausedTriggerGroups().isEmpty()
