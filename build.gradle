@@ -112,6 +112,7 @@ publishing {
 mongo {
     port 12345
     logging 'console'
+    journalingEnabled true
 }
 
 test {
