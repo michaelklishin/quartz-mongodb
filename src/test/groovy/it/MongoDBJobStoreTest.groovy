@@ -1,5 +1,6 @@
 package it
 
+import com.mongodb.client.model.Updates
 import com.novemberain.quartz.mongodb.MongoDBJobStore
 import com.novemberain.quartz.mongodb.MongoHelper
 import org.bson.Document
@@ -525,6 +526,42 @@ class MongoDBJobStoreTest extends Specification {
         then:
         m1.state == 'waiting'
         store.getTriggerState(tk1) == NORMAL
+        store.getPausedTriggerGroups().isEmpty()
+    }
+
+    def 'should reset trigger from error state'() {
+        given:
+        def desc = 'just a trigger that uses a daily interval schedule'
+        def job = makeJob('test-storing-triggers-reset')
+        def tk = new TriggerKey('test-storing-triggers-reset', 'reset-tests')
+        def tr = TriggerBuilder.newTrigger()
+                .startNow()
+                .withIdentity(tk)
+                .withDescription(desc)
+                .endAt(in2Months())
+                .forJob(job)
+                .withSchedule(CalendarIntervalScheduleBuilder.calendarIntervalSchedule()
+                        .withIntervalInHours(4))
+                .build() as OperableTrigger
+
+        expect:
+        MongoHelper.getCount('jobs') == 0
+        MongoHelper.getCount('triggers') == 0
+
+        when:
+        store.storeJob(job, false)
+        store.storeTrigger(tr, false)
+
+        store.triggerCollection.updateMany(new Document(), Updates.set("state", "error"))
+
+        def m = firstTrigger('test-storing-triggers-reset', 'reset-tests')
+        m.state == 'error'
+        store.resetTriggerFromErrorState(tk)
+
+        then:
+        def updated = firstTrigger('test-storing-triggers-reset', 'reset-tests')
+        updated.state == 'waiting'
+        store.getTriggerState(tk) == NORMAL
         store.getPausedTriggerGroups().isEmpty()
     }
 

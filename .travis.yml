@@ -9,7 +9,7 @@ notifications:
     - michaelklishin@me.com
 
 jdk:
-  - oraclejdk8
+  - openjdk8
 
 cache:
   directories:
