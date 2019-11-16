@@ -115,6 +115,7 @@ public class TriggerStateManager {
     }
 
     public void resetTriggerFromErrorState(TriggerKey triggerKey) {
+        // Atomic updates cannot be done with the current model - across collections.
         String currentState = triggerDao.getState(triggerKey);
         if (!Constants.STATE_ERROR.equals(currentState)) {
             return;
