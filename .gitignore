@@ -5,6 +5,7 @@
 /.project
 /.idea
 *.iml
+/out
 lib/*
 *#
 ~*
