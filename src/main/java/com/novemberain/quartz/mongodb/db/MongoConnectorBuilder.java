@@ -17,7 +17,8 @@ public class MongoConnectorBuilder {
 
     private static final String PARAM_NOT_ALLOWED = "'%s' parameter is not allowed. %s";
     private MongoConnector connector;
-    private Integer writeTimeout;
+    private String writeConcernW;
+    private Integer writeConcernWriteTimeout;
     private MongoDatabase database;
     private MongoClient client;
     private String dbName;
@@ -144,6 +145,15 @@ public class MongoConnectorBuilder {
     }
 
     private WriteConcern createWriteConcern() throws SchedulerConfigException {
+        checkNotNull(writeConcernWriteTimeout, "Write timeout is expected.");
+
+        if(writeConcernW != null) {
+            return WriteConcern.valueOf(writeConcernW)
+               .withWTimeout(writeConcernWriteTimeout, TimeUnit.MILLISECONDS)
+               .withJournal(true);
+        }
+
+        // Default:
         // Use MAJORITY to make sure that writes (locks, updates, check-ins)
         // are propagated to secondaries in a Replica Set. It allows us to
         // have consistent state in case of failure of the primary.
@@ -151,8 +161,7 @@ public class MongoConnectorBuilder {
         // Since MongoDB 3.2, when MAJORITY is used and protocol version == 1
         // for replica set, then Journaling in enabled by default for primary
         // and secondaries.
-        checkNotNull(writeTimeout, "Write timeout is expected.");
-        return WriteConcern.MAJORITY.withWTimeout(writeTimeout, TimeUnit.MILLISECONDS)
+        return WriteConcern.MAJORITY.withWTimeout(writeConcernWriteTimeout, TimeUnit.MILLISECONDS)
                 .withJournal(true);
     }
 
@@ -222,8 +231,13 @@ public class MongoConnectorBuilder {
         return this;
     }
 
-    public MongoConnectorBuilder withWriteTimeout(int writeTimeout) {
-        this.writeTimeout = writeTimeout;
+    public MongoConnectorBuilder withWriteConcernWriteTimeout(int writeConcernWriteTimeout) {
+        this.writeConcernWriteTimeout = writeConcernWriteTimeout;
+        return this;
+    }
+
+    public MongoConnectorBuilder withWriteConcernW(String writeConcernW) {
+        this.writeConcernW = writeConcernW;
         return this;
     }
 

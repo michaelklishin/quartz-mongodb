@@ -66,6 +66,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     Boolean mongoOptionSslInvalidHostNameAllowed;
 
     int mongoOptionWriteConcernTimeoutMillis = 5000;
+    String mongoOptionWriteConcernW;
     public static final String PROPERTIES_FILE_NAME = "quartz.properties";
 
     public MongoDBJobStore() {
@@ -620,6 +621,10 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     public void setMongoOptionSslInvalidHostNameAllowed(boolean sslInvalidHostNameAllowed) {
         this.mongoOptionSslInvalidHostNameAllowed = sslInvalidHostNameAllowed;
+    }
+
+    public void setMongoOptionWriteConcernW(String mongoOptionWriteConcernW) {
+        this.mongoOptionWriteConcernW = mongoOptionWriteConcernW;
     }
 
     public void setMongoOptionWriteConcernTimeoutMillis(int writeConcernTimeoutMillis) {
