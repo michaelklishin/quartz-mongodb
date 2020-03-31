@@ -44,7 +44,22 @@ public class InternalMongoConnector implements MongoConnector {
      */
     public InternalMongoConnector(final WriteConcern writeConcern, final String uri,
                                   final String dbName) throws SchedulerConfigException {
-        this(writeConcern, createClient(uri), dbName);
+        this(writeConcern, uri, dbName, null);
+    }
+
+    /**
+     * Constructs an instance of {@link InternalMongoConnector} from connection URI and option builder.
+     *
+     * @param writeConcern instance of {@link WriteConcern}. Each {@link MongoCollection} produced by
+     *                     {@link #getCollection(String)} will be configured with this write concern.
+     * @param uri          MongoDB connection URI.
+     * @param dbName       name of the database that will be used to produce collections.
+     * @param optionBuilder      default option builder.
+     * @throws SchedulerConfigException if failed to create instance of MongoClient.
+     */
+    public InternalMongoConnector(final WriteConcern writeConcern, final String uri,
+                                  final String dbName, MongoClientOptions.Builder optionBuilder) throws SchedulerConfigException {
+        this(writeConcern, createClient(uri, optionBuilder), dbName);
     }
 
     /**
@@ -86,12 +101,12 @@ public class InternalMongoConnector implements MongoConnector {
     }
 
     /**
-     * Creates an instance of MongoClient from string URI wrapping exception.
+     * Creates an instance of MongoClient from string URI and option builder wrapping exception.
      */
-    private static MongoClient createClient(final String uri) throws SchedulerConfigException {
+    private static MongoClient createClient(final String uri, MongoClientOptions.Builder optionBuilder) throws SchedulerConfigException {
         final MongoClientURI mongoUri;
         try {
-            mongoUri = new MongoClientURI(uri);
+            mongoUri = optionBuilder == null ? new MongoClientURI(uri) : new MongoClientURI(uri, optionBuilder);
         } catch (final MongoException e) {
             throw new SchedulerConfigException("Invalid mongo client uri.", e);
         }
