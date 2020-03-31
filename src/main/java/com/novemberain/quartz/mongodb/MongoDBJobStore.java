@@ -72,6 +72,7 @@ public class MongoDBJobStore implements JobStore, Constants {
     String mongoOptionKeyStoreType;
 
     int mongoOptionWriteConcernTimeoutMillis = 5000;
+    String mongoOptionWriteConcernW;
     public static final String PROPERTIES_FILE_NAME = "quartz.properties";
 
     public MongoDBJobStore() {
@@ -650,6 +651,9 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     public void setMongoOptionKeyStoreType(String keyStoreType) {
         this.mongoOptionKeyStoreType = keyStoreType;
+
+    public void setMongoOptionWriteConcernW(String mongoOptionWriteConcernW) {
+        this.mongoOptionWriteConcernW = mongoOptionWriteConcernW;
     }
 
     public void setMongoOptionWriteConcernTimeoutMillis(int writeConcernTimeoutMillis) {

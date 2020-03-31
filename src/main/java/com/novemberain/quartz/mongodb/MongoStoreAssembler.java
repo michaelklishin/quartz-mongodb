@@ -148,7 +148,8 @@ public class MongoStoreAssembler {
                 .withSSL(jobStore.mongoOptionEnableSSL, jobStore.mongoOptionSslInvalidHostNameAllowed)
                 .withTrustStore(jobStore.mongoOptionTrustStorePath, jobStore.mongoOptionTrustStorePassword, jobStore.mongoOptionTrustStoreType)
                 .withKeyStore(jobStore.mongoOptionKeyStorePath, jobStore.mongoOptionKeyStorePassword, jobStore.mongoOptionKeyStoreType)
-                .withWriteTimeout(jobStore.mongoOptionWriteConcernTimeoutMillis)
+                .withWriteConcernWriteTimeout(jobStore.mongoOptionWriteConcernTimeoutMillis)
+                .withWriteConcernW(jobStore.mongoOptionWriteConcernW)
                 .build();
     }
 
