@@ -651,6 +651,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     public void setMongoOptionKeyStoreType(String keyStoreType) {
         this.mongoOptionKeyStoreType = keyStoreType;
+    }
 
     public void setMongoOptionWriteConcernW(String mongoOptionWriteConcernW) {
         this.mongoOptionWriteConcernW = mongoOptionWriteConcernW;
