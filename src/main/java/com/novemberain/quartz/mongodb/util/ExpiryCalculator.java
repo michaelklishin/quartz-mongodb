@@ -27,7 +27,7 @@ public class ExpiryCalculator {
     }
 
     public boolean isJobLockExpired(Document lock) {
-        return isLockExpired(lock, jobTimeoutMillis);
+        return isLockExpired(lock, jobTimeoutMillis) || hasDefunctScheduler(lock);
     }
 
     public boolean isTriggerLockExpired(Document lock) {
@@ -42,6 +42,11 @@ public class ExpiryCalculator {
             return false;
         }
         return scheduler.isDefunct(clock.millis()) && schedulerDao.isNotSelf(scheduler);
+    }
+
+    private boolean hasDefunctScheduler(Document lock) {
+        String schedulerId = lock.getString(Constants.LOCK_INSTANCE_ID);
+        return hasDefunctScheduler(schedulerId);
     }
 
     private boolean isLockExpired(Document lock, long timeoutMillis) {
