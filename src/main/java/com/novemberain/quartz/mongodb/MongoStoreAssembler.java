@@ -93,7 +93,7 @@ public class MongoStoreAssembler {
         Runnable errorHandler;
         Class aClass;
         if (jobStore.getCheckInErrorHandler() == null) {
-            // current default, see 
+            // current default, see
             aClass = KamikazeErrorHandler.class;
         } else {
             aClass = loadHelper.loadClass(jobStore.getCheckInErrorHandler());
@@ -139,12 +139,10 @@ public class MongoStoreAssembler {
                 .withAddresses(jobStore.addresses)
                 .withDatabaseName(jobStore.dbName)
                 .withAuthDatabaseName(jobStore.authDbName)
-                .withMaxConnectionsPerHost(jobStore.mongoOptionMaxConnectionsPerHost)
+                .withMaxConnections(jobStore.mongoOptionMaxConnections)
                 .withConnectTimeoutMillis(jobStore.mongoOptionConnectTimeoutMillis)
-                .withSocketTimeoutMillis(jobStore.mongoOptionSocketTimeoutMillis)
+                .withReadTimeoutMillis(jobStore.mongoOptionReadTimeoutMillis)
                 .withSocketKeepAlive(jobStore.mongoOptionSocketKeepAlive)
-                .withThreadsAllowedToBlockForConnectionMultiplier(
-                        jobStore.mongoOptionThreadsAllowedToBlockForConnectionMultiplier)
                 .withSSL(jobStore.mongoOptionEnableSSL, jobStore.mongoOptionSslInvalidHostNameAllowed)
                 .withTrustStore(jobStore.mongoOptionTrustStorePath, jobStore.mongoOptionTrustStorePassword, jobStore.mongoOptionTrustStoreType)
                 .withKeyStore(jobStore.mongoOptionKeyStorePath, jobStore.mongoOptionKeyStorePassword, jobStore.mongoOptionKeyStoreType)

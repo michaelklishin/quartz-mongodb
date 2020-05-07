@@ -1,6 +1,5 @@
 package com.novemberain.quartz.mongodb.dao;
 
-import com.mongodb.Block;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.*;
 import com.mongodb.client.result.DeleteResult;
@@ -14,6 +13,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.function.Consumer;
 
 import static com.mongodb.client.model.Sorts.ascending;
 
@@ -154,13 +154,8 @@ public class SchedulerDao {
                     .append(CHECKIN_INTERVAL_FIELD, clusterCheckinIntervalMillis));
     }
 
-    private Block<Document> createResultConverter(final List<Scheduler> schedulers) {
-        return new Block<Document>() {
-            @Override
-            public void apply(Document document) {
-                schedulers.add(toScheduler(document));
-            }
-        };
+    private Consumer<Document> createResultConverter(final List<Scheduler> schedulers) {
+        return document -> schedulers.add(toScheduler(document));
     }
 
     private Scheduler toScheduler(Document document) {

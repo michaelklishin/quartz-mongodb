@@ -1,8 +1,12 @@
 package com.novemberain.quartz.mongodb.db;
 
 import com.mongodb.*;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
+import com.mongodb.connection.ClusterSettings;
+import com.mongodb.connection.ServerSettings;
 import org.bson.Document;
 import org.quartz.SchedulerConfigException;
 
@@ -54,12 +58,12 @@ public class InternalMongoConnector implements MongoConnector {
      *                     {@link #getCollection(String)} will be configured with this write concern.
      * @param uri          MongoDB connection URI.
      * @param dbName       name of the database that will be used to produce collections.
-     * @param optionBuilder      default option builder.
+     * @param settingsBuilder default settings builder.
      * @throws SchedulerConfigException if failed to create instance of MongoClient.
      */
     public InternalMongoConnector(final WriteConcern writeConcern, final String uri,
-                                  final String dbName, MongoClientOptions.Builder optionBuilder) throws SchedulerConfigException {
-        this(writeConcern, createClient(uri, optionBuilder), dbName);
+                                  final String dbName, MongoClientSettings.Builder settingsBuilder) throws SchedulerConfigException {
+        this(writeConcern, createClient(uri, settingsBuilder), dbName);
     }
 
     /**
@@ -69,14 +73,14 @@ public class InternalMongoConnector implements MongoConnector {
      *                        {@link #getCollection(String)} will be configured with this write concern.
      * @param seeds           list of server addresses.
      * @param credentialslist list of credentials used to authenticate all connections.
-     * @param options         default options.
+     * @param settings        default settings.
      * @param dbName          name of the database that will be used to produce collections.
      * @throws SchedulerConfigException if failed to create instance of MongoClient.
      */
     public InternalMongoConnector(final WriteConcern writeConcern, final List<ServerAddress> seeds,
-                                  final Optional<MongoCredential> credentialslist, final MongoClientOptions options,
+                                  final Optional<MongoCredential> credentialslist, final MongoClientSettings settings,
                                   final String dbName) throws SchedulerConfigException {
-        this(writeConcern, createClient(seeds, credentialslist, options), dbName);
+        this(writeConcern, createClient(seeds, credentialslist, settings), dbName);
     }
 
     @Override
@@ -90,27 +94,27 @@ public class InternalMongoConnector implements MongoConnector {
     }
 
     /**
-     * Creates an instance of MongoClient from MongoClientURI wrapping exception.
+     * Creates an instance of MongoClient from MongoClientSettings wrapping exception.
      */
-    private static MongoClient createClient(final MongoClientURI uri) throws SchedulerConfigException {
+    private static MongoClient createClient(final MongoClientSettings settings) throws SchedulerConfigException {
         try {
-            return new MongoClient(uri);
+            return MongoClients.create(settings);
         } catch (final MongoException e) {
             throw new SchedulerConfigException("MongoDB driver thrown an exception.", e);
         }
     }
 
     /**
-     * Creates an instance of MongoClient from string URI and option builder wrapping exception.
+     * Creates an instance of MongoClient from string URI and settings builder wrapping exception.
      */
-    private static MongoClient createClient(final String uri, MongoClientOptions.Builder optionBuilder) throws SchedulerConfigException {
-        final MongoClientURI mongoUri;
+    private static MongoClient createClient(final String uri, final MongoClientSettings.Builder settingsBuilder) throws SchedulerConfigException {
+        final ConnectionString mongoUri;
         try {
-            mongoUri = optionBuilder == null ? new MongoClientURI(uri) : new MongoClientURI(uri, optionBuilder);
+            mongoUri = new ConnectionString(uri);
         } catch (final MongoException e) {
             throw new SchedulerConfigException("Invalid mongo client uri.", e);
         }
-        return createClient(mongoUri);
+        return createClient(settingsBuilder.applyConnectionString(mongoUri).build());
     }
 
     /**
@@ -118,13 +122,14 @@ public class InternalMongoConnector implements MongoConnector {
      */
     private static MongoClient createClient(final List<ServerAddress> seeds,
                                             final Optional<MongoCredential> credentials,
-                                            final MongoClientOptions options) throws SchedulerConfigException {
+                                            final MongoClientSettings settings) throws SchedulerConfigException {
         try {
-            MongoClient client;
-            client = credentials
-                .map(mongoCredential -> new MongoClient(seeds, mongoCredential, options))
-                .orElseGet(() -> new MongoClient(seeds, options));
-            return client;
+            final MongoClientSettings.Builder settingsBuilder = MongoClientSettings.builder(settings)
+                    .applyToClusterSettings(builder -> builder.hosts(seeds));
+
+            credentials.ifPresent(settingsBuilder::credential);
+
+            return MongoClients.create(settingsBuilder.build());
         } catch (MongoException e) {
             throw new SchedulerConfigException("MongoDB driver thrown an exception.", e);
         }

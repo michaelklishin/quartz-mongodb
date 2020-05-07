@@ -54,7 +54,7 @@ public class JobDao {
     }
 
     public boolean exists(JobKey jobKey) {
-        return jobCollection.count(Keys.toFilter(jobKey)) > 0;
+        return jobCollection.countDocuments(Keys.toFilter(jobKey)) > 0;
     }
 
     public Document getById(Object id) {
@@ -70,7 +70,7 @@ public class JobDao {
     }
 
     public int getCount() {
-        return (int) jobCollection.count();
+        return (int) jobCollection.countDocuments();
     }
 
     public List<String> getGroupNames() {
