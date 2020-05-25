@@ -4,8 +4,8 @@ import com.mongodb.*;
 import com.mongodb.client.MongoDatabase;
 import org.quartz.SchedulerConfigException;
 
+import java.net.URI;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -83,7 +83,8 @@ public class MongoConnectorBuilder {
         }
 
         // Options below require database name
-        checkNotNull(dbName, "'Database name' parameter is required.");
+        resolveDbNameByUriIfNull();
+        checkNotNull(dbName, "'Database name' is required, as parameter or in MongoDB URI path.");
 
         if (client != null) {
             // User passed MongoClient instance.
@@ -102,6 +103,15 @@ public class MongoConnectorBuilder {
         final List<ServerAddress> serverAddresses = collectServerAddresses();
         final Optional<MongoCredential> credentials = createCredentials();
         return new InternalMongoConnector(writeConcern, serverAddresses, credentials, optionsBuilder.build(), dbName);
+    }
+
+    private void resolveDbNameByUriIfNull() {
+        if (dbName == null && uri != null) {
+            String path = URI.create(uri).getPath();
+            if (path != null && path.startsWith("/") && path.length() > 1) {
+                dbName = path.substring(1);
+            }
+        }
     }
 
     private List<ServerAddress> collectServerAddresses() {
