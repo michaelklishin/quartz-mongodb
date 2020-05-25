@@ -1,6 +1,6 @@
 package com.novemberain.quartz.mongodb;
 
-import com.mongodb.MongoClient;
+import com.mongodb.client.MongoClient;
 import com.novemberain.quartz.mongodb.clojure.DynamicClassLoadHelper;
 import org.quartz.spi.ClassLoadHelper;
 

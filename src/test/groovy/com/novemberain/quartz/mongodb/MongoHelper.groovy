@@ -1,9 +1,10 @@
 package com.novemberain.quartz.mongodb
 
-import com.mongodb.MongoClient
-import com.mongodb.MongoClientOptions
-import com.mongodb.ServerAddress;
+import com.mongodb.MongoClientSettings
+import com.mongodb.ServerAddress
 import com.mongodb.WriteConcern
+import com.mongodb.client.MongoClient
+import com.mongodb.client.MongoClients
 import com.mongodb.client.MongoCollection
 import com.mongodb.client.MongoDatabase
 import org.bson.Document
@@ -14,10 +15,12 @@ class MongoHelper {
 
     static DEFAULT_MONGO_PORT = 12345
 
-    static MongoClient client = new MongoClient(
-            new ServerAddress('localhost', DEFAULT_MONGO_PORT),
-            MongoClientOptions.builder()
+    static MongoClient client = MongoClients.create(
+            MongoClientSettings.builder()
                     .writeConcern(WriteConcern.JOURNALED)
+                    .applyToClusterSettings { builder ->
+                        builder.hosts([new ServerAddress('localhost', DEFAULT_MONGO_PORT)])
+                    }
                     .build())
 
     static MongoDatabase testDatabase = client.getDatabase(testDatabaseName)
@@ -83,7 +86,7 @@ class MongoHelper {
      * Return number of elements in a collection.
      */
     static def getCount(String col) {
-        collections[col].count()
+        collections[col].countDocuments()
     }
 
     /**

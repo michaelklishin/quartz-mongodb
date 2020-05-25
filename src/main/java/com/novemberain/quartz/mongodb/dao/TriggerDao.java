@@ -68,7 +68,7 @@ public class TriggerDao {
     }
 
     public boolean exists(Bson filter) {
-        return triggerCollection.count(filter) > 0;
+        return triggerCollection.countDocuments(filter) > 0;
     }
 
     public FindIterable<Document> findEligibleToRun(Date noLaterThanDate) {
@@ -84,7 +84,7 @@ public class TriggerDao {
     }
 
     public int getCount() {
-        return (int) triggerCollection.count();
+        return (int) triggerCollection.countDocuments();
     }
 
     public List<String> getGroupNames() {
@@ -209,7 +209,7 @@ public class TriggerDao {
     }
 
     private long getCount(Bson query) {
-        return triggerCollection.count(query);
+        return triggerCollection.countDocuments(query);
     }
 
     private void setStates(Bson filter, String state) {

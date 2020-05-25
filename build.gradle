@@ -8,7 +8,7 @@ buildscript {
 plugins {
     id 'net.researchgate.release' version '2.6.0'
     id "com.jfrog.bintray" version "1.7.3"
-    id 'com.sourcemuse.mongo' version '1.0.6'
+    id 'com.sourcemuse.mongo' version '1.0.7'
 }
 
 allprojects {
@@ -51,7 +51,7 @@ idea {
 }
 dependencies {
     compile("org.quartz-scheduler:quartz:2.3.2")
-    compile("org.mongodb:mongodb-driver:3.12.3")
+    compile("org.mongodb:mongodb-driver-sync:4.0.2")
     compile("commons-codec:commons-codec:1.10")
     compile("org.apache.commons:commons-lang3:3.8")
     compile("org.apache.httpcomponents:httpcore:4.4.10")
@@ -134,7 +134,7 @@ tasks.withType(Test){
         journalingEnabled true
         port 12345
         logging 'console'
-        mongoVersion '3.6.10'
+        mongoVersion '4.0.12'
     }
 }
 

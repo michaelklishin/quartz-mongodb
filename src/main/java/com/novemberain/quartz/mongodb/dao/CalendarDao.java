@@ -7,7 +7,6 @@ import org.quartz.Calendar;
 import org.quartz.JobPersistenceException;
 
 import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoIterable;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.Projections;
@@ -40,12 +39,12 @@ public class CalendarDao {
     }
 
     public int getCount() {
-        return (int) calendarCollection.count();
+        return (int) calendarCollection.countDocuments();
     }
 
     public boolean remove(String name) {
         Bson searchObj = Filters.eq(CALENDAR_NAME, name);
-        if (calendarCollection.count(searchObj) > 0) {
+        if (calendarCollection.countDocuments(searchObj) > 0) {
             calendarCollection.deleteMany(searchObj);
             return true;
         }
