@@ -162,7 +162,7 @@ CI is hosted by [Travis CI](http://travis-ci.org/)
 
 ## Copyright & License
 
-(c) Michael S. Klishin, Alex Petrov, 2011-2018.
+(c) Michael S. Klishin, Alex Petrov, 2011-2020.
 
 [Apache Public License 2.0](http://www.apache.org/licenses/LICENSE-2.0.html)
 
