@@ -8,6 +8,11 @@ import org.quartz.impl.triggers.DailyTimeIntervalTriggerImpl;
 import org.quartz.spi.OperableTrigger;
 import org.quartz.DateBuilder;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 public class DailyTimeIntervalTriggerPropertiesConverter extends TriggerPropertiesConverter {
 
     private static final String TRIGGER_REPEAT_INTERVAL_UNIT = "repeatIntervalUnit";
@@ -15,6 +20,7 @@ public class DailyTimeIntervalTriggerPropertiesConverter extends TriggerProperti
     private static final String TRIGGER_TIMES_TRIGGERED = "timesTriggered";
     private static final String TRIGGER_START_TIME_OF_DAY = "startTimeOfDay";
     private static final String TRIGGER_END_TIME_OF_DAY = "endTimeOfDay";
+    private static final String TRIGGER_DAYS_OF_WEEK = "daysOfWeek";
 
     @Override
     protected boolean canHandle(OperableTrigger trigger) {
@@ -31,7 +37,8 @@ public class DailyTimeIntervalTriggerPropertiesConverter extends TriggerProperti
                 .append(TRIGGER_REPEAT_INTERVAL, t.getRepeatInterval())
                 .append(TRIGGER_TIMES_TRIGGERED, t.getTimesTriggered())
                 .append(TRIGGER_START_TIME_OF_DAY, toDocument(t.getStartTimeOfDay()))
-                .append(TRIGGER_END_TIME_OF_DAY, toDocument(t.getEndTimeOfDay()));
+                .append(TRIGGER_END_TIME_OF_DAY, toDocument(t.getEndTimeOfDay()))
+                .append(TRIGGER_DAYS_OF_WEEK, new ArrayList<>(t.getDaysOfWeek()));
     }
 
     private Document toDocument(TimeOfDay tod) {
@@ -65,6 +72,10 @@ public class DailyTimeIntervalTriggerPropertiesConverter extends TriggerProperti
         Document endTOD = (Document) stored.get(TRIGGER_END_TIME_OF_DAY);
         if (endTOD != null) {
             t.setEndTimeOfDay(fromDocument(endTOD));
+        }
+        List<Integer> daysOfWeek = stored.getList(TRIGGER_DAYS_OF_WEEK, Integer.class);
+        if (daysOfWeek != null) {
+            t.setDaysOfWeek(new HashSet<>(daysOfWeek));
         }
     }
 
