@@ -9,9 +9,9 @@
  */
 package com.novemberain.quartz.mongodb;
 
-import com.mongodb.MongoClient;
 import com.mongodb.MongoCommandException;
 import com.mongodb.MongoException;
+import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.novemberain.quartz.mongodb.db.MongoConnector;
@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
 import java.util.Map.Entry;
+import java.util.concurrent.TimeUnit;
 
 public class MongoDBJobStore implements JobStore, Constants {
 
@@ -58,10 +59,9 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     // Options for the Mongo client.
     Boolean mongoOptionSocketKeepAlive;
-    Integer mongoOptionMaxConnectionsPerHost;
+    Integer mongoOptionMaxConnections;
     Integer mongoOptionConnectTimeoutMillis;
-    Integer mongoOptionSocketTimeoutMillis; // read timeout
-    Integer mongoOptionThreadsAllowedToBlockForConnectionMultiplier;
+    Integer mongoOptionReadTimeoutMillis; // read timeout
     Boolean mongoOptionEnableSSL;
     Boolean mongoOptionSslInvalidHostNameAllowed;
     String mongoOptionTrustStorePath;
@@ -182,7 +182,7 @@ public class MongoDBJobStore implements JobStore, Constants {
 
     @Override
     public long getAcquireRetryDelay(int failureCount) {
-        return mongo.getMongoClientOptions().getServerSelectionTimeout();
+        return mongo.getClusterDescription().getClusterSettings().getServerSelectionTimeout(TimeUnit.MILLISECONDS);
     }
 
     /**
@@ -601,20 +601,16 @@ public class MongoDBJobStore implements JobStore, Constants {
         }
     }
 
-    public void setMongoOptionMaxConnectionsPerHost(int maxConnectionsPerHost) {
-        this.mongoOptionMaxConnectionsPerHost = maxConnectionsPerHost;
+    public void setMongoOptionMaxConnections(int maxConnections) {
+        this.mongoOptionMaxConnections = maxConnections;
     }
 
     public void setMongoOptionConnectTimeoutMillis(int maxConnectWaitTime) {
         this.mongoOptionConnectTimeoutMillis = maxConnectWaitTime;
     }
 
-    public void setMongoOptionSocketTimeoutMillis(int socketTimeoutMillis) {
-        this.mongoOptionSocketTimeoutMillis = socketTimeoutMillis;
-    }
-
-    public void setMongoOptionThreadsAllowedToBlockForConnectionMultiplier(int threadsAllowedToBlockForConnectionMultiplier) {
-        this.mongoOptionThreadsAllowedToBlockForConnectionMultiplier = threadsAllowedToBlockForConnectionMultiplier;
+    public void setMongoOptionReadTimeoutMillis(int readTimeoutMillis) {
+        this.mongoOptionReadTimeoutMillis = readTimeoutMillis;
     }
 
     public void setMongoOptionSocketKeepAlive(boolean socketKeepAlive) {

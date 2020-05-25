@@ -16,15 +16,22 @@ class ExpiryCalculatorTest extends Specification {
 
     def 'should tell if job lock has exired'() {
         given:
+        def timeInPast = -10000L
         def clock = Clocks.constClock(101)
         def calc = createCalc(clock)
+        def deadScheduler = createScheduler(timeInPast)
+        def deadCalc = createCalc(clock, deadScheduler)
 
         expect: 'Expired lock: 101 - 0 > 100 (timeout)'
         calc.isJobLockExpired(createDoc(0))
+        deadCalc.isJobLockExpired(createDoc(timeInPast))
 
         and: 'Not expired: 101 - 1/101 <= 100'
         !calc.isJobLockExpired(createDoc(1))
         !calc.isJobLockExpired(createDoc(101))
+
+        and: 'CheckIn expired'
+        deadCalc.isJobLockExpired(createDoc(10))
     }
 
     def 'should tell if trigger lock has expired'() {

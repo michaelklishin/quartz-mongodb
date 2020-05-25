@@ -1,11 +1,12 @@
 package com.novemberain.quartz.mongodb.db;
 
 import com.mongodb.*;
+import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoDatabase;
 import org.quartz.SchedulerConfigException;
 
+import java.net.URI;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -30,11 +31,10 @@ public class MongoConnectorBuilder {
     private String username;
     private String password;
     private String authDbName;
-    private Integer maxConnectionsPerHost;
+    private Integer maxConnections;
     private Integer connectTimeoutMillis;
-    private Integer socketTimeoutMillis;
+    private Integer readTimeoutMillis;
     private Boolean socketKeepAlive;
-    private Integer threadsAllowedToBlockForConnectionMultiplier;
     private Boolean enableSSL;
     private Boolean sslInvalidHostNameAllowed;
     private String trustStorePath;
@@ -83,7 +83,8 @@ public class MongoConnectorBuilder {
         }
 
         // Options below require database name
-        checkNotNull(dbName, "'Database name' parameter is required.");
+        resolveDbNameByUriIfNull();
+        checkNotNull(dbName, "'Database name' is required, as parameter or in MongoDB URI path.");
 
         if (client != null) {
             // User passed MongoClient instance.
@@ -91,17 +92,26 @@ public class MongoConnectorBuilder {
             return new ExternalMongoConnector(writeConcern, client, dbName);
         }
 
-        final MongoClientOptions.Builder optionsBuilder = createOptionBuilder();
+        final MongoClientSettings.Builder settingsBuilder = createSettingsBuilder();
         if (uri != null) {
             // User passed URI.
             validateForUri();
-            return new InternalMongoConnector(writeConcern, uri, dbName, optionsBuilder);
+            return new InternalMongoConnector(writeConcern, uri, dbName, settingsBuilder);
         }
 
         checkNotNull(addresses, "At least one MongoDB address or a MongoDB URI must be specified.");
         final List<ServerAddress> serverAddresses = collectServerAddresses();
         final Optional<MongoCredential> credentials = createCredentials();
-        return new InternalMongoConnector(writeConcern, serverAddresses, credentials, optionsBuilder.build(), dbName);
+        return new InternalMongoConnector(writeConcern, serverAddresses, credentials, settingsBuilder.build(), dbName);
+    }
+
+    private void resolveDbNameByUriIfNull() {
+        if (dbName == null && uri != null) {
+            String path = URI.create(uri).getPath();
+            if (path != null && path.startsWith("/") && path.length() > 1) {
+                dbName = path.substring(1);
+            }
+        }
     }
 
     private List<ServerAddress> collectServerAddresses() {
@@ -127,45 +137,42 @@ public class MongoConnectorBuilder {
         return Optional.empty();
     }
 
-    private MongoClientOptions.Builder createOptionBuilder() throws SchedulerConfigException {
-        final MongoClientOptions.Builder optionsBuilder = MongoClientOptions.builder();
-        if (maxConnectionsPerHost != null) {
-            optionsBuilder.connectionsPerHost(maxConnectionsPerHost);
+    private MongoClientSettings.Builder createSettingsBuilder() throws SchedulerConfigException {
+        final MongoClientSettings.Builder settingsBuilder = MongoClientSettings.builder();
+        if (maxConnections != null) {
+            settingsBuilder.applyToConnectionPoolSettings(builder -> builder.maxSize(maxConnections));
         }
         if (connectTimeoutMillis != null) {
-            optionsBuilder.connectTimeout(connectTimeoutMillis);
+            settingsBuilder.applyToSocketSettings(builder -> builder.connectTimeout(connectTimeoutMillis, TimeUnit.MILLISECONDS));
         }
-        if (socketTimeoutMillis != null) {
-            optionsBuilder.socketTimeout(socketTimeoutMillis);
+        if (readTimeoutMillis != null) {
+            settingsBuilder.applyToSocketSettings(builder -> builder.readTimeout(readTimeoutMillis, TimeUnit.MILLISECONDS));
         }
         if (socketKeepAlive != null) {
             // enabled by default,
             // ignored per MongoDB Java client deprecations
         }
-        if (threadsAllowedToBlockForConnectionMultiplier != null) {
-            optionsBuilder.threadsAllowedToBlockForConnectionMultiplier(threadsAllowedToBlockForConnectionMultiplier);
-        }
-        hanldeSSLContext(optionsBuilder);
-        return optionsBuilder;
+        hanldeSSLContext(settingsBuilder);
+        return settingsBuilder;
     }
 
-    private void hanldeSSLContext(MongoClientOptions.Builder optionsBuilder) throws SchedulerConfigException {
+    private void hanldeSSLContext(MongoClientSettings.Builder optionsBuilder) throws SchedulerConfigException {
         try {
             SSLContext sslContext = sslContextFactory.getSSLContext(trustStorePath, trustStorePassword, trustStoreType,
                     keyStorePath, keyStorePassword, keyStoreType);
             if (sslContext == null) {
                 if (enableSSL != null) {
-                    optionsBuilder.sslEnabled(enableSSL);
+                    optionsBuilder.applyToSslSettings(builder -> builder.enabled(enableSSL));
                     if (sslInvalidHostNameAllowed != null) {
-                        optionsBuilder.sslInvalidHostNameAllowed(sslInvalidHostNameAllowed);
+                        optionsBuilder.applyToSslSettings(builder -> builder.invalidHostNameAllowed(sslInvalidHostNameAllowed));
                     }
                 }
             } else {
-                optionsBuilder.sslEnabled(true);
+                optionsBuilder.applyToSslSettings(builder -> builder.enabled(true));
                 if (sslInvalidHostNameAllowed != null) {
-                    optionsBuilder.sslInvalidHostNameAllowed(sslInvalidHostNameAllowed);
+                    optionsBuilder.applyToSslSettings(builder -> builder.invalidHostNameAllowed(sslInvalidHostNameAllowed));
                 }
-                optionsBuilder.sslContext(sslContext);
+                optionsBuilder.applyToSslSettings(builder -> builder.context(sslContext));
             }
         } catch (SSLException e) {
             throw new SchedulerConfigException("Cannot setup SSL context", e);
@@ -244,12 +251,10 @@ public class MongoConnectorBuilder {
     }
 
     private void checkConnectionOptionsAreNull(final String suffix) throws SchedulerConfigException {
-        checkIsNull(maxConnectionsPerHost, paramNotAllowed("Max connections per host", suffix));
+        checkIsNull(maxConnections, paramNotAllowed("Max connections", suffix));
         checkIsNull(connectTimeoutMillis, paramNotAllowed("Connect timeout millis", suffix));
-        checkIsNull(socketTimeoutMillis, paramNotAllowed("Socket timeout millis", suffix));
+        checkIsNull(readTimeoutMillis, paramNotAllowed("Socket timeout millis", suffix));
         checkIsNull(socketKeepAlive, paramNotAllowed("Socket keepAlive", suffix));
-        checkIsNull(threadsAllowedToBlockForConnectionMultiplier,
-                paramNotAllowed("Threads allowed to block for connection multiplier", suffix));
         checkIsNull(enableSSL, paramNotAllowed("Enable ssl", suffix));
         checkIsNull(sslInvalidHostNameAllowed, paramNotAllowed("SSL invalid hostname allowed", suffix));
         checkIsNull(trustStorePath, paramNotAllowed("TrustStore path", suffix));
@@ -317,8 +322,8 @@ public class MongoConnectorBuilder {
         return this;
     }
 
-    public MongoConnectorBuilder withMaxConnectionsPerHost(final Integer maxConnectionsPerHost) {
-        this.maxConnectionsPerHost = maxConnectionsPerHost;
+    public MongoConnectorBuilder withMaxConnections(final Integer maxConnections) {
+        this.maxConnections = maxConnections;
         return this;
     }
 
@@ -327,19 +332,13 @@ public class MongoConnectorBuilder {
         return this;
     }
 
-    public MongoConnectorBuilder withSocketTimeoutMillis(final Integer socketTimeoutMillis) {
-        this.socketTimeoutMillis = socketTimeoutMillis;
+    public MongoConnectorBuilder withReadTimeoutMillis(final Integer readTimeoutMillis) {
+        this.readTimeoutMillis = readTimeoutMillis;
         return this;
     }
 
     public MongoConnectorBuilder withSocketKeepAlive(final Boolean socketKeepAlive) {
         this.socketKeepAlive = socketKeepAlive;
-        return this;
-    }
-
-    public MongoConnectorBuilder withThreadsAllowedToBlockForConnectionMultiplier(
-            final Integer threadsAllowedToBlockForConnectionMultiplier) {
-        this.threadsAllowedToBlockForConnectionMultiplier = threadsAllowedToBlockForConnectionMultiplier;
         return this;
     }
 
