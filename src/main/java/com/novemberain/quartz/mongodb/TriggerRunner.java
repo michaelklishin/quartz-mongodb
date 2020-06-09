@@ -95,11 +95,12 @@ public class TriggerRunner {
                     lockManager.unlockExpired(job);
                 }
             }
-            }
+
+        }
+        }
         catch(MongoException e) {
    		 log.error("acquireNextTriggers failed due to MongoException: " + e.getMessage(), e);
             throw new JobPersistenceException("acquireNextTriggers failed due to MongoException: "  , e);
-        }
         }
         return results;
     }
@@ -131,7 +132,9 @@ public class TriggerRunner {
                     log.info("Acquired trigger: {}", trigger.getKey());
                     triggers.put(trigger.getKey(), trigger);
                 } else {
+                	triggers.put(trigger.getKey(), trigger);
                     lockManager.unlockAcquiredTrigger(trigger);
+                    triggers.remove(trigger.getKey());
                 }
             } else if (lockManager.relockExpired(key)) {
                 log.info("Recovering trigger: {}", trigger.getKey());
@@ -151,6 +154,7 @@ public class TriggerRunner {
         	 log.error("acquireNextTriggers failed due to MongoException: " + e.getMessage(), e);
              throw new JobPersistenceException("acquireNextTriggers failed due to MongoException: "  , e);
         }
+
 
         return new ArrayList<OperableTrigger>(triggers.values());
     }
