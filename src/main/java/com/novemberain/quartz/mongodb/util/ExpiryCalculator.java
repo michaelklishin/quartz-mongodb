@@ -25,7 +25,7 @@ public class ExpiryCalculator {
         this.clock = clock;
         this.jobTimeoutMillis = jobTimeoutMillis;
         this.triggerTimeoutMillis = triggerTimeoutMillis;
-        this.isClustered=isClustered;
+        this.isClustered = isClustered;
     }
 
     public boolean isJobLockExpired(Document lock) {
