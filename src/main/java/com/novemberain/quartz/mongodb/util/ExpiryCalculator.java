@@ -38,15 +38,14 @@ public class ExpiryCalculator {
     }
 
     private boolean hasDefunctScheduler(String schedulerId) {
-        if(isClustered) {
+        
         Scheduler scheduler = schedulerDao.findInstance(schedulerId);
         if (scheduler == null) {
             log.debug("No such scheduler: {}", schedulerId);
             return false;
         }
         return scheduler.isDefunct(clock.millis()) && schedulerDao.isNotSelf(scheduler);
-        }
-        return true;
+        
     }
 
     private boolean hasDefunctScheduler(Document lock) {
