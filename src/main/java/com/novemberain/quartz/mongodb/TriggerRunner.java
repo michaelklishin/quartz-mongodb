@@ -1,5 +1,6 @@
 package com.novemberain.quartz.mongodb;
 
+import com.mongodb.MongoException;
 import com.mongodb.MongoWriteException;
 import com.novemberain.quartz.mongodb.cluster.TriggerRecoverer;
 import com.novemberain.quartz.mongodb.dao.CalendarDao;
@@ -76,7 +77,7 @@ public class TriggerRunner {
     public List<TriggerFiredResult> triggersFired(List<OperableTrigger> triggers)
             throws JobPersistenceException {
         List<TriggerFiredResult> results = new ArrayList<TriggerFiredResult>(triggers.size());
-
+        try {
         for (OperableTrigger trigger : triggers) {
             log.debug("Fired trigger {}", trigger.getKey());
 
@@ -96,13 +97,18 @@ public class TriggerRunner {
             }
 
         }
+        }
+        catch(MongoException e) {
+   		 log.error("acquireNextTriggers failed due to MongoException: " + e.getMessage(), e);
+            throw new JobPersistenceException("acquireNextTriggers failed due to MongoException: "  , e);
+        }
         return results;
     }
 
     private List<OperableTrigger> acquireNextTriggers(Date noLaterThanDate, int maxCount)
             throws JobPersistenceException {
         Map<TriggerKey, OperableTrigger> triggers = new HashMap<TriggerKey, OperableTrigger>();
-
+        try{
         for (Document triggerDoc : triggerDao.findEligibleToRun(noLaterThanDate)) {
             if (acquiredEnough(triggers, maxCount)) {
                 break;
@@ -126,7 +132,9 @@ public class TriggerRunner {
                     log.info("Acquired trigger: {}", trigger.getKey());
                     triggers.put(trigger.getKey(), trigger);
                 } else {
+                	triggers.put(trigger.getKey(), trigger);
                     lockManager.unlockAcquiredTrigger(trigger);
+                    triggers.remove(trigger.getKey());
                 }
             } else if (lockManager.relockExpired(key)) {
                 log.info("Recovering trigger: {}", trigger.getKey());
@@ -138,6 +146,15 @@ public class TriggerRunner {
                 }
             }
         }
+        }
+        catch(MongoException e) {
+        	for (OperableTrigger triggerDoc : triggers.values()) {
+        		lockManager.unlockAcquiredTrigger(triggerDoc);
+        	}
+        	 log.error("acquireNextTriggers failed due to MongoException: " + e.getMessage(), e);
+             throw new JobPersistenceException("acquireNextTriggers failed due to MongoException: "  , e);
+        }
+
 
         return new ArrayList<OperableTrigger>(triggers.values());
     }
