@@ -121,7 +121,7 @@ public class MongoStoreAssembler {
 
     private LockManager createLockManager(MongoDBJobStore jobStore) {
         ExpiryCalculator expiryCalculator = new ExpiryCalculator(schedulerDao,
-                Clock.SYSTEM_CLOCK, jobStore.jobTimeoutMillis, jobStore.triggerTimeoutMillis);
+                Clock.SYSTEM_CLOCK, jobStore.jobTimeoutMillis, jobStore.triggerTimeoutMillis,jobStore.isClustered());
         return new LockManager(locksDao, expiryCalculator);
     }
 

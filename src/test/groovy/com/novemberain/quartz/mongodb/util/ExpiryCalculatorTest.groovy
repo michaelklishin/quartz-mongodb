@@ -13,6 +13,7 @@ class ExpiryCalculatorTest extends Specification {
     @Shared def defaultInstanceId = "test instance"
     @Shared def jobTimeoutMillis = 100l
     @Shared def triggerTimeoutMillis = 10000l
+    @Shared def isClustered = true
 
     def 'should tell if job lock has exired'() {
         given:
@@ -82,7 +83,7 @@ class ExpiryCalculatorTest extends Specification {
 
     def createCalc(Clock clock, Scheduler scheduler) {
         new ExpiryCalculator(createSchedulerDao(scheduler), clock,
-                jobTimeoutMillis, triggerTimeoutMillis)
+                jobTimeoutMillis, triggerTimeoutMillis,isClustered)
     }
 
     def createDoc(long lockTime) {
