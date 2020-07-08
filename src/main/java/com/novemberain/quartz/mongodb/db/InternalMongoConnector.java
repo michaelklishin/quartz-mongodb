@@ -5,8 +5,6 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
-import com.mongodb.connection.ClusterSettings;
-import com.mongodb.connection.ServerSettings;
 import org.bson.Document;
 import org.quartz.SchedulerConfigException;
 
@@ -72,15 +70,16 @@ public class InternalMongoConnector implements MongoConnector {
      * @param writeConcern    instance of {@link WriteConcern}. Each {@link MongoCollection} produced by
      *                        {@link #getCollection(String)} will be configured with this write concern.
      * @param seeds           list of server addresses.
-     * @param credentialslist list of credentials used to authenticate all connections.
-     * @param settings        default settings.
+     * @param credentials     credentials used to authenticate all connections.
+     * @param settingsBuilder default settings builder.
      * @param dbName          name of the database that will be used to produce collections.
      * @throws SchedulerConfigException if failed to create instance of MongoClient.
      */
     public InternalMongoConnector(final WriteConcern writeConcern, final List<ServerAddress> seeds,
-                                  final Optional<MongoCredential> credentialslist, final MongoClientSettings settings,
+                                  final Optional<MongoCredential> credentials,
+                                  final MongoClientSettings.Builder settingsBuilder,
                                   final String dbName) throws SchedulerConfigException {
-        this(writeConcern, createClient(seeds, credentialslist, settings), dbName);
+        this(writeConcern, createClient(seeds, credentials, settingsBuilder), dbName);
     }
 
     @Override
@@ -118,13 +117,13 @@ public class InternalMongoConnector implements MongoConnector {
     }
 
     /**
-     * Creates an instance of MongoClient from server addresses, credentials and options wrapping exception.
+     * Creates an instance of MongoClient from server addresses, credentials and settings builder wrapping exception.
      */
     private static MongoClient createClient(final List<ServerAddress> seeds,
                                             final Optional<MongoCredential> credentials,
-                                            final MongoClientSettings settings) throws SchedulerConfigException {
+                                            final MongoClientSettings.Builder settingsBuilder) throws SchedulerConfigException {
         try {
-            final MongoClientSettings.Builder settingsBuilder = MongoClientSettings.builder(settings)
+            settingsBuilder
                     .applyToClusterSettings(builder -> builder.hosts(seeds));
 
             credentials.ifPresent(settingsBuilder::credential);
