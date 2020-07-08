@@ -102,7 +102,7 @@ public class MongoConnectorBuilder {
         checkNotNull(addresses, "At least one MongoDB address or a MongoDB URI must be specified.");
         final List<ServerAddress> serverAddresses = collectServerAddresses();
         final Optional<MongoCredential> credentials = createCredentials();
-        return new InternalMongoConnector(writeConcern, serverAddresses, credentials, settingsBuilder.build(), dbName);
+        return new InternalMongoConnector(writeConcern, serverAddresses, credentials, settingsBuilder, dbName);
     }
 
     private void resolveDbNameByUriIfNull() {
