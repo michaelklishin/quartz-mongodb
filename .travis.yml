@@ -1,15 +1,18 @@
 dist: bionic
-
-language: java
-install: ./gradlew assemble
 sudo: false
 
-script: ./gradlew check --info --stacktrace
-
+language: java
 jdk:
   - oraclejdk13
   - openjdk13
 
+services:
+  - mongodb
+
+install: ./gradlew assemble
+
 cache:
   directories:
   - $HOME/.gradle
+
+script: ./gradlew check --info --stacktrace
