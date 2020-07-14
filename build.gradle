@@ -6,8 +6,8 @@ buildscript {
 }
 
 plugins {
-    id 'net.researchgate.release' version '2.6.0'
-    id "com.jfrog.bintray" version "1.7.3"
+    id 'net.researchgate.release' version '2.8.1'
+    id "com.jfrog.bintray" version "1.8.5"
     id 'com.sourcemuse.mongo' version '1.0.7'
 }
 
@@ -15,7 +15,6 @@ allprojects {
 	repositories {
 		jcenter()
 	}
-	apply plugin: 'maven'
 	apply plugin: 'maven-publish'
 	apply plugin: 'java'
 }
@@ -24,21 +23,20 @@ apply plugin: 'groovy'
 apply plugin: 'idea'
 apply plugin: 'com.sourcemuse.mongo'
 
+archivesBaseName = 'quartz-mongodb'
+projectVersion = "2.2.0-rc1"
+
 jar {
-    baseName = 'quartz-mongodb'
-    version =  version
+    archiveVersion = projectVersion
 }
 
 repositories {
     mavenCentral()
 }
 
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
-
 configurations {
     provided
-    compile.extendsFrom provided
+    implementation.extendsFrom provided
 }
 sourceSets {
     main { compileClasspath += configurations.provided }
@@ -50,22 +48,22 @@ idea {
     }
 }
 dependencies {
-    compile("org.quartz-scheduler:quartz:2.3.2")
-    compile("org.mongodb:mongodb-driver-sync:4.0.5")
-    compile("commons-codec:commons-codec:1.10")
-    compile("org.apache.commons:commons-lang3:3.8")
-    compile("org.apache.httpcomponents:httpcore:4.4.10")
-    compile("org.slf4j:slf4j-api:1.7.21")
+    implementation("org.quartz-scheduler:quartz:2.3.2")
+    implementation("org.mongodb:mongodb-driver-sync:4.0.5")
+    implementation("commons-codec:commons-codec:1.10")
+    implementation("org.apache.commons:commons-lang3:3.8")
+    implementation("org.apache.httpcomponents:httpcore:4.4.10")
+    implementation("org.slf4j:slf4j-api:1.7.21")
 
     compileOnly("org.clojure:clojure:1.10.0")
 
-    testCompile("org.clojure:clojure:1.10.0")
-    testCompile("joda-time:joda-time:2.8.2")
-    testCompile("org.slf4j:slf4j-simple:1.7.10")
-    testCompile("org.codehaus.groovy:groovy-all:2.5.12")
-    testCompile("org.spockframework:spock-core:1.3-groovy-2.5")
-    testRuntime("cglib:cglib-nodep:3.1")
-    testRuntime("org.objenesis:objenesis:2.1")
+    testImplementation("org.clojure:clojure:1.10.0")
+    testImplementation("joda-time:joda-time:2.8.2")
+    testImplementation("org.slf4j:slf4j-simple:1.7.10")
+    testImplementation("org.codehaus.groovy:groovy-all:2.5.12")
+    testImplementation("org.spockframework:spock-core:1.3-groovy-2.5")
+    testRuntimeOnly("cglib:cglib-nodep:3.1")
+    testRuntimeOnly("org.objenesis:objenesis:2.1")
 }
 
 release {
@@ -95,18 +93,23 @@ artifacts {
     archives javadocJar
 }
 
+java {
+    withJavadocJar()
+    withSourcesJar()
+}
 
 publishing {
     publications {
         QuartzMongoDB(MavenPublication) {
-            from components.java
-            groupId 'com.novemberain'
-            artifactId(jar.baseName)
-            version(projectVersion)
+            groupId    = 'com.novemberain'
+            artifactId = archivesBaseName
+            version    = projectVersion
 
             artifact sourceJar {
                 classifier "sources"
             }
+
+            from components.java
         }
     }
 }
@@ -152,8 +155,8 @@ bintray {
 
         version {
             name = projectVersion
-			      desc = 'MongoDB-backed job store for the Quartz scheduler'
-			      vcsTag = projectVersion
+            desc = 'MongoDB-backed job store for the Quartz scheduler'
+			vcsTag = projectVersion
         }
     }
 }
