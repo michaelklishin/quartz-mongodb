@@ -109,7 +109,7 @@ publishing {
 }
 
 mongo {
-    port 12345
+    port 27017
     logging 'console'
     journalingEnabled true
 }
@@ -129,9 +129,9 @@ tasks.withType(Test){
     runWithMongoDb = true
     mongo {
         journalingEnabled true
-        port 12345
+        port 27017
         logging 'console'
-        mongoVersion '4.2.8'
+        mongoVersion 'PRODUCTION'
     }
 }
 
