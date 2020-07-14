@@ -24,7 +24,6 @@ apply plugin: 'idea'
 apply plugin: 'com.sourcemuse.mongo'
 
 archivesBaseName = 'quartz-mongodb'
-projectVersion = "2.2.0-rc1"
 
 jar {
     archiveVersion = projectVersion
