@@ -13,7 +13,7 @@ class MongoHelper {
 
     static testDatabaseName = 'quartz_mongodb_test'
 
-    static DEFAULT_MONGO_PORT = 12345
+    static DEFAULT_MONGO_PORT = 27017
 
     static MongoClient client = MongoClients.create(
             MongoClientSettings.builder()
