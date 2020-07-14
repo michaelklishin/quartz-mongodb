@@ -79,7 +79,7 @@ task sourceJar(type: Jar) {
 }
 
 task javadocJar(type: Jar) {
-    classifier = 'javadoc'
+    classifier 'javadoc'
     from javadoc
 }
 
@@ -92,14 +92,9 @@ artifacts {
     archives javadocJar
 }
 
-java {
-    withJavadocJar()
-    withSourcesJar()
-}
-
 publishing {
     publications {
-        QuartzMongoDB(MavenPublication) {
+        quartzMongoDB(MavenPublication) {
             groupId    = 'com.novemberain'
             artifactId = archivesBaseName
             version    = projectVersion
@@ -143,7 +138,7 @@ tasks.withType(Test){
 bintray {
     user = System.getenv("BINTRAY_USERNAME")
     key  = System.getenv("BINTRAY_API_KEY")
-    publications = ['QuartzMongoDB']
+    publications = ['quartzMongoDB']
     pkg {
         repo = 'maven'
         name = 'quartz-mongodb'
