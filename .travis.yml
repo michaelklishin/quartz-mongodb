@@ -2,7 +2,7 @@ language: java
 install: ./gradlew assemble
 sudo: false
 
-script: ./gradlew check --info
+script: ./gradlew check --info --stacktrace
 
 jdk:
   - oraclejdk13
