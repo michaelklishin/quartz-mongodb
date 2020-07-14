@@ -2,14 +2,11 @@ language: java
 install: ./gradlew assemble
 sudo: false
 
-script: ./gradlew check
-
-notifications:
-  recipients:
-    - michaelklishin@me.com
+script: ./gradlew check --info
 
 jdk:
-  - openjdk8
+  - oraclejdk13
+  - openjdk13
 
 cache:
   directories:
