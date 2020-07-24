@@ -37,14 +37,14 @@ With Maven:
 <dependency>
     <groupId>com.novemberain</groupId>
     <artifactId>quartz-mongodb</artifactId>
-    <version>2.2.0-rc1</version>
+    <version>2.2.0-rc2</version>
 </dependency>
 ```
 
 With Gradle:
 
 ``` groovy
-compile "com.novemberain:quartz-mongodb:2.2.0-rc1"
+compile "com.novemberain:quartz-mongodb:2.2.0-rc2"
 ```
 
 
