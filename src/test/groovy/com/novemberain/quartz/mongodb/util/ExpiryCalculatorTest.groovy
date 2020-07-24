@@ -44,7 +44,7 @@ class ExpiryCalculatorTest extends Specification {
         def calc = createCalc(clock, aliveScheduler)
 
         then: 'Expired lock: 10001 - 0 > 10000 (timeout)'
-        !calc.isTriggerLockExpired(createDoc(0))
+        calc.isTriggerLockExpired(createDoc(0))
 
         and: 'Not expired: 101 - 1/10001 <= 10000'
         !calc.isTriggerLockExpired(createDoc(1))
@@ -52,14 +52,14 @@ class ExpiryCalculatorTest extends Specification {
 
         when: 'Tests for dead scheduler'
         def deadScheduler = createScheduler(0) // lastCheckinTime = 0
-        calc = createCalc(clock, deadScheduler)
+        def deadCalc = createCalc(clock, deadScheduler)
 
         then: 'Expired lock: 10001 - 0 > 10000 (timeout)'
-        calc.isTriggerLockExpired(createDoc(0))
+        deadCalc.isTriggerLockExpired(createDoc(0))
 
         and: 'Not expired: 10001 - 1/10001 <= 10000'
-        !calc.isTriggerLockExpired(createDoc(1))
-        !calc.isTriggerLockExpired(createDoc(10001))
+        deadCalc.isTriggerLockExpired(createDoc(1))
+        deadCalc.isTriggerLockExpired(createDoc(10001))
     }
 
     def Scheduler createScheduler() {

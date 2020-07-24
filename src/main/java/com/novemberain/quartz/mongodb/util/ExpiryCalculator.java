@@ -34,18 +34,18 @@ public class ExpiryCalculator {
 
     public boolean isTriggerLockExpired(Document lock) {
         String schedulerId = lock.getString(Constants.LOCK_INSTANCE_ID);
-        return isLockExpired(lock, triggerTimeoutMillis) && hasDefunctScheduler(schedulerId);
+        return isLockExpired(lock, triggerTimeoutMillis) || hasDefunctScheduler(schedulerId);
     }
 
     private boolean hasDefunctScheduler(String schedulerId) {
-        
+
         Scheduler scheduler = schedulerDao.findInstance(schedulerId);
         if (scheduler == null) {
             log.debug("No such scheduler: {}", schedulerId);
             return false;
         }
         return scheduler.isDefunct(clock.millis()) && schedulerDao.isNotSelf(scheduler);
-        
+
     }
 
     private boolean hasDefunctScheduler(Document lock) {
