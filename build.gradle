@@ -75,6 +75,8 @@ release {
     git {
         pushToRemote = 'origin'
     }
+
+    versionPropertyFile = 'gradle.properties'
 }
 
 task sourceJar(type: Jar) {
