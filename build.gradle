@@ -56,14 +56,14 @@ idea {
 }
 
 eclipse {
-  classpath {
-    downloadSources true
-    downloadJavadoc true
-  }
-  jdt {
-    sourceCompatibility java.sourceCompatibility
-    targetCompatibility java.targetCompatibility
-  }
+    classpath {
+        downloadSources true
+        downloadJavadoc true
+    }
+    jdt {
+        sourceCompatibility java.sourceCompatibility
+        targetCompatibility java.targetCompatibility
+    }
 }
 
 dependencies {
