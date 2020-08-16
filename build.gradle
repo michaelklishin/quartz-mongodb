@@ -19,6 +19,7 @@ allprojects {
 	apply plugin: 'java'
 }
 
+apply plugin: 'eclipse'
 apply plugin: 'groovy'
 apply plugin: 'idea'
 apply plugin: 'com.sourcemuse.mongo'
@@ -49,8 +50,22 @@ sourceSets {
 idea {
     module {
         scopes.PROVIDED.plus += [configurations.provided]
+        downloadJavadoc = true
+        downloadSources = true
     }
 }
+
+eclipse {
+  classpath {
+    downloadSources true
+    downloadJavadoc true
+  }
+  jdt {
+    sourceCompatibility java.sourceCompatibility
+    targetCompatibility java.targetCompatibility
+  }
+}
+
 dependencies {
     implementation("org.quartz-scheduler:quartz:2.3.2")
     implementation("org.mongodb:mongodb-driver-sync:4.0.5")
