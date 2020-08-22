@@ -152,7 +152,7 @@ public class MongoConnectorBuilder {
             // enabled by default,
             // ignored per MongoDB Java client deprecations
         }
-        if (username != null && username != null && username != null) {
+        if (username != null && authDbName != null && password != null) {
 	        MongoCredential credential =
             MongoCredential.createScramSha1Credential(
                 username, authDbName, password.toCharArray());
