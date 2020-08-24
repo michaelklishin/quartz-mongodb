@@ -152,6 +152,12 @@ public class MongoConnectorBuilder {
             // enabled by default,
             // ignored per MongoDB Java client deprecations
         }
+        if (username != null && authDbName != null && password != null) {
+	        MongoCredential credential =
+            MongoCredential.createScramSha1Credential(
+                username, authDbName, password.toCharArray());
+        	settingsBuilder.credential(credential);
+        }
         hanldeSSLContext(settingsBuilder);
         return settingsBuilder;
     }
@@ -245,9 +251,6 @@ public class MongoConnectorBuilder {
 
     private void checkServerPropertiesAreNull(final String suffix) throws SchedulerConfigException {
         checkIsNull(addresses, paramNotAllowed("Addresses array", suffix));
-        checkIsNull(username, paramNotAllowed("Username", suffix));
-        checkIsNull(password, paramNotAllowed("Password", suffix));
-        checkIsNull(authDbName, paramNotAllowed("Auth database name", suffix));
     }
 
     private void checkConnectionOptionsAreNull(final String suffix) throws SchedulerConfigException {
