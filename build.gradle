@@ -2,13 +2,18 @@ buildscript {
     repositories {
         mavenCentral()
         jcenter()
+        maven { url 'http://dl.bintray.com/jfrog/jfrog-jars' }
+        maven { url 'http://repo.rctanalytics.com/artifactory/plugins-release' }
+    }
+    dependencies {
+        classpath "org.jfrog.buildinfo:build-info-extractor-gradle:latest.release"
     }
 }
 
 plugins {
     id 'net.researchgate.release' version '2.8.1'
-    id "com.jfrog.bintray" version "1.8.5"
     id 'com.sourcemuse.mongo' version '1.0.7'
+    id 'com.jfrog.artifactory' version '4.21.0'
 }
 
 allprojects {
@@ -147,7 +152,7 @@ test {
 // and other concurrency hazards
 test.outputs.upToDateWhen { false }
 
-tasks.withType(Test){
+tasks.withType(Test) {
     runWithMongoDb = true
     mongo {
         journalingEnabled true
@@ -157,22 +162,37 @@ tasks.withType(Test){
     }
 }
 
-bintray {
-    user = System.getenv("BINTRAY_USERNAME")
-    key  = System.getenv("BINTRAY_API_KEY")
-    publications = ['quartzMongoDB']
-    pkg {
-        repo = 'maven'
-        name = 'quartz-mongodb'
-        labels = ['quartz', 'mongodb']
-        userOrg = 'michaelklishin'
-        licenses = ['Apache-2.0']
-        vcsUrl = 'https://github.com/michaelklishin/quartz-mongodb.git'
+//bintray {
+//    user = System.getenv("BINTRAY_USERNAME")
+//    key  = System.getenv("BINTRAY_API_KEY")
+//    publications = ['quartzMongoDB']
+//    pkg {
+//        repo = 'maven'
+//        name = 'quartz-mongodb'
+//        labels = ['quartz', 'mongodb']
+//        userOrg = 'michaelklishin'
+//        licenses = ['Apache-2.0']
+//        vcsUrl = 'https://github.com/michaelklishin/quartz-mongodb.git'
+//
+//        version {
+//            name = projectVersion
+//            desc = 'MongoDB-backed job store for the Quartz scheduler'
+//			vcsTag = projectVersion
+//        }
+//    }
+//}
 
-        version {
-            name = projectVersion
-            desc = 'MongoDB-backed job store for the Quartz scheduler'
-			vcsTag = projectVersion
+artifactory {
+    contextUrl = 'http://repo.rctanalytics.com/artifactory'
+    publish {
+        repository {
+            repoKey = 'libs-release-thirdparty'
+            username = 'jenkins'
+        }
+    }
+    resolve {
+        repository {
+            repoKey = 'repo'
         }
     }
 }
