@@ -1,4 +1,13 @@
-# A MongoDB-based store for Quartz.
+# A MongoDB-based store for Quartz
+
+## Be Aware of Abandonware
+
+**This project IS NO LONGER MAINTAINED**. If you plan on using it, be ready to address any issues
+on your own and produce your own releases. Issues that ask others to do something
+will be ignored. Pull requests may be merged on a very random schedule.
+
+
+## What is This?
 
 This is a MongoDB-backed job store for the [Quartz scheduler](http://quartz-scheduler.org/).
 
