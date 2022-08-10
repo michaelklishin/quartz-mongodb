@@ -68,7 +68,7 @@ eclipse {
 
 dependencies {
     implementation("org.quartz-scheduler:quartz:2.3.2")
-    implementation("org.mongodb:mongodb-driver-sync:4.0.5")
+    implementation("org.mongodb:mongodb-driver-sync:4.7.1")
     implementation("commons-codec:commons-codec:1.10")
     implementation("org.apache.commons:commons-lang3:3.8")
     implementation("org.apache.httpcomponents:httpcore:4.4.10")
