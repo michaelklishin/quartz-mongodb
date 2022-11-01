@@ -21,8 +21,8 @@ definition to your `pom.xml`:
 ``` xml
 <repositories>
     <repository>
-        <id>michaelklishin</id>
-        <url>https://dl.bintray.com/michaelklishin/maven/</url>
+        <id>jcenter</id>
+        <url>https://jcenter.bintray.com/</url>
     </repository>
 </repositories>
 ```
@@ -32,7 +32,7 @@ With Gradle, add the following to your `build.gradle`:
 ``` groovy
 repositories {
     maven {
-        url "https://dl.bintray.com/michaelklishin/maven/"
+        url "https://jcenter.bintray.com/"
     }
 }
 ```
